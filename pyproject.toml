@@ -1,0 +1,22 @@
+[project]
+name = "wakeupagent"
+version = "0.1.0"
+description = "Cyber-Superego (赛博超我) — Edge-Cloud Hybrid Personal Life Supervisor Agent"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "langgraph>=0.2",
+    "langchain>=0.3",
+    "langchain-community>=0.3",
+    "opencv-python>=4.10",
+    "mediapipe>=0.10",
+    "ollama>=0.3",
+    "httpx[socks]>=0.27",
+    "python-dotenv>=1.0",
+    "pillow>=10.0",
+    "numpy>=1.26",
+    "rich>=13.0",
+]
+
+[tool.uv]
+dev-dependencies = []
