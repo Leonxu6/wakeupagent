@@ -89,10 +89,30 @@ def force_close_app(app_name: str) -> str:
     return f"[MOCK] 已强制关闭 {app_name}"
 
 
+@tool
+def observe_camera() -> str:
+    """
+    立即重新观察摄像头，获取宿主当前行为的最新描述。
+    在执行初步警告或惩罚后，用此工具确认宿主是否仍在摆烂。
+    若返回描述仍为摆烂行为，则应升级惩罚力度。
+
+    Returns:
+        Moondream 对当前画面的最新行为描述
+    """
+    from perception import get_latest_frame, query_moondream
+    frame = get_latest_frame()
+    if frame is None:
+        return "camera not available"
+    description = query_moondream(frame)
+    console.print(f"[bold cyan]👁️  [ReAct observe] {description}[/bold cyan]")
+    return description
+
+
 # 工具列表（供 LangGraph ToolNode 注册）
 ALL_TOOLS = [
     send_wechat_shame_message,
     play_tts_punishment,
     cut_smart_plug_power,
     force_close_app,
+    observe_camera,
 ]

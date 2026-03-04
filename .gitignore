@@ -11,3 +11,10 @@ wheels/
 
 # IDE / Agent
 .claude/
+
+# Runtime data（含隐私行为记录，不提交）
+superego.db
+superego.db-shm
+superego.db-wal
+memory/daily_reports.md
+.env

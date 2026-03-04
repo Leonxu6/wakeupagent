@@ -28,11 +28,18 @@ GESTURE_COLOR      = (0, 220, 255)    # 手势标签颜色
 OLLAMA_HOST      = "http://localhost:11434"
 MOONDREAM_MODEL  = "moondream"
 MOONDREAM_PROMPT = "What is the person doing?"
+LOCAL_CLASSIFIER_MODEL = "qwen2.5:1.5b"
 
 # ── 云端 LLM (Node B, DeepSeek) ──────────────────────────────
 DEEPSEEK_API_KEY  = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_MODEL    = "deepseek-chat"
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+
+# ── Agent 记忆 & 持久化 ────────────────────────────────────────
+CHECKPOINT_DB_PATH  = "./superego.db"          # SQLite checkpointer
+DAILY_REPORT_PATH   = "./memory/daily_reports.md"
+CONTEXT_MAX_MESSAGES = 20                       # trim 阈值（条数）
+SUMMARIZE_THRESHOLD  = 30                       # 触发摘要压缩的条数
 
 # ── 日志前缀 ──────────────────────────────────────────────────
 LOG_A = "[cyan][A][/cyan]"    # perception

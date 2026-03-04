@@ -16,6 +16,8 @@ dependencies = [
     "pillow>=10.0",
     "numpy>=1.26",
     "rich>=13.0",
+    "langchain-openai>=1.1.10",
+    "langgraph-checkpoint-sqlite>=3.0.3",
 ]
 
 [tool.uv]

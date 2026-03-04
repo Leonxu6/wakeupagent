@@ -39,6 +39,7 @@ from config import (
     GESTURE_COLOR,
     MOONDREAM_MODEL,
     MOONDREAM_PROMPT,
+    LOCAL_CLASSIFIER_MODEL,
     OLLAMA_HOST,
     LOG_A,
 )
@@ -49,6 +50,14 @@ _POSE_MODEL  = Path(__file__).parent / "pose_landmarker_lite.task"
 _GESTURE_MODEL = Path(__file__).parent / "gesture_recognizer.task"
 
 _ollama_client = ollama.Client(host=OLLAMA_HOST)
+
+# 最新干净帧（供 observe_camera 工具实时调用）
+_latest_raw_frame: np.ndarray | None = None
+
+
+def get_latest_frame() -> np.ndarray | None:
+    """返回感知循环最近捕获的原始帧，供 ReAct observe_camera 工具使用。"""
+    return _latest_raw_frame
 
 # 手部骨架连线（21 个关键点之间的父子关系）
 _HAND_CONNECTIONS = [
@@ -211,9 +220,80 @@ def query_moondream(frame_bgr: np.ndarray) -> str:
         Path(tmp_path).unlink(missing_ok=True)
 
 
+# ── 本地行为分类（qwen2.5:1.5b 小脑） ────────────────────────
+# 职责拆分：
+#   qwen  → 只判断行为是否健康（最简单的分类任务）
+#   Python → 时间豁免规则（可靠，零成本）
+#   合并   → 得出 should_escalate
+
+# qwen 只做行为判断，用英文短 prompt，小模型更可靠
+# 默认偏向 unhealthy：不确定时宁可上报
+_CLASSIFIER_PROMPT = """Is the person doing something productive?
+
+UNHEALTHY (answer "unhealthy"):
+- using phone, playing games, taking selfie, scrolling, watching video
+- lying down idle, sitting idle, doing nothing, looking at phone
+- any phone/device use that is not clearly work-related
+
+HEALTHY (answer "healthy" ONLY if clearly true):
+- working at computer/desk, studying with books, reading, writing
+- exercising, cooking, cleaning
+- sleeping (only if clearly night context)
+
+Description: {text}
+
+Reply with one word only: healthy or unhealthy"""
+
+# 时间豁免规则（Python 层，不依赖 LLM）
+_EXEMPT_HOURS = range(0, 7)   # 0:00–6:59 豁免
+
+def classify_behavior(vision_text: str, summary: str = "") -> tuple[bool, bool]:
+    """
+    返回 (is_healthy, should_escalate)。
+    职责分离：
+      - qwen 负责行为健康判断（简单分类）
+      - Python 负责时间豁免规则
+      - summary 保留备用，目前作为日志参考
+    """
+    hour = datetime.now().hour
+
+    # 时间豁免：Python 硬规则，不走 LLM
+    if hour in _EXEMPT_HOURS:
+        console.print(f"{LOG_A} cerebellum → exempt hour={hour}, skip escalation")
+        # 仍然跑 qwen 判断 healthy（用于显示），但不 escalate
+        is_healthy = _qwen_health_check(vision_text)
+        return is_healthy, False
+
+    is_healthy = _qwen_health_check(vision_text)
+    should_escalate = not is_healthy
+
+    console.print(
+        f"{LOG_A} cerebellum → healthy={'yes' if is_healthy else 'no'} "
+        f"escalate={'yes' if should_escalate else 'no'}"
+        + (f" [summary={summary[:30]}...]" if summary else "")
+    )
+    return is_healthy, should_escalate
+
+
+def _qwen_health_check(vision_text: str) -> bool:
+    """qwen2.5:1.5b 只做行为健康判断，返回 True=healthy。"""
+    try:
+        prompt = _CLASSIFIER_PROMPT.format(text=vision_text)
+        r = _ollama_client.generate(model=LOCAL_CLASSIFIER_MODEL, prompt=prompt)
+        answer = r.response.strip().lower() if r.response.strip() else "unhealthy"
+        # 取第一个单词，只认 "healthy" 开头
+        first_word = answer.split()[0] if answer.split() else "unhealthy"
+        is_healthy = first_word.startswith("healthy")
+        console.print(f"{LOG_A} qwen → \"{first_word}\" → {'healthy' if is_healthy else 'unhealthy'}")
+        return is_healthy
+    except Exception as e:
+        console.print(f"{LOG_A} qwen error: {e}")
+        return False  # 出错默认 unhealthy，宁可误报
+
+
 # ── 主感知循环 ────────────────────────────────────────────────
 
-def run_perception_loop(state_callback=None):
+def run_perception_loop(state_callback=None, get_summary=None):
     for p, name in [(_POSE_MODEL, "pose_landmarker_lite.task"),
                     (_GESTURE_MODEL, "gesture_recognizer.task")]:
         if not p.exists():
@@ -239,16 +319,23 @@ def run_perception_loop(state_callback=None):
 
     def _analyze(snap: np.ndarray):
         t0 = time.time()
-        console.print(f"{LOG_A} dispatching moondream")
-        text = query_moondream(snap)
-        ts = datetime.now().strftime("%H:%M:%S")
-        with lock:
-            behavior[0] = text
-            busy[0] = False
-        elapsed = time.time() - t0
-        console.print(f"{LOG_A} [{ts}] moondream={elapsed:.1f}s -> \"{text}\"")
-        if state_callback:
-            state_callback(text, ts)
+        try:
+            console.print(f"{LOG_A} dispatching moondream")
+            text = query_moondream(snap)
+            summary = get_summary() if get_summary else ""
+            is_healthy, should_escalate = classify_behavior(text, summary)
+            ts = datetime.now().strftime("%H:%M:%S")
+            with lock:
+                behavior[0] = text
+            elapsed = time.time() - t0
+            console.print(f"{LOG_A} [{ts}] moondream={elapsed:.1f}s -> \"{text}\"")
+            if state_callback:
+                state_callback(text, ts, is_healthy, should_escalate)
+        except Exception as e:
+            console.print(f"{LOG_A} analyze error: {e}")
+        finally:
+            with lock:
+                busy[0] = False  # H2: 无论如何都重置，防止监控卡死
 
     pose_opts = PoseLandmarkerOptions(
         base_options=mp_python.BaseOptions(model_asset_path=str(_POSE_MODEL)),
@@ -279,7 +366,9 @@ def run_perception_loop(state_callback=None):
                 console.print(f"{LOG_A} camera read failed")
                 break
 
-            raw_frame = frame.copy()   # 干净帧，发给 moondream
+            raw_frame = frame.copy()   # 干净帧，发给 moondream / observe_camera
+            global _latest_raw_frame
+            _latest_raw_frame = raw_frame
             fh, fw    = frame.shape[:2]
             now       = time.time()
             ts_ms     = int(now * 1000) - start_ms
