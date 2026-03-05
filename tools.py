@@ -7,6 +7,7 @@ tools.py — Node C 本地物理/数字执行工具库
 """
 from langchain_core.tools import tool
 from rich.console import Console
+from config import CAPTURE_INTERVAL_SEC
 
 console = Console()
 
@@ -92,14 +93,18 @@ def force_close_app(app_name: str) -> str:
 @tool
 def observe_camera() -> str:
     """
-    立即重新观察摄像头，获取宿主当前行为的最新描述。
-    在执行初步警告或惩罚后，用此工具确认宿主是否仍在摆烂。
-    若返回描述仍为摆烂行为，则应升级惩罚力度。
+    等待宿主响应警告后，重新观察摄像头确认行为是否改变。
+    自动等待一个感知间隔（默认30秒），给宿主足够的反应时间。
+    在执行初步 TTS 警告后调用此工具；若仍在摆烂，则升级惩罚。
 
     Returns:
         Moondream 对当前画面的最新行为描述
     """
-    from perception import get_latest_frame, query_moondream
+    from perception import get_latest_frame, query_moondream, _stop_event
+    console.print(f"[bold cyan]👁️  [ReAct observe] waiting {CAPTURE_INTERVAL_SEC}s for response...[/bold cyan]")
+    _stop_event.wait(timeout=CAPTURE_INTERVAL_SEC)  # 可被 quit 中断的等待
+    if _stop_event.is_set():
+        return "observation cancelled: program stopping"
     frame = get_latest_frame()
     if frame is None:
         return "camera not available"

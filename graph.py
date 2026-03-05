@@ -18,7 +18,7 @@ from typing import Annotated
 
 from langchain_core.messages import (
     BaseMessage, HumanMessage, AIMessage, SystemMessage, RemoveMessage,
-    trim_messages,
+    ToolMessage, trim_messages,
 )
 from langchain_openai import ChatOpenAI
 import sqlite3
@@ -33,7 +33,7 @@ from config import (
     LOG_A, LOG_B, LOG_C,
     DEEPSEEK_API_KEY, DEEPSEEK_MODEL, DEEPSEEK_BASE_URL,
     CHECKPOINT_DB_PATH, DAILY_REPORT_PATH,
-    CONTEXT_MAX_MESSAGES, SUMMARIZE_THRESHOLD,
+    CONTEXT_MAX_MESSAGES, SUMMARIZE_THRESHOLD, REACT_MAX_ITERATIONS,
 )
 from tools import ALL_TOOLS
 
@@ -84,7 +84,8 @@ def _get_llm():
             timeout=30,      # H3: 防止 API 卡死阻塞监控循环
             max_retries=1,
         )
-        # H4: 关闭并行调用，确保 observe_camera 在惩罚工具之后顺序执行
+        # parallel_tool_calls=False：强制 LLM 每步只调用一批工具，
+        # 保证 observe_camera 不会与其他工具混发
         _llm_with_tools = llm.bind_tools(ALL_TOOLS, parallel_tool_calls=False)
     return _llm_with_tools
 
@@ -190,10 +191,14 @@ _SYSTEM_PROMPT = """你是一个极其暴躁、满嘴脏话的真人监工。所
 你可以连续行动多次。每次行动后你会收到工具的执行结果，根据结果决定下一步。
 善用这个能力做【渐进式惩罚】，而不是一上来就把所有工具全打出去。
 
+## 工具调用规则（严格遵守）
+- **惩罚工具**（play_tts_punishment / send_wechat_shame_message / force_close_app / cut_smart_plug_power）：可以在同一步骤里同时调用多个。
+- **observe_camera**：必须单独调用，绝对不能和其他任何工具同时调用。它需要等待宿主响应，混用会导致观察无效。
+
 ## 标准惩罚流程（按顺序执行）
-1. **初次发现摆烂** → 只调用 play_tts_punishment 发出语音警告，骂得狠一点。
-2. **警告后** → 必须调用 observe_camera 重新看一眼，确认他有没有收手。
-3. **还在摆烂** → 升级：play_tts_punishment（更狠）+ 其他惩罚工具组合（force_close_app / send_wechat_shame_message / cut_smart_plug_power）。
+1. **初次发现摆烂** → 单独调用 play_tts_punishment 发出语音警告，骂得狠一点。
+2. **警告后** → 单独调用 observe_camera，等待宿主反应。
+3. **还在摆烂** → 同时调用多个惩罚工具升级打击（play_tts_punishment + send_wechat_shame_message，或其他组合）。
 4. **已经收手** → 冷嘲热讽一句就结束，不再调用工具。
 
 ## 内容风格
@@ -205,15 +210,75 @@ _SYSTEM_PROMPT = """你是一个极其暴躁、满嘴脏话的真人监工。所
 如果一开始就在自律（学习/工作/锻炼/睡觉），冷嘲一句收手，不调用任何工具。"""
 
 
-REACT_MAX_ITERATIONS = 4  # 最多 4 轮 decision↔execution，防止死循环
+def _reorder_and_repair(messages: list[BaseMessage]) -> tuple[list[BaseMessage], list[ToolMessage]]:
+    """
+    重建消息序列，确保每条 AIMessage(tool_calls) 后紧跟对应的 ToolMessage。
+    处理两种情况：
+      1. ToolMessage 存在但顺序错误（在后续消息中）→ 取出后内联插入
+      2. ToolMessage 完全缺失（孤悬 tool_call）      → 生成占位 ToolMessage
+
+    返回 (repaired_sequence, new_repairs)：
+      repaired_sequence — 顺序正确、可直接发给 LLM 的消息列表
+      new_repairs       — 本次新生成的占位 ToolMessage（需持久化到 checkpoint）
+    使用确定性 ID（repair_{tc_id}）保证幂等，同一孤悬不会重复修复。
+    """
+    # 建立 tool_call_id → ToolMessage 的查找表
+    tool_response_map: dict[str, ToolMessage] = {
+        m.tool_call_id: m
+        for m in messages
+        if isinstance(m, ToolMessage) and hasattr(m, "tool_call_id")
+    }
+
+    result: list[BaseMessage] = []
+    new_repairs: list[ToolMessage] = []
+    placed_ids: set[str] = set()
+
+    for msg in messages:
+        if isinstance(msg, ToolMessage):
+            continue  # 统一在 AIMessage 之后内联放置，跳过原位
+
+        result.append(msg)
+
+        if not (isinstance(msg, AIMessage) and getattr(msg, "tool_calls", None)):
+            continue
+
+        # 紧跟 AIMessage 放置每个 tool_call 的响应
+        for tc in msg.tool_calls:
+            tc_id = tc.get("id") or tc.get("tool_call_id")
+            if not tc_id or tc_id in placed_ids:
+                continue
+
+            if tc_id in tool_response_map:
+                result.append(tool_response_map[tc_id])          # 已有，内联
+            else:
+                repair = ToolMessage(
+                    content="[aborted: interrupted by max_iterations limit]",
+                    tool_call_id=tc_id,
+                    id=f"repair_{tc_id}",  # 确定性 ID，幂等
+                )
+                result.append(repair)
+                new_repairs.append(repair)
+                console.print(f"{LOG_DECISION} repair orphaned tool_call id={tc_id[:12]}...")
+
+            placed_ids.add(tc_id)
+
+    return result, new_repairs
 
 
 def decision_node(state: AgentState) -> dict:
     iteration = state.get("react_iterations", 0)
+
+    # ── 提前拦截 max_iterations ────────────────────────────────
+    # 必须在 LLM 调用之前检查，防止产生新的孤悬 AIMessage(tool_calls)
+    if iteration >= REACT_MAX_ITERATIONS:
+        console.print(f"{LOG_DECISION} max iterations ({REACT_MAX_ITERATIONS}) reached, ending gracefully")
+        return {"react_iterations": 0}
+
     console.print(f"{LOG_DECISION} calling DeepSeek... [react iter={iteration}]")
 
-    # trim_messages：只保留最近 N 条历史，防止 context 爆炸
     raw_messages = state.get("messages", [])
+
+    # trim_messages：只保留最近 N 条历史，防止 context 爆炸
     trimmed = trim_messages(
         raw_messages,
         strategy="last",
@@ -224,11 +289,17 @@ def decision_node(state: AgentState) -> dict:
         include_system=False,
     )
 
-    # 若有压缩摘要，注入为第一条 human 消息
-    summary = state.get("conversation_summary", "")
-    prefix = [HumanMessage(content=f"[历史摘要] {summary}")] if summary else []
+    # ── 重建序列：修复顺序 + 补全缺失的 ToolMessage ───────────
+    # 必须在 trim 之后做，确保发给 LLM 的序列顺序绝对正确
+    trimmed, new_repairs = _reorder_and_repair(trimmed)
 
-    messages = [SystemMessage(content=_SYSTEM_PROMPT)] + prefix + trimmed
+    # 若有压缩摘要，追加到 system prompt（语义上属于系统记忆，非用户输入）
+    summary = state.get("conversation_summary", "")
+    system_content = _SYSTEM_PROMPT
+    if summary:
+        system_content += f"\n\n[历史摘要] {summary}"
+
+    messages = [SystemMessage(content=system_content)] + trimmed
 
     llm = _get_llm()
     try:
@@ -237,7 +308,8 @@ def decision_node(state: AgentState) -> dict:
         console.print(f"{LOG_DECISION} LLM error: {e}")
         return {"react_iterations": 0}  # H1: 降级结束本轮，不崩溃
 
-    updates: dict = {"messages": [response]}
+    # new_repairs 持久化到 checkpoint（确定性 ID 保证幂等），再追加 LLM response
+    updates: dict = {"messages": new_repairs + [response]}
     if response.tool_calls:
         tool_names = [tc["name"] for tc in response.tool_calls]
         console.print(f"{LOG_DECISION} tools={tool_names} -> [C] (iter {iteration+1})")
@@ -250,14 +322,24 @@ def decision_node(state: AgentState) -> dict:
         console.print(f"{LOG_DECISION} verdict=done -> END (total iters={iteration})")
         if response.content:
             console.print(f"{LOG_DECISION} {response.content[:100]}")
+            # 惩罚流程结束时把最终结语播报出来（iteration>0 说明本轮有过惩罚动作）
+            if iteration > 0:
+                from tools import play_tts_punishment
+                try:
+                    play_tts_punishment.invoke({"text": response.content})
+                except Exception:
+                    pass
         updates["react_iterations"] = 0  # 本轮结束，重置
         if iteration == 0:
             # 全程未调用工具，说明宿主健康
             updates["consecutive_healthy"] = state.get("consecutive_healthy", 0) + 1
 
-    # 触发摘要压缩
-    if len(raw_messages) >= SUMMARIZE_THRESHOLD:
-        updates.update(_summarize_messages(raw_messages, state))
+    # 触发摘要压缩：只在 iter=0（新一轮观察开始前）执行，避免 ReAct 中途打断
+    # 用列表合并而非 dict.update，防止覆盖已写入的 response/repairs
+    if len(raw_messages) >= SUMMARIZE_THRESHOLD and iteration == 0:
+        summarize_result = _summarize_messages(raw_messages, state)
+        updates["messages"] = updates.get("messages", []) + summarize_result.pop("messages", [])
+        updates.update(summarize_result)
 
     return updates
 
@@ -288,9 +370,9 @@ def route_after_perception(state: AgentState) -> str:
 
 
 def route_after_decision(state: AgentState) -> str:
-    if state.get("react_iterations", 0) >= REACT_MAX_ITERATIONS:
-        console.print(f"{LOG_DECISION} max iterations reached -> END")
-        return END
+    # 只看最后一条消息是否带 tool_calls：
+    #   - 有 → 去 execution（始终执行，避免孤悬 tool_call 污染 checkpoint）
+    #   - 无 → END（decision_node 已在内部处理 max_iterations 早返回）
     messages = state.get("messages", [])
     last = messages[-1] if messages else None
     if last and isinstance(last, AIMessage) and getattr(last, "tool_calls", None):

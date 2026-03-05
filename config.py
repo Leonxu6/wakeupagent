@@ -40,6 +40,7 @@ CHECKPOINT_DB_PATH  = "./superego.db"          # SQLite checkpointer
 DAILY_REPORT_PATH   = "./memory/daily_reports.md"
 CONTEXT_MAX_MESSAGES = 20                       # trim 阈值（条数）
 SUMMARIZE_THRESHOLD  = 30                       # 触发摘要压缩的条数
+REACT_MAX_ITERATIONS = 5                        # ReAct 最大循环轮次
 
 # ── 日志前缀 ──────────────────────────────────────────────────
 LOG_A = "[cyan][A][/cyan]"    # perception

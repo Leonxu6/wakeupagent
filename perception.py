@@ -53,6 +53,7 @@ _ollama_client = ollama.Client(host=OLLAMA_HOST)
 
 # 最新干净帧（供 observe_camera 工具实时调用）
 _latest_raw_frame: np.ndarray | None = None
+_stop_event = threading.Event()  # 程序退出时 set，让 observe_camera 的 sleep 提前返回
 
 
 def get_latest_frame() -> np.ndarray | None:
@@ -226,74 +227,98 @@ def query_moondream(frame_bgr: np.ndarray) -> str:
 #   Python → 时间豁免规则（可靠，零成本）
 #   合并   → 得出 should_escalate
 
-# qwen 只做行为判断，用英文短 prompt，小模型更可靠
-# 默认偏向 unhealthy：不确定时宁可上报
-_CLASSIFIER_PROMPT = """Is the person doing something productive?
+# qwen 采用 yes/no 关键词检测，疑罪从无，默认 healthy
+# 只有描述中明确出现以下娱乐关键词才判 unhealthy
+# {context_section} 由 _qwen_health_check 动态填入（有上下文时注入，无则空字符串）
+_CLASSIFIER_PROMPT = """Does this description contain any of these activities?
+- scrolling phone / social media / TikTok / Instagram
+- taking selfie / posing in mirror / phone camera
+- watching TV / television / a show / a movie / streaming / Netflix / video on screen
+- playing video game / gaming / console
+- lying in bed on phone
 
-UNHEALTHY (answer "unhealthy"):
-- using phone, playing games, taking selfie, scrolling, watching video
-- lying down idle, sitting idle, doing nothing, looking at phone
-- any phone/device use that is not clearly work-related
-
-HEALTHY (answer "healthy" ONLY if clearly true):
-- working at computer/desk, studying with books, reading, writing
-- exercising, cooking, cleaning
-- sleeping (only if clearly night context)
+{context_section}If NONE of the above are mentioned, answer no.
+If any of the above are clearly present, answer yes.
 
 Description: {text}
+Answer (yes or no):"""
 
-Reply with one word only: healthy or unhealthy"""
+# Python 层关键词预过滤（超明显情况直接截断，不走 LLM）
+_UNHEALTHY_KEYWORDS = [
+    'scrolling', 'scroll', 'social media', 'tiktok', 'instagram',
+    'selfie', 'taking a selfie',
+    'watching television', 'watching tv', 'watching a show', 'watching a movie',
+    'watching video', 'streaming', 'netflix',
+    'playing video game', 'playing a game', 'gaming',
+    'lying in bed', 'lying on bed',
+]
 
 # 时间豁免规则（Python 层，不依赖 LLM）
 _EXEMPT_HOURS = range(0, 7)   # 0:00–6:59 豁免
 
-def classify_behavior(vision_text: str, summary: str = "") -> tuple[bool, bool]:
+def classify_behavior(vision_text: str, context: str = "") -> tuple[bool, bool]:
     """
     返回 (is_healthy, should_escalate)。
     职责分离：
-      - qwen 负责行为健康判断（简单分类）
+      - qwen 负责行为健康判断（结合近期大脑上下文）
       - Python 负责时间豁免规则
-      - summary 保留备用，目前作为日志参考
     """
     hour = datetime.now().hour
 
     # 时间豁免：Python 硬规则，不走 LLM
     if hour in _EXEMPT_HOURS:
         console.print(f"{LOG_A} cerebellum → exempt hour={hour}, skip escalation")
-        # 仍然跑 qwen 判断 healthy（用于显示），但不 escalate
-        is_healthy = _qwen_health_check(vision_text)
-        return is_healthy, False
+        return True, False
 
-    is_healthy = _qwen_health_check(vision_text)
+    is_healthy = _qwen_health_check(vision_text, context)
     should_escalate = not is_healthy
 
     console.print(
         f"{LOG_A} cerebellum → healthy={'yes' if is_healthy else 'no'} "
         f"escalate={'yes' if should_escalate else 'no'}"
-        + (f" [summary={summary[:30]}...]" if summary else "")
     )
     return is_healthy, should_escalate
 
 
-def _qwen_health_check(vision_text: str) -> bool:
-    """qwen2.5:1.5b 只做行为健康判断，返回 True=healthy。"""
+def _qwen_health_check(vision_text: str, context: str = "") -> bool:
+    """qwen2.5:1.5b 结合近期上下文做行为健康判断，返回 True=healthy。
+    策略：疑罪从无 — 只有明确出现摆烂关键词才判 unhealthy。
+    """
+    text_lower = vision_text.lower()
+
+    # Python 预过滤：超明显关键词直接短路，不走 LLM
+    if any(kw in text_lower for kw in _UNHEALTHY_KEYWORDS):
+        console.print(f"{LOG_A} qwen → keyword match → unhealthy")
+        return False
+
     try:
-        prompt = _CLASSIFIER_PROMPT.format(text=vision_text)
+        context_section = (
+            f"Recent context (use this to adjust your judgment):\n{context}\n\n"
+            if context else ""
+        )
+        prompt = _CLASSIFIER_PROMPT.format(context_section=context_section, text=vision_text)
         r = _ollama_client.generate(model=LOCAL_CLASSIFIER_MODEL, prompt=prompt)
-        answer = r.response.strip().lower() if r.response.strip() else "unhealthy"
-        # 取第一个单词，只认 "healthy" 开头
-        first_word = answer.split()[0] if answer.split() else "unhealthy"
-        is_healthy = first_word.startswith("healthy")
-        console.print(f"{LOG_A} qwen → \"{first_word}\" → {'healthy' if is_healthy else 'unhealthy'}")
-        return is_healthy
+        raw = r.response.strip().lower() if r.response.strip() else "no"
+        # 在响应中找第一个 yes 或 no
+        for word in raw.split():
+            word = word.rstrip('.,:')
+            if word == 'yes':
+                console.print(f"{LOG_A} qwen → yes → unhealthy")
+                return False
+            if word == 'no':
+                console.print(f"{LOG_A} qwen → no → healthy")
+                return True
+        # 没找到 yes/no：默认 healthy（疑罪从无）
+        console.print(f"{LOG_A} qwen → unclear(\"{raw[:20]}\") → healthy (default)")
+        return True
     except Exception as e:
         console.print(f"{LOG_A} qwen error: {e}")
-        return False  # 出错默认 unhealthy，宁可误报
+        return True  # 出错也默认 healthy，避免误报
 
 
 # ── 主感知循环 ────────────────────────────────────────────────
 
-def run_perception_loop(state_callback=None, get_summary=None):
+def run_perception_loop(state_callback=None, get_context=None):
     for p, name in [(_POSE_MODEL, "pose_landmarker_lite.task"),
                     (_GESTURE_MODEL, "gesture_recognizer.task")]:
         if not p.exists():
@@ -322,13 +347,13 @@ def run_perception_loop(state_callback=None, get_summary=None):
         try:
             console.print(f"{LOG_A} dispatching moondream")
             text = query_moondream(snap)
-            summary = get_summary() if get_summary else ""
-            is_healthy, should_escalate = classify_behavior(text, summary)
+            moondream_elapsed = time.time() - t0
+            context = get_context() if get_context else ""
+            is_healthy, should_escalate = classify_behavior(text, context)
             ts = datetime.now().strftime("%H:%M:%S")
             with lock:
                 behavior[0] = text
-            elapsed = time.time() - t0
-            console.print(f"{LOG_A} [{ts}] moondream={elapsed:.1f}s -> \"{text}\"")
+            console.print(f"{LOG_A} [{ts}] moondream={moondream_elapsed:.1f}s -> \"{text}\"")
             if state_callback:
                 state_callback(text, ts, is_healthy, should_escalate)
         except Exception as e:
@@ -438,6 +463,7 @@ def run_perception_loop(state_callback=None, get_summary=None):
 
             if cv2.waitKey(1) & 0xFF in (ord("q"), ord("Q"), 27):
                 console.print(f"{LOG_A} quit")
+                _stop_event.set()  # 通知 observe_camera 的 sleep 提前退出
                 break
 
     cap.release()
