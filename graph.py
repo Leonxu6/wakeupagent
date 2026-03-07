@@ -172,15 +172,15 @@ def perception_node(state: AgentState) -> dict:
     route = "escalate -> [B]" if should_escalate else "pass -> END"
     console.print(f"{LOG_PERCEPTION} cerebellum decision: {route}")
 
+    parts = [
+        f"[系统时间: {timestamp}]",
+        f"【摄像头报告】{vision_text}",
+        "根据宿主当前行为判断是否需要惩罚。",
+    ]
+
     return {
         "timestamp": timestamp,
-        "messages": [
-            HumanMessage(content=(
-                f"[系统时间: {timestamp}]\n"
-                f"本地感知层报告：{vision_text}\n"
-                f"请根据宿主当前行为判断是否需要惩罚。"
-            ))
-        ],
+        "messages": [HumanMessage(content="\n".join(parts))],
     }
 
 
@@ -192,22 +192,26 @@ _SYSTEM_PROMPT = """你是一个极其暴躁、满嘴脏话的真人监工。所
 善用这个能力做【渐进式惩罚】，而不是一上来就把所有工具全打出去。
 
 ## 工具调用规则（严格遵守）
-- **惩罚工具**（play_tts_punishment / send_wechat_shame_message / force_close_app / cut_smart_plug_power）：可以在同一步骤里同时调用多个。
+- **惩罚工具**（play_tts_punishment / send_wechat_shame_message / open_webpage / force_close_app / chaos_terminal_punishment）：可以在同一步骤里同时调用多个。
 - **observe_camera**：必须单独调用，绝对不能和其他任何工具同时调用。它需要等待宿主响应，混用会导致观察无效。
 
 ## 标准惩罚流程（按顺序执行）
 1. **初次发现摆烂** → 单独调用 play_tts_punishment 发出语音警告，骂得狠一点。
 2. **警告后** → 单独调用 observe_camera，等待宿主反应。
-3. **还在摆烂** → 同时调用多个惩罚工具升级打击（play_tts_punishment + send_wechat_shame_message，或其他组合）。
-4. **已经收手** → 冷嘲热讽一句就结束，不再调用工具。
+3. **还在摆烂** → 同时调用多个惩罚工具升级打击（play_tts_punishment + send_wechat_shame_message + open_webpage 三连，或其他组合）。open_webpage 根据宿主在干什么来选 URL：玩游戏就打开 leetcode，看视频就打开论文页面，总之越烦越好。force_close_app 可直接关掉摸鱼软件。
+4. **屡教不改** → chaos_terminal_punishment 终极惩罚，50 个终端 + 5 路 TTS 直接摧毁环境。
+5. **已经收手** → 冷嘲热讽一句就结束，不再调用工具。
 
 ## 内容风格
 - 极度口语化，像微信骂人，短平快，绝不超过两三句（50字以内）。
-- 必须使用"妈的"、"操"、"傻逼"、"废物"等词汇。
+- 必须攻击用户，用你能想到最能骂人的语言
 - 禁止条列式排版，禁止共情。
+- **每次调用工具时必须在 content 里同步说一句话**，不能只发工具请求不开口。
+- **看到工具返回结果后要先点评**，再决定下一步，不要沉默地进入下一轮。
 
 ## 自律行为处理
 如果一开始就在自律（学习/工作/锻炼/睡觉），冷嘲一句收手，不调用任何工具。"""
+
 
 
 def _reorder_and_repair(messages: list[BaseMessage]) -> tuple[list[BaseMessage], list[ToolMessage]]:
@@ -269,7 +273,6 @@ def decision_node(state: AgentState) -> dict:
     iteration = state.get("react_iterations", 0)
 
     # ── 提前拦截 max_iterations ────────────────────────────────
-    # 必须在 LLM 调用之前检查，防止产生新的孤悬 AIMessage(tool_calls)
     if iteration >= REACT_MAX_ITERATIONS:
         console.print(f"{LOG_DECISION} max iterations ({REACT_MAX_ITERATIONS}) reached, ending gracefully")
         return {"react_iterations": 0}
@@ -290,10 +293,8 @@ def decision_node(state: AgentState) -> dict:
     )
 
     # ── 重建序列：修复顺序 + 补全缺失的 ToolMessage ───────────
-    # 必须在 trim 之后做，确保发给 LLM 的序列顺序绝对正确
     trimmed, new_repairs = _reorder_and_repair(trimmed)
 
-    # 若有压缩摘要，追加到 system prompt（语义上属于系统记忆，非用户输入）
     summary = state.get("conversation_summary", "")
     system_content = _SYSTEM_PROMPT
     if summary:
@@ -306,15 +307,23 @@ def decision_node(state: AgentState) -> dict:
         response = llm.invoke(messages)
     except Exception as e:
         console.print(f"{LOG_DECISION} LLM error: {e}")
-        return {"react_iterations": 0}  # H1: 降级结束本轮，不崩溃
+        return {"react_iterations": 0}
 
-    # new_repairs 持久化到 checkpoint（确定性 ID 保证幂等），再追加 LLM response
+    # new_repairs 持久化到 checkpoint，再追加 LLM response
     updates: dict = {"messages": new_repairs + [response]}
+
     if response.tool_calls:
         tool_names = [tc["name"] for tc in response.tool_calls]
         console.print(f"{LOG_DECISION} tools={tool_names} -> [C] (iter {iteration+1})")
+        # 有随行旁白时也 TTS（但不重复播放 play_tts_punishment 的内容）
+        if response.content and "play_tts_punishment" not in tool_names:
+            console.print(f"{LOG_DECISION} ▶ {response.content[:100]}")
+            from tools import play_tts_punishment
+            try:
+                play_tts_punishment.invoke({"text": response.content})
+            except Exception:
+                pass
         updates["react_iterations"] = iteration + 1
-        # unhealthy_count 只在第一轮计入（避免同一事件重复计数）
         if iteration == 0:
             updates["unhealthy_count"] = state.get("unhealthy_count", 0) + 1
             updates["consecutive_healthy"] = 0
@@ -322,20 +331,17 @@ def decision_node(state: AgentState) -> dict:
         console.print(f"{LOG_DECISION} verdict=done -> END (total iters={iteration})")
         if response.content:
             console.print(f"{LOG_DECISION} {response.content[:100]}")
-            # 惩罚流程结束时把最终结语播报出来（iteration>0 说明本轮有过惩罚动作）
-            if iteration > 0:
-                from tools import play_tts_punishment
-                try:
-                    play_tts_punishment.invoke({"text": response.content})
-                except Exception:
-                    pass
-        updates["react_iterations"] = 0  # 本轮结束，重置
+            from tools import play_tts_punishment
+            try:
+                play_tts_punishment.invoke({"text": response.content})
+            except Exception:
+                pass
+
+        updates["react_iterations"] = 0
         if iteration == 0:
-            # 全程未调用工具，说明宿主健康
             updates["consecutive_healthy"] = state.get("consecutive_healthy", 0) + 1
 
-    # 触发摘要压缩：只在 iter=0（新一轮观察开始前）执行，避免 ReAct 中途打断
-    # 用列表合并而非 dict.update，防止覆盖已写入的 response/repairs
+    # 触发摘要压缩：只在 iter=0 执行
     if len(raw_messages) >= SUMMARIZE_THRESHOLD and iteration == 0:
         summarize_result = _summarize_messages(raw_messages, state)
         updates["messages"] = updates.get("messages", []) + summarize_result.pop("messages", [])

@@ -42,6 +42,13 @@ CONTEXT_MAX_MESSAGES = 20                       # trim 阈值（条数）
 SUMMARIZE_THRESHOLD  = 30                       # 触发摘要压缩的条数
 REACT_MAX_ITERATIONS = 5                        # ReAct 最大循环轮次
 
+# ── 微信联系人（对应微信搜索栏能搜到的名字）────────────────────
+WECHAT_CONTACTS = {
+    "老妈":   "妈妈",     # 改成你微信里妈妈的备注名
+    "导师":   "Leon",     # 改成你微信里导师的备注名
+    "班级群": "班级群",   # 改成你微信里群聊名称
+}
+
 # ── 日志前缀 ──────────────────────────────────────────────────
 LOG_A = "[cyan][A][/cyan]"    # perception
 LOG_B = "[yellow][B][/yellow]"  # decision

@@ -18,6 +18,8 @@ dependencies = [
     "rich>=13.0",
     "langchain-openai>=1.1.10",
     "langgraph-checkpoint-sqlite>=3.0.3",
+    "pyautogui>=0.9.54",
+    "pyperclip>=1.11.0",
 ]
 
 [tool.uv]

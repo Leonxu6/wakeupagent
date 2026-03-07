@@ -384,6 +384,7 @@ def run_perception_loop(state_callback=None, get_context=None):
 
         console.print(f"{LOG_A} mediapipe ready  (pose + gesture)")
         start_ms = int(time.time() * 1000)
+        _gest_ok = True  # 手势识别器出错后禁用，防止崩溃
 
         while True:
             ret, frame = cap.read()
@@ -407,7 +408,7 @@ def run_perception_loop(state_callback=None, get_context=None):
                 fps_t[0] = now
 
             mp_img = mp.Image(image_format=mp.ImageFormat.SRGB,
-                              data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                              data=np.ascontiguousarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
 
             # ── Pose 检测 ─────────────────────────────────
             pose_res = pose_det.detect_for_video(mp_img, ts_ms)
@@ -436,9 +437,17 @@ def run_perception_loop(state_callback=None, get_context=None):
                 _draw_label(frame, beh, min(x2+10, fw-10), y1+22, max_width=avail)
 
             # ── 手势检测 ──────────────────────────────────
-            gest_res = gest_det.recognize_for_video(mp_img, ts_ms)
+            if _gest_ok:
+                try:
+                    gest_res = gest_det.recognize_for_video(mp_img, ts_ms)
+                except RuntimeError as e:
+                    console.print(f"{LOG_A} gesture error (disabled): {e}")
+                    _gest_ok = False
+                    gest_res = None
+            else:
+                gest_res = None
 
-            for hi, hand_lms in enumerate(gest_res.hand_landmarks):
+            for hi, hand_lms in enumerate(gest_res.hand_landmarks if gest_res else []):
                 # 手势名称
                 gesture_name = "None"
                 if hi < len(gest_res.gestures) and gest_res.gestures[hi]:

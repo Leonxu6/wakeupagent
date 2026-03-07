@@ -28,10 +28,29 @@ def run_perception_mode():
     last_summary = [""]          # 压缩摘要（长期记忆）
     recent_items: list[str] = [] # 近期观察+判决 滚动列表（短期记忆）
 
-    def on_vision(text: str, ts: str, is_healthy: bool, should_escalate: bool):
-        # 把本次感知观察追加进上下文（大脑处理前先记录）
-        recent_items.append(f"[Obs] {text[:100]}")
+    def _stream_graph(state: dict):
+        """运行图并更新 recent_items / last_summary。"""
+        try:
+            for update in graph.stream(state, config=_THREAD_CONFIG, stream_mode="updates"):
+                for node_output in update.values():
+                    if not isinstance(node_output, dict):
+                        continue
+                    if node_output.get("conversation_summary"):
+                        last_summary[0] = node_output["conversation_summary"]
+                    for m in node_output.get("messages", []):
+                        if getattr(m, "type", None) == "ai" and getattr(m, "content", ""):
+                            recent_items.append(f"[Brain] {m.content[:120]}")
+        except RuntimeError:
+            pass  # 主线程退出时 executor 已关闭，忽略
+        except Exception as e:
+            console.print(f"[red]stream error: {e}[/red]")
 
+        while len(recent_items) > _CONTEXT_WINDOW:
+            recent_items.pop(0)
+
+    def on_vision(text: str, ts: str, is_healthy: bool, should_escalate: bool):
+        """定时摄像头触发的感知回调。"""
+        recent_items.append(f"[Obs] {text[:100]}")
         state = {
             "current_vision_text": text,
             "healthy": is_healthy,
@@ -39,21 +58,7 @@ def run_perception_mode():
             "timestamp": ts,
             "session_date": date.today().isoformat(),
         }
-        for update in graph.stream(state, config=_THREAD_CONFIG, stream_mode="updates"):
-            for node_output in update.values():
-                if not isinstance(node_output, dict):
-                    continue
-                # 更新压缩摘要
-                if node_output.get("conversation_summary"):
-                    last_summary[0] = node_output["conversation_summary"]
-                # 捕获大脑的 AI 消息（判决文本），追加到滚动窗口
-                for m in node_output.get("messages", []):
-                    if getattr(m, "type", None) == "ai" and getattr(m, "content", ""):
-                        recent_items.append(f"[Brain] {m.content[:120]}")
-
-        # 保持滚动窗口大小
-        while len(recent_items) > _CONTEXT_WINDOW:
-            recent_items.pop(0)
+        _stream_graph(state)
 
     def get_context() -> str:
         """返回给小脑的完整上下文字符串：摘要 + 近期记录。"""
