@@ -1,349 +1,401 @@
-# 赛博超我 (Cyber-Superego)
+<div align="center">
 
-> 一个基于 LangGraph 的边缘-云端混合架构个人自律监督 Agent。
-> 全天候监控宿主行为，发现摆烂立即渐进式惩罚。
+# 🧠 Cyber-Superego · 赛博超我
+
+**An edge-cloud hybrid AI agent that watches you work — and punishes you when you don't.**
+
+*Powered by LangGraph · MediaPipe · Moondream2 · DeepSeek · macOS Automation*
+
+[![Python](https://img.shields.io/badge/Python-3.12+-blue?logo=python&logoColor=white)](https://python.org)
+[![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-orange?logo=langchain)](https://langchain-ai.github.io/langgraph/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Platform: macOS](https://img.shields.io/badge/Platform-macOS-lightgrey?logo=apple)](https://apple.com/macos)
+[![Ollama](https://img.shields.io/badge/Runs%20on-Ollama-black?logo=ollama)](https://ollama.com)
+
+[English](#english) · [中文](#中文)
+
+</div>
 
 ---
 
-## 项目背景
+## English
 
-传统 VLM（视觉大模型）全天候云端调用存在两个致命问题：**高昂的 API 成本**与**图像隐私泄露风险**。
+### What is this?
 
-Cyber-Superego 的设计哲学是**双脑协同（Dual-Brain Synergy）**：
+Cyber-Superego is a **privacy-first, edge-cloud hybrid AI supervisor** that monitors your behavior through your webcam 24/7 and intervenes with escalating punishments the moment it detects procrastination.
 
-- **边缘端小脑**：本地运行轻量模型（MediaPipe + Moondream2 + qwen2.5:1.5b），负责视觉感知和行为初筛。图像永远不离开本地设备。
-- **云端大脑**：只接收纯文本行为描述，由 DeepSeek 做高级逻辑推理和惩罚决策，token 消耗极低。
-- **本地执行手臂**：云端判决回传本地，接管软硬件执行物理/数字惩罚。
+The core design insight: **your camera image never leaves your machine.** A local vision model describes what it sees in plain text; only that text description reaches the cloud LLM. This keeps API costs minimal and protects your privacy.
 
----
+### What can it do?
 
-## 系统架构总览
+| Detected Behavior | System Response |
+|---|---|
+| Scrolling phone / watching videos | TTS voice scolds you out loud |
+| Still slacking after warning | Sends a shame message to your mom on WeChat |
+| Gaming when you should be studying | Force-closes the game, opens LeetCode |
+| Repeatedly ignoring warnings | **Chaos mode**: 50 terminal windows flood your screen, 5-language concurrent TTS |
+| Actually studying | Leaves you alone (with a brief sarcastic comment) |
 
-```mermaid
-graph TB
-    subgraph 本地边缘端
-        CAM[摄像头]
-        MP[MediaPipe\nPose + Gesture]
-        MD[Moondream2\n本地VLM]
-        QB[qwen2.5:1.5b\n小脑分类器]
-        EXEC[执行层\nTTS / WeChat / IoT]
-        VM[语音模块\nfaster-whisper]
-    end
+### Architecture
 
-    subgraph 云端
-        DS[DeepSeek\n大脑决策]
-    end
+The system uses a **Dual-Brain Synergy** design to solve the fundamental tension between privacy, cost, and intelligence:
 
-    subgraph 持久化
-        DB[(SQLite\nsuperego.db)]
-        RPT[日报归档\ndaily_reports.md]
-    end
-
-    CAM --> MP
-    CAM --> MD
-    MD -->|行为文本| QB
-    QB -->|should_escalate| DS
-    DS -->|tool_calls| EXEC
-    EXEC -->|观察结果| DS
-    VM -->|语音文本 / 申诉| DS
-    DS <--> DB
-    DB --> RPT
+```
+┌─────────────────────────────────────────────────────────────┐
+│  LOCAL EDGE  (images never leave this machine)              │
+│                                                             │
+│  Webcam → MediaPipe    → skeleton overlay on screen         │
+│         ↓ (every 30s)                                       │
+│         → Moondream2   → plain-text behavior description    │
+│         → qwen2.5:1.5b → healthy / procrastinating?         │
+│                              ↓ (if procrastinating)         │
+├──────────────────────────────┼──────────────────────────────┤
+│  CLOUD  (text only, ~50 tokens per call)                    │
+│                              ↓                              │
+│              DeepSeek → ReAct reasoning loop                │
+│                              ↓                              │
+├──────────────────────────────┼──────────────────────────────┤
+│  LOCAL EXECUTION             ↓                              │
+│         TTS / WeChat automation / force-close / chaos mode  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
----
+```mermaid
+flowchart TB
+    CAM["📷 Webcam · 1280×720"]
 
-## LangGraph 状态机
+    subgraph EDGE["🖥️  Local Edge · images never leave this machine"]
+        direction TB
+
+        subgraph SENSE["Perception Pipeline · perception.py"]
+            MP["MediaPipe\nPose + Gesture\n@30fps · skeleton overlay"]
+            MD["Moondream2\nLocal VLM\nbehavior description @30s"]
+        end
+
+        subgraph CEREBELLUM["Cerebellum Classifier · qwen2.5:1.5b"]
+            KW{"Python keyword\nfast-path filter"}
+            KW -->|"clear healthy words\n(reading, studying, coding...)"| GOOD["✅ healthy · skip"]
+            KW -->|"clear unhealthy words\n(scrolling, gaming...)"| BAD["❌ escalate"]
+            KW -->|"ambiguous"| QWEN["qwen yes/no\ninnocent until proven guilty"]
+        end
+
+        subgraph EXEC["Execution Layer · tools.py"]
+            T1["🔊 TTS Punishment\n(background thread, parallel)"]
+            T2["💀 Force Close App\n(priority 0, first)"]
+            T3["💥 Chaos Terminal\n(priority 1)"]
+            T4["💬 WeChat Shame\n(priority 2)"]
+            T5["👁️ Re-observe Camera\n(priority 3)"]
+            T6["🌐 Open Webpage\n(priority 4, last — steals focus)"]
+        end
+
+        DB[("💾 SQLite · superego.db\nfull state persistence")]
+    end
+
+    subgraph CLOUD["☁️  Cloud · text only, ~50 tokens/call"]
+        DS["DeepSeek\nAngry supervisor persona\nReAct reasoning loop\nmax 5 iterations"]
+    end
+
+    RPT["📄 memory/daily_reports.md\ndaily discipline report"]
+
+    CAM -->|"every frame"| MP
+    CAM -->|"every 30s · clean frame\nno UI overlay"| MD
+    MP -->|"draw skeleton"| DISPLAY["🖥️  OpenCV Window"]
+    MD -->|"behavior text"| KW
+    BAD -->|"should_escalate=True"| DS
+    QWEN -->|"result"| DS
+    DS -->|"tool_calls\nserial by priority"| EXEC
+    EXEC -->|"execution results"| DS
+    DS <-->|"checkpoint"| DB
+    DB -->|"day change"| RPT
+
+    style EDGE fill:#0d1f2d,color:#adf
+    style CLOUD fill:#1f0d2d,color:#daf
+    style CEREBELLUM fill:#0d2d1a,color:#afd
+    style EXEC fill:#2d0d0d,color:#faa
+```
+
+### LangGraph State Machine
+
+Every 30-second perception cycle triggers one full graph execution. The `[B] ⇌ [C]` loop runs up to 5 times, delivering escalating punishment until the subject complies or the limit is reached.
 
 ```mermaid
 flowchart LR
-    START([START]) --> R
+    START(["▶ START"]) --> R
 
     subgraph R["[R] daily_reset"]
-        direction TB
-        R1[检测日期变更]
-        R2[生成昨日日报]
-        R3[清空历史 / 重置计数]
-        R1 --> R2 --> R3
+        Ra["Detect day change"]
+        Rb["Generate yesterday's report\nvia DeepSeek (50 words)"]
+        Rc["Clear message history\nReset counters"]
+        Ra -->|"new day"| Rb --> Rc
+        Ra -->|"same day · zero cost"| R_SKIP((" "))
     end
 
     subgraph A["[A] perception"]
-        direction TB
-        A1[封装视觉文本\n为 HumanMessage]
+        Aa["Wrap vision text\nas HumanMessage"]
     end
 
-    subgraph B["[B] decision\nDeepSeek ReAct"]
-        direction TB
-        B1[trim 消息历史]
-        B2[注入系统提示词\n+ 目标 / 豁免规则]
-        B3[LLM 推理]
-        B1 --> B2 --> B3
+    subgraph B["[B] decision · DeepSeek"]
+        Ba["Trim history (keep 20)\nRepair orphaned tool_calls"]
+        Bb["Inject system prompt\nAngry supervisor + memory summary"]
+        Bc["DeepSeek ReAct inference\ndecide next action"]
+        Ba --> Bb --> Bc
     end
 
-    subgraph C["[C] execution\nToolNode"]
-        direction TB
-        C1[play_tts_punishment]
-        C2[observe_camera]
-        C3[send_wechat_shame_message]
-        C4[force_close_app]
-        C5[cut_smart_plug_power]
+    subgraph C["[C] execution · tools"]
+        Ca["TTS → background thread 🔊"]
+        Cb["Serial by priority:\nforce_close → chaos → wechat → observe → webpage"]
     end
 
-    END_NODE([END])
+    END_N(["⏹ END"])
 
     R --> A
-    A -->|should_escalate=true| B
-    A -->|should_escalate=false| END_NODE
-    B -->|有 tool_calls| C
-    B -->|无 tool_calls / verdict| END_NODE
-    C -->|结果反馈| B
+    A -->|"should_escalate = true\nprocrastination detected"| B
+    A -->|"should_escalate = false\nhealthy → skip"| END_N
+    B -->|"has tool_calls\nexecute punishment"| C
+    C -->|"tool results\nevaluate and decide"| B
+    B -->|"no tool_calls\nverdict reached\nmax 5 iterations"| END_N
 
-    style R fill:#1a3a5c,color:#fff
-    style A fill:#0d4d2e,color:#fff
-    style B fill:#4d3000,color:#fff
-    style C fill:#4d0000,color:#fff
+    style R fill:#1a3a5c,color:#cce
+    style A fill:#0d4d2e,color:#cfc
+    style B fill:#4a2800,color:#fda
+    style C fill:#4a0000,color:#faa
 ```
 
-> ReAct 循环（B ⇌ C）最多执行 `REACT_MAX_ITERATIONS=5` 轮，超限强制结束。
+### Cerebellum: Three-Layer Behavior Classifier
+
+Before any cloud call, a local three-layer classifier filters behavior descriptions to minimize unnecessary API usage:
+
+```
+Vision text (e.g. "person reading a programming book at desk")
+        │
+        ▼
+Layer 1 · Python whitelist (zero LLM cost)
+  keywords: "reading a book", "studying", "coding", "working at desk"...
+        → immediately healthy ✅ (most study sessions caught here)
+        │
+        ▼ (not matched)
+Layer 2 · Python blacklist (zero LLM cost)
+  keywords: "scrolling", "gaming", "watching tv", "lying in bed"...
+        → immediately escalate ❌
+        │
+        ▼ (ambiguous)
+Layer 3 · qwen2.5:1.5b yes/no classification
+  "Is this person clearly doing something unproductive?"
+  Rule: innocent until proven guilty — unclear answer → healthy default
+```
+
+> **Why not inject conversation history into qwen?** Testing showed that feeding the small 1.5B model prior LLM conversations (containing scolding text in Chinese) caused ~12% false-positive rate on clearly healthy behaviors. The classifier now sees only the current frame description.
+
+### Punishment Escalation
+
+```
+Round 1 · TTS voice warning          "你他妈在干嘛，给老子去学习！"
+Round 2 · observe_camera             Wait 30s, re-check behavior
+Round 3 · TTS + WeChat + webpage     Three-hit combo — mom gets a message
+Round 4 · chaos_terminal_punishment  50 terminals + 5-language concurrent TTS
+Round 5 · forced END                 Max iterations reached
+```
+
+### Key Design Decisions
+
+| Decision | Rationale |
+|---|---|
+| Images stay local | Privacy + zero vision API cost |
+| qwen2.5:1.5b as cerebellum | 99% of classifications need no cloud call |
+| DeepSeek for decisions | Reasoning quality at minimal token cost |
+| TTS runs in background thread | Non-blocking; plays while other tools execute |
+| Tools execute serially by priority | WeChat automation needs focus; browser runs last |
+| `_reorder_and_repair` message repair | Crash-safe: orphaned tool_calls in SQLite are patched on restart |
 
 ---
 
-## 节点详解
+## 中文
 
-### [R] daily_reset — 每日重置
+### 这是什么？
 
-每轮图执行的入口，同一天内近乎零开销。
+赛博超我是一个**隐私优先的边缘-云端混合 AI 监督 Agent**，通过摄像头全天候监控你的行为，一旦检测到摆烂立即介入并施以渐进式惩罚。
 
-- 检测 `session_date` 是否变更
-- 调用 DeepSeek 生成前一天的自律日报，追加到 `memory/daily_reports.md`
-- 清空所有历史消息，将日报作为新一天的初始 `conversation_summary`
-- 重置：`unhealthy_count`, `consecutive_healthy`, `session_goal`, `voice_rules`
+核心设计原则：**摄像头画面永远不离开你的设备。** 本地视觉模型将画面描述为纯文本，云端 LLM 只接收这段文字，既保护隐私，又将 API 成本压到极低。
 
-### [A] perception — 感知层
+### 它能做什么？
 
-将外部感知数据（由 `perception.py` 实时采集）包装为 LLM 消息。
-
-**感知流水线（`perception.py`）：**
-
-```mermaid
-sequenceDiagram
-    participant CAM as 摄像头
-    participant MP as MediaPipe
-    participant MD as Moondream2
-    participant QB as qwen2.5 小脑
-    participant CB as 状态回调
-
-    loop 每帧 (~30fps)
-        CAM->>MP: 原始帧
-        MP->>MP: Pose + Gesture 检测 + 绘制 UI
-    end
-
-    loop 每 30 秒
-        CAM->>MD: 干净帧 (无 UI 叠加)
-        MD->>QB: 行为描述文本
-        QB->>QB: Python 关键词预过滤
-        QB->>QB: 时间豁免检查 (0-7点)
-        QB->>QB: qwen yes/no 分类
-        QB->>CB: (is_healthy, should_escalate)
-    end
-```
-
-**小脑路由策略（疑罪从无）：**
-1. Python 关键词预过滤（明确出现摆烂词汇 → 直接 unhealthy）
-2. 时间豁免：0:00–6:59 一律放行
-3. qwen2.5:1.5b 做最终 yes/no 判断
-4. 结果不明确 → 默认 healthy
-
-### [B] decision — 云端决策（DeepSeek ReAct）
-
-```mermaid
-sequenceDiagram
-    participant B as decision_node
-    participant LLM as DeepSeek
-    participant C as execution (ToolNode)
-    participant VM as 语音模块
-
-    B->>B: trim_messages (保留最近 20 条)
-    B->>B: 修复孤悬 tool_call (message repair)
-    B->>B: 注入系统提示词 + 摘要 + 目标 + 豁免规则
-
-    alt iter > 0 且有申诉
-        VM-->>B: pop_appeal()
-        B->>B: 插入 HumanMessage [申诉]
-    end
-
-    B->>LLM: invoke(messages)
-    LLM->>B: AIMessage
-
-    alt 有 tool_calls
-        B->>C: 路由到执行节点
-        C->>B: ToolMessage 结果
-        Note over B,C: 最多循环 5 轮
-    else 无 tool_calls (verdict)
-        B->>B: 重置 react_iterations = 0
-        B->>B: 更新 consecutive_healthy / unhealthy_count
-        B->>B: 保存 session_goal / voice_rules (语音触发)
-    end
-```
-
-**渐进式惩罚标准流程：**
-1. 发现摆烂 → `play_tts_punishment`（语音警告）
-2. 调用 `observe_camera`（等待 30s，观察响应）
-3. 仍在摆烂 → 升级：`play_tts_punishment` + `send_wechat_shame_message`
-4. 已收手 → 冷嘲一句结束
-
-### [C] execution — 本地执行工具库
-
-| 工具 | 说明 | 状态 |
-|------|------|------|
-| `play_tts_punishment` | TTS 播放嘲讽语音 | Mock |
-| `observe_camera` | 等待 30s 后重新观察摄像头 | Mock |
-| `send_wechat_shame_message` | 接管鼠标向微信联系人发送社死消息 | Mock |
-| `force_close_app` | 强制关闭指定应用 | Mock |
-| `cut_smart_plug_power` | 向 IoT 插座发送断电指令 | Mock |
-
-> `observe_camera` 必须单独调用，不可与其他工具并发（`parallel_tool_calls=False`）。
+| 检测行为 | 系统响应 |
+|---|---|
+| 刷手机 / 看视频 | TTS 语音骂你 |
+| 警告后仍在摆烂 | 给你妈发微信 |
+| 该学习时打游戏 | 强制关闭游戏，打开 LeetCode |
+| 屡教不改 | **混沌模式**：50 个终端刷屏 + 5 语言 TTS 齐轰 |
+| 认真学习 | 冷嘲一句，不打扰 |
 
 ---
 
-## 语音模块架构
+## Setup Guide
 
-```mermaid
-flowchart TD
-    AL[音频循环\n单线程] --> WK{到环境音\n采样时间?}
-    WK -->|是| AMB[采集 5s 环境音\n→ STT 转写\n→ ambient_text]
-    AMB --> AL
+### Requirements
 
-    WK -->|否| REC[录制 1.2s 窗口]
-    REC --> RMS{RMS 检测\n有声音?}
-    RMS -->|否| AL
-    RMS -->|是| WTRANS[faster-whisper tiny\n唤醒词检测]
-    WTRANS --> WAKE{包含\n乌鲁鲁?}
-    WAKE -->|否| AL
-    WAKE -->|是| SPEECH[VAD 录音\n最长 15s]
-    SPEECH --> STT[faster-whisper small\n完整转写]
-    STT --> GA{大脑\n运行中?}
+| Requirement | Details |
+|---|---|
+| **OS** | macOS (required for `say`, `osascript`, `open -a`) |
+| **Python** | 3.12+ |
+| **Package manager** | [uv](https://docs.astral.sh/uv/) |
+| **Ollama** | [ollama.com](https://ollama.com) |
+| **DeepSeek API** | [platform.deepseek.com](https://platform.deepseek.com) |
 
-    GA -->|是| APPEAL[存入申诉队列\n_appeal_text]
-    GA -->|否| INTENT[意图分类\ngoal / exempt / observe]
-    INTENT --> CB[触发 on_voice_input 回调\n独立线程]
-    CB --> GRAPH[graph.stream\ntrigger_source=voice]
-```
-
-**意图分类关键词：**
-- `goal`：今天目标、目标是、今天计划、计划是、我要完成
-- `exempt`：今天休息、休息日、不用学习、豁免、我今天可以、放假、我在开会
-- `observe`：其他（默认）
-
----
-
-## 状态持久化与记忆系统
-
-```mermaid
-graph LR
-    subgraph 短期记忆
-        MSG[messages\n最近 20 条对话]
-    end
-
-    subgraph 长期记忆
-        SUM[conversation_summary\n压缩摘要 ≤50字]
-        GOAL[session_goal\n今日目标]
-        VRULES[voice_rules\n豁免规则列表]
-    end
-
-    subgraph 跨日记忆
-        DB[(SQLite\nsuperego.db)]
-        RPT[daily_reports.md\n日报归档]
-    end
-
-    MSG -->|消息数 ≥ 30| SUM
-    SUM -->|日期切换| RPT
-    GOAL & VRULES --> DB
-    MSG --> DB
-    SUM --> DB
-```
-
-- **消息压缩**：`len(messages) >= 30` 时，调用 DeepSeek 压缩历史为 50 字摘要，删除旧消息保留最新 5 条
-- **每日重置**：跨日时生成日报，清空消息，`conversation_summary` 初始化为日报内容
-- **checkpointer**：`SqliteSaver` 以固定 `thread_id="superego_main"` 跨进程持久化
-
----
-
-## 快速开始
-
-### 前置条件
-
-1. Python 3.12+，安装 [uv](https://docs.astral.sh/uv/)
-2. 启动 Ollama：`open /Applications/Ollama.app`
-3. 拉取本地模型：
-   ```bash
-   ollama pull moondream
-   ollama pull qwen2.5:1.5b
-   ```
-4. 下载模型文件到项目根目录：
-   - `pose_landmarker_lite.task`（MediaPipe Pose，5.5MB）
-   - `gesture_recognizer.task`（MediaPipe Gesture，8MB）
-5. 创建 `.env`：
-   ```
-   DEEPSEEK_API_KEY=your_key_here
-   ```
-
-### 安装与运行
+### Step 1 — Clone and install dependencies
 
 ```bash
-# 安装依赖
+git clone https://github.com/yourname/wakeupagent.git
+cd wakeupagent
 uv sync
+```
 
-# 启动完整系统（摄像头 + 语音 + 图流转）
+### Step 2 — Pull local models via Ollama
+
+```bash
+# Start Ollama first
+open /Applications/Ollama.app
+
+# Pull the two required models (~2 GB total)
+ollama pull moondream      # Vision model — describes what the camera sees
+ollama pull qwen2.5:1.5b   # Cerebellum — classifies behavior as healthy/unhealthy
+```
+
+### Step 3 — Download MediaPipe model files
+
+Download these two files and place them in the project root directory:
+
+| File | Size | Link |
+|---|---|---|
+| `pose_landmarker_lite.task` | 5.5 MB | [Download](https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task) |
+| `gesture_recognizer.task` | 8 MB | [Download](https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/latest/gesture_recognizer.task) |
+
+### Step 4 — Configure environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
+```
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
+```
+
+### Step 5 — Customize contacts in config.py
+
+Open `config.py` and replace the placeholder WeChat contact names:
+
+```python
+WECHAT_CONTACTS = {
+    "老妈":   "YOUR_MOM_WECHAT_NAME",   # Exact name as shown in WeChat search
+    "导师":   "YOUR_TUTOR_WECHAT_NAME",
+    "班级群": "YOUR_CLASS_GROUP_NAME",
+}
+```
+
+> ⚠️ These values must **exactly match** how the contact appears in WeChat's search bar.
+
+### Step 6 — Grant Accessibility permission (WeChat automation)
+
+**System Settings → Privacy & Security → Accessibility**
+
+Add your terminal app (Terminal / iTerm2 / Cursor / VS Code). This is required for the `osascript` WeChat automation to work.
+
+### Step 7 — Run
+
+```bash
+# Full system — live webcam + AI supervision
 uv run main.py
 
-# 仅测试 LangGraph 图流转（无需摄像头，使用 Mock 状态）
+# Test the LangGraph flow without a camera (mock input)
 uv run main.py --graph
 
-# 仅测试感知节点（摄像头 + MediaPipe + Moondream，无云端调用）
-uv run python perception.py
+# Test perception pipeline only — camera + MediaPipe + Moondream, no cloud
+uv run perception.py
 ```
+
+### Startup checklist
+
+- [ ] Ollama is running with `moondream` and `qwen2.5:1.5b` pulled
+- [ ] Both `.task` model files are in the project root
+- [ ] `.env` contains a valid `DEEPSEEK_API_KEY`
+- [ ] Terminal has Accessibility permission (for WeChat)
+- [ ] WeChat Mac client is logged in and running
+- [ ] `WECHAT_CONTACTS` in `config.py` has real contact names
 
 ---
 
-## 文件结构
+## Configuration Reference
+
+All settings live in `config.py`. No other files need to be edited for normal use.
+
+| Parameter | Default | Description |
+|---|---|---|
+| `CAMERA_INDEX` | `0` | Webcam index. Use `1` or `2` for external cameras |
+| `CAPTURE_INTERVAL_SEC` | `30` | Seconds between Moondream vision analyses |
+| `REACT_MAX_ITERATIONS` | `5` | Max punishment rounds per session |
+| `CONTEXT_MAX_MESSAGES` | `20` | Recent messages kept in LLM context |
+| `SUMMARIZE_THRESHOLD` | `30` | Message count that triggers memory compression |
+| `LOCAL_CLASSIFIER_MODEL` | `qwen2.5:1.5b` | Cerebellum model (must be available in Ollama) |
+| `DEEPSEEK_MODEL` | `deepseek-chat` | Cloud brain model |
+| `MOONDREAM_PROMPT` | `"What is the person doing?"` | Controls Moondream's description angle |
+| `WECHAT_CONTACTS` | placeholders | **Must be customized** — WeChat contact names |
+
+---
+
+## File Structure
 
 ```
 wakeupagent/
-├── main.py                    # 入口，串联感知/语音/图
-├── graph.py                   # LangGraph 状态机（四节点）
-├── perception.py              # 摄像头感知流水线
-├── voice.py                   # 语音唤醒/STT/申诉模块
-├── tools.py                   # Node C 工具库（当前全 Mock）
-├── config.py                  # 全局配置常量
-├── pose_landmarker_lite.task  # MediaPipe Pose 模型
-├── gesture_recognizer.task    # MediaPipe Gesture 模型
-├── superego.db                # SQLite 持久化（运行时生成）
+│
+├── main.py                     # Entry point — wires perception callbacks to graph execution
+├── graph.py                    # LangGraph state machine — 4 nodes, routing, memory compression
+├── perception.py               # Perception pipeline — MediaPipe + Moondream + cerebellum
+├── tools.py                    # Execution tool library — all 6 tools fully implemented
+├── config.py                   # All configuration in one place
+│
+├── pose_landmarker_lite.task   # MediaPipe Pose model (download separately, not in repo)
+├── gesture_recognizer.task     # MediaPipe Gesture model (download separately, not in repo)
+│
+├── pyproject.toml              # Dependencies (managed with uv)
+├── .env.example                # Environment variable template
+├── .env                        # Your API keys — never commit this
+│
 └── memory/
-    └── daily_reports.md       # 每日日报归档（运行时生成）
+    └── daily_reports.md        # Auto-generated daily discipline reports (runtime)
 ```
 
 ---
 
-## 关键配置
+## FAQ
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `CAPTURE_INTERVAL_SEC` | 30 | 摄像头扫描间隔（秒） |
-| `REACT_MAX_ITERATIONS` | 5 | ReAct 最大惩罚轮次 |
-| `CONTEXT_MAX_MESSAGES` | 20 | trim_messages 保留条数 |
-| `SUMMARIZE_THRESHOLD` | 30 | 触发记忆压缩的消息数 |
-| `WAKE_WORD` | 乌鲁鲁 | 语音唤醒词 |
-| `LOCAL_CLASSIFIER_MODEL` | qwen2.5:1.5b | 小脑分类模型 |
-| `DEEPSEEK_MODEL` | deepseek-chat | 云端大脑模型 |
+**Q: The system keeps flagging me as procrastinating even when I'm studying.**
+The cerebellum uses "innocent until proven guilty" — ambiguous cases default to healthy. If you're consistently misclassified, add the specific words Moondream uses to describe your activity to `_HEALTHY_KEYWORDS` in `perception.py`.
 
-所有配置均在 `config.py` 中修改。
+**Q: WeChat messages aren't sending.**
+Check: (1) WeChat Mac is logged in and running; (2) your terminal has Accessibility permission; (3) `WECHAT_CONTACTS` values exactly match WeChat search results (including spaces and special characters).
+
+**Q: Can I use a different cloud LLM instead of DeepSeek?**
+Yes — DeepSeek uses an OpenAI-compatible API. Change `DEEPSEEK_BASE_URL` and `DEEPSEEK_MODEL` in `config.py` to point at any OpenAI-compatible endpoint (OpenAI, Claude via proxy, etc.).
+
+**Q: The TTS voice sounds wrong / I want a different voice.**
+Change `_TTS_VOICE` in `tools.py` to any voice installed on your system. Check available voices in: System Settings → Accessibility → Spoken Content → System Voice.
+
+**Q: Can I run this without WeChat?**
+Yes — the system degrades gracefully. If WeChat automation fails, it logs the error and moves on to the next tool. You can also remove `send_wechat_shame_message` from `ALL_TOOLS` in `tools.py`.
 
 ---
 
-## 待实现
+## Roadmap
 
-- [ ] **Node C 真实工具**：TTS（Edge TTS / pyttsx3）、PyAutoGUI 微信接管、IoT 插座控制
-- [ ] **interrupt_before**：高风险工具（微信、断电）接入前需加人工确认
-- [ ] **摘要压缩独立节点**：将 `_summarize_messages` 拆为独立 LangGraph 节点，避免 decision_node 延迟
-- [ ] **多摄像头支持**：`_latest_raw_frame` 改为 `dict[int, ndarray]`
-- [ ] **Web UI**：AsyncSqliteSaver + astream，感知进程与 Web 进程通过队列通信
+- [ ] **Human confirmation**: `interrupt_before` checkpoint for high-risk tools (WeChat, chaos mode)
+- [ ] **Cross-platform**: Windows/Linux support via alternative TTS and automation backends
+- [ ] **Web UI**: Browser-based monitoring dashboard with `AsyncSqliteSaver` + `astream`
+- [ ] **Multi-camera**: Monitor multiple rooms simultaneously
+- [ ] **Custom punishment plugins**: Hot-reloadable tool modules
+- [ ] **Mobile companion app**: Push notifications when punishment is triggered
+
+---
+
+## License
+
+MIT — do whatever you want, but the author takes no responsibility for family relationship damage caused by unsolicited WeChat messages.

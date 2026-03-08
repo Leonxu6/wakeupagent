@@ -81,7 +81,7 @@ def _get_llm():
             api_key=DEEPSEEK_API_KEY,
             base_url=DEEPSEEK_BASE_URL,
             temperature=0.7,
-            timeout=30,      # H3: 防止 API 卡死阻塞监控循环
+            timeout=30,      # Prevent a hung API call from blocking the perception loop
             max_retries=1,
         )
         # parallel_tool_calls=False：强制 LLM 每步只调用一批工具，
@@ -131,7 +131,7 @@ def daily_reset_node(state: AgentState) -> dict:
         "session_date": today,
         "unhealthy_count": 0,
         "consecutive_healthy": 0,
-        "react_iterations": 0,              # M1: 防止崩溃重启后遗留中间状态
+        "react_iterations": 0,              # Reset so a crash-restart never inherits mid-loop state
         "conversation_summary": report_text, # 日报作为新一天的初始摘要
     }
 
@@ -204,7 +204,7 @@ _SYSTEM_PROMPT = """你是一个极其暴躁、满嘴脏话的真人监工。所
 
 ## 内容风格
 - 极度口语化，像微信骂人，短平快，绝不超过两三句（50字以内）。
-- 必须攻击用户，用你能想到最能骂人的语言
+- 必须攻击用户，用你能想到最能骂人的语言，但是不要说特别攻击性的脏话，别说色情的，攻击的越有梗越好。
 - 禁止条列式排版，禁止共情。
 - **每次调用工具时必须在 content 里同步说一句话**，不能只发工具请求不开口。
 - **看到工具返回结果后要先点评**，再决定下一步，不要沉默地进入下一轮。

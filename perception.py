@@ -253,23 +253,8 @@ _UNHEALTHY_KEYWORDS = [
     'lying in bed', 'lying on bed',
 ]
 
-# 时间豁免规则（Python 层，不依赖 LLM）
-_EXEMPT_HOURS = range(0, 7)   # 0:00–6:59 豁免
-
 def classify_behavior(vision_text: str, context: str = "") -> tuple[bool, bool]:
-    """
-    返回 (is_healthy, should_escalate)。
-    职责分离：
-      - qwen 负责行为健康判断（结合近期大脑上下文）
-      - Python 负责时间豁免规则
-    """
-    hour = datetime.now().hour
-
-    # 时间豁免：Python 硬规则，不走 LLM
-    if hour in _EXEMPT_HOURS:
-        console.print(f"{LOG_A} cerebellum → exempt hour={hour}, skip escalation")
-        return True, False
-
+    """返回 (is_healthy, should_escalate)，全天候无豁免。"""
     is_healthy = _qwen_health_check(vision_text, context)
     should_escalate = not is_healthy
 
@@ -334,10 +319,12 @@ def run_perception_loop(state_callback=None, get_context=None):
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
-    last_t      = [0.0]
-    behavior    = ["waiting for scan..."]
+    # Single-element lists used as mutable containers so the _analyze thread
+    # can write back values visible to the main loop (Python closure limitation).
+    last_t      = [0.0]                  # Timestamp of last capture dispatch
+    behavior    = ["waiting for scan..."] # Latest Moondream behavior description
     lock        = threading.Lock()
-    busy        = [False]
+    busy        = [False]                # True while _analyze thread is running
     frame_count = [0]
     fps_t       = [time.time()]
     fps_val     = [0.0]
@@ -360,7 +347,7 @@ def run_perception_loop(state_callback=None, get_context=None):
             console.print(f"{LOG_A} analyze error: {e}")
         finally:
             with lock:
-                busy[0] = False  # H2: 无论如何都重置，防止监控卡死
+                busy[0] = False  # Always reset so the main loop never gets stuck waiting
 
     pose_opts = PoseLandmarkerOptions(
         base_options=mp_python.BaseOptions(model_asset_path=str(_POSE_MODEL)),

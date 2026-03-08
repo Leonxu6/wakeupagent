@@ -1,59 +1,64 @@
 """
-config.py — 全局配置
+config.py — Global configuration for Cyber-Superego.
+
+All tuneable parameters live here. Edit this file to customize behavior;
+no changes needed in other source files.
 """
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── 摄像头 & 感知 ─────────────────────────────────────────────
-CAMERA_INDEX = 0
-CAPTURE_INTERVAL_SEC = 30
-MEDIAPIPE_CONFIDENCE = 0.5
+# ── Camera & Perception ───────────────────────────────────────
+CAMERA_INDEX         = 0     # Webcam index (0 = default, 1/2 for external cameras)
+CAPTURE_INTERVAL_SEC = 30    # Seconds between Moondream vision analyses
+MEDIAPIPE_CONFIDENCE = 0.5   # Detection/tracking confidence threshold for MediaPipe
 
-# ── 绘制 ──────────────────────────────────────────────────────
-GREEN_BOX_COLOR    = (0, 255, 0)      # 人体框 (BGR)
+# ── OpenCV Display ────────────────────────────────────────────
+GREEN_BOX_COLOR     = (0, 255, 0)   # Person bounding box color (BGR)
 GREEN_BOX_THICKNESS = 2
-TEXT_COLOR         = (0, 255, 0)
-TEXT_FONT_SCALE    = 0.55
-TEXT_THICKNESS     = 2
-PERSON_BOX_PADDING = 20
+TEXT_COLOR          = (0, 255, 0)
+TEXT_FONT_SCALE     = 0.55
+TEXT_THICKNESS      = 2
+PERSON_BOX_PADDING  = 20            # Pixels added around detected person bbox
 
-HAND_DOT_COLOR     = (0, 220, 255)    # 手部关键点颜色（青黄）
-HAND_LINE_COLOR    = (0, 180, 255)    # 手部骨架连线
-HAND_DOT_RADIUS    = 4
-GESTURE_COLOR      = (0, 220, 255)    # 手势标签颜色
+HAND_DOT_COLOR  = (0, 220, 255)     # Hand keypoint color (cyan-yellow, BGR)
+HAND_LINE_COLOR = (0, 180, 255)     # Hand skeleton line color
+HAND_DOT_RADIUS = 4
+GESTURE_COLOR   = (0, 220, 255)     # Gesture label color
 
-# ── Ollama / Moondream2 ───────────────────────────────────────
-OLLAMA_HOST      = "http://localhost:11434"
-MOONDREAM_MODEL  = "moondream"
-MOONDREAM_PROMPT = "What is the person doing?"
-LOCAL_CLASSIFIER_MODEL = "qwen2.5:1.5b"
+# ── Local Models (Ollama) ─────────────────────────────────────
+OLLAMA_HOST            = "http://localhost:11434"
+MOONDREAM_MODEL        = "moondream"                  # Vision model for behavior description
+MOONDREAM_PROMPT       = "What is the person doing?"  # Prompt sent to Moondream each cycle
+LOCAL_CLASSIFIER_MODEL = "qwen2.5:1.5b"               # Cerebellum: yes/no behavior classifier
 
-# ── 云端 LLM (Node B, DeepSeek) ──────────────────────────────
+# ── Cloud LLM (DeepSeek) ─────────────────────────────────────
 DEEPSEEK_API_KEY  = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_MODEL    = "deepseek-chat"
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 
-# ── Agent 记忆 & 持久化 ────────────────────────────────────────
-CHECKPOINT_DB_PATH  = "./superego.db"          # SQLite checkpointer
-DAILY_REPORT_PATH   = "./memory/daily_reports.md"
-CONTEXT_MAX_MESSAGES = 20                       # trim 阈值（条数）
-SUMMARIZE_THRESHOLD  = 30                       # 触发摘要压缩的条数
-REACT_MAX_ITERATIONS = 5                        # ReAct 最大循环轮次
+# ── Agent Memory & Persistence ────────────────────────────────
+CHECKPOINT_DB_PATH   = "./superego.db"           # SQLite file for LangGraph checkpointer
+DAILY_REPORT_PATH    = "./memory/daily_reports.md"
+CONTEXT_MAX_MESSAGES = 20   # Max messages kept in LLM context window (trim_messages count)
+SUMMARIZE_THRESHOLD  = 30   # Compress history into summary when message count exceeds this
+REACT_MAX_ITERATIONS = 5    # Max DeepSeek ReAct loop rounds per punishment session
 
-# ── 微信联系人（对应微信搜索栏能搜到的名字）────────────────────
+# ── WeChat Contacts ───────────────────────────────────────────
+# Keys are internal aliases used by the LLM when calling send_wechat_shame_message.
+# Values must exactly match the contact/group name as it appears in WeChat search.
+# ⚠️  Fill in your real contact names before running — defaults are placeholders.
 WECHAT_CONTACTS = {
-    "老妈":   "妈妈",     # 改成你微信里妈妈的备注名
-    "导师":   "Leon",     # 改成你微信里导师的备注名
-    "班级群": "班级群",   # 改成你微信里群聊名称
+    "老妈":   "妈妈",       # e.g. "Mom" — your mother's WeChat display name
+    "导师":   "导师",       # e.g. "Prof. Zhang" — your supervisor's WeChat name
+    "班级群": "班级群",     # e.g. "Class 2024" — your class group chat name
 }
 
-# ── 日志前缀 ──────────────────────────────────────────────────
-LOG_A = "[cyan][A][/cyan]"    # perception
-LOG_B = "[yellow][B][/yellow]"  # decision
-LOG_C = "[red][C][/red]"      # execution
-# 向后兼容
+# ── Console Log Prefixes (Rich markup) ───────────────────────
+LOG_A = "[cyan][A][/cyan]"      # Perception node
+LOG_B = "[yellow][B][/yellow]"  # Decision node
+LOG_C = "[red][C][/red]"        # Execution node
 LOG_PERCEPTION = LOG_A
 LOG_DECISION   = LOG_B
 LOG_EXECUTION  = LOG_C
