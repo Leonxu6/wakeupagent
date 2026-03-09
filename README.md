@@ -224,7 +224,7 @@ Round 5 · forced END                 Max iterations reached
 #### Step 1 — Clone and install dependencies
 
 ```bash
-git clone https://github.com/yourname/wakeupagent.git
+git clone https://github.com/Leonxu6/wakeupagent.git
 cd wakeupagent
 uv sync
 ```
@@ -576,7 +576,7 @@ flowchart LR
 #### 第一步 — 克隆仓库并安装依赖
 
 ```bash
-git clone https://github.com/yourname/wakeupagent.git
+git clone https://github.com/Leonxu6/wakeupagent.git
 cd wakeupagent
 uv sync
 ```
