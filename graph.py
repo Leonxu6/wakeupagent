@@ -110,6 +110,16 @@ def daily_reset_node(state: AgentState) -> dict:
     today = date.today().isoformat()
     session_date = state.get("session_date", "")
 
+    # First run has no previous day to summarize. Initialize the durable
+    # counters without creating an empty report entry.
+    if not session_date:
+        return {
+            "session_date": today,
+            "unhealthy_count": 0,
+            "consecutive_healthy": 0,
+            "react_iterations": 0,
+        }
+
     if session_date == today:
         return {}  # 同一天，无操作
 

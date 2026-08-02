@@ -6,7 +6,7 @@ usage:
     uv run main.py --graph   # one-shot langgraph run (mock)
 """
 import argparse
-from datetime import datetime, date
+from datetime import datetime
 
 from rich.console import Console
 from config import LOG_A, LOG_B, LOG_C
@@ -18,6 +18,16 @@ _THREAD_CONFIG = {"configurable": {"thread_id": "superego_main"}}
 
 # 同步给小脑的滚动上下文：保留最近 N 条记录（观察文本 + 大脑判决）
 _CONTEXT_WINDOW = 15
+
+
+def _observation_state(text: str, ts: str, is_healthy: bool, should_escalate: bool) -> dict:
+    """Build one graph input without overwriting checkpointed daily state."""
+    return {
+        "current_vision_text": text,
+        "healthy": is_healthy,
+        "should_escalate": should_escalate,
+        "timestamp": ts,
+    }
 
 
 def run_perception_mode():
@@ -51,13 +61,7 @@ def run_perception_mode():
     def on_vision(text: str, ts: str, is_healthy: bool, should_escalate: bool):
         """定时摄像头触发的感知回调。"""
         recent_items.append(f"[Obs] {text[:100]}")
-        state = {
-            "current_vision_text": text,
-            "healthy": is_healthy,
-            "should_escalate": should_escalate,
-            "timestamp": ts,
-            "session_date": date.today().isoformat(),
-        }
+        state = _observation_state(text, ts, is_healthy, should_escalate)
         _stream_graph(state)
 
     def get_context() -> str:
@@ -79,13 +83,12 @@ def run_graph_mode():
     from graph import build_graph
     console.print(f"{LOG_A} building langgraph")
     graph = build_graph()
-    state = {
-        "current_vision_text": "person lying in bed scrolling phone",
-        "healthy": False,
-        "should_escalate": True,
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "session_date": date.today().isoformat(),
-    }
+    state = _observation_state(
+        "person lying in bed scrolling phone",
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        False,
+        True,
+    )
     console.print(f"{LOG_A} START -> [R] -> [A] -> [B] -> [C]")
     for _ in graph.stream(state, config=_THREAD_CONFIG, stream_mode="updates"):
         pass
