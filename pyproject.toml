@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "langgraph>=0.2",
     "langchain>=0.3",
+    "langchain-core>=0.3,!=1.2.17",
     "langchain-community>=0.3",
     "langchain-openai>=0.1",
     "langgraph-checkpoint-sqlite>=2.0",
@@ -19,6 +20,3 @@ dependencies = [
     "numpy>=1.26",
     "rich>=13.0",
 ]
-
-[tool.uv]
-dev-dependencies = []
