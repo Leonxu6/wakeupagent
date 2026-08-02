@@ -186,7 +186,10 @@ Layer 3 · qwen2.5:1.5b yes/no classification
   Rule: innocent until proven guilty — unclear answer → healthy default
 ```
 
-> **Why not inject conversation history into qwen?** Testing showed that feeding the small 1.5B model prior LLM conversations (containing scolding text in Chinese) caused ~12% false-positive rate on clearly healthy behaviors. The classifier now sees only the current frame description.
+> **What context reaches qwen?** The current frame description is the primary
+> input. The application can also provide a bounded text summary and recent
+> observation/decision history to help disambiguate behavior. Camera images
+> still remain local; only text is passed to the classifier.
 
 ### Punishment Escalation
 
@@ -240,9 +243,11 @@ ollama pull moondream      # Vision model — describes what the camera sees
 ollama pull qwen2.5:1.5b   # Cerebellum — classifies behavior as healthy/unhealthy
 ```
 
-#### Step 3 — Download MediaPipe model files
+#### Step 3 — Verify MediaPipe model files
 
-Download these two files and place them in the project root directory:
+The repository already includes these two model files in its root directory.
+If either file is missing or corrupted, download a fresh copy from the links
+below:
 
 | File | Size | Link |
 |---|---|---|
@@ -329,8 +334,8 @@ wakeupagent/
 ├── tools.py                    # Execution tool library — all 6 tools fully implemented
 ├── config.py                   # All configuration in one place
 │
-├── pose_landmarker_lite.task   # MediaPipe Pose model (download separately, not in repo)
-├── gesture_recognizer.task     # MediaPipe Gesture model (download separately, not in repo)
+├── pose_landmarker_lite.task   # MediaPipe Pose model (included in the repository)
+├── gesture_recognizer.task     # MediaPipe Gesture model (included in the repository)
 │
 ├── pyproject.toml              # Dependencies (managed with uv)
 ├── .env.example                # Environment variable template
@@ -343,7 +348,7 @@ wakeupagent/
 ### FAQ
 
 **Q: The system keeps flagging me as procrastinating even when I'm studying.**
-The cerebellum uses "innocent until proven guilty" — ambiguous cases default to healthy. If you're consistently misclassified, add the specific words Moondream uses to describe your activity to `_HEALTHY_KEYWORDS` in `perception.py`.
+The cerebellum uses "innocent until proven guilty" — ambiguous cases default to healthy. If you're consistently misclassified, capture Moondream's exact description, check it for an unintended match in `_UNHEALTHY_KEYWORDS`, and adjust the keyword list or `_CLASSIFIER_PROMPT` in `perception.py` with a regression test.
 
 **Q: WeChat messages aren't sending.**
 Check: (1) WeChat Mac is logged in and running; (2) your terminal has Accessibility permission; (3) `WECHAT_CONTACTS` values exactly match WeChat search results (including spaces and special characters).
@@ -538,7 +543,7 @@ flowchart LR
   原则：疑罪从无 —— 不确定 → 默认健康
 ```
 
-> **为什么不把对话历史注入 qwen？** 测试发现，将包含中文骂人内容的大脑对话历史喂给 1.5B 小模型后，明显健康的行为误判率高达 ~12%。现在分类器只看当前帧的描述。
+> **qwen 会收到哪些上下文？** 当前帧的文字描述是主要输入；应用也可以提供有长度限制的摘要，以及近期观察/判决文字，帮助消除行为歧义。摄像头图像仍只留在本地，分类器收到的只有文字。
 
 ### 惩罚升级机制
 
@@ -592,9 +597,9 @@ ollama pull moondream      # 视觉模型 —— 描述摄像头画面
 ollama pull qwen2.5:1.5b   # 小脑分类器 —— 判断行为健康与否
 ```
 
-#### 第三步 — 下载 MediaPipe 模型文件
+#### 第三步 — 确认 MediaPipe 模型文件
 
-下载以下两个文件并放入项目根目录：
+仓库根目录已经包含以下两个模型文件。仅当文件缺失或损坏时，才需要通过表中的链接重新下载：
 
 | 文件 | 大小 | 链接 |
 |---|---|---|
@@ -681,8 +686,8 @@ wakeupagent/
 ├── tools.py                    # 执行工具库 —— 全部 6 个工具真实实现
 ├── config.py                   # 所有配置集中管理
 │
-├── pose_landmarker_lite.task   # MediaPipe 姿态模型（单独下载，不在仓库中）
-├── gesture_recognizer.task     # MediaPipe 手势模型（单独下载，不在仓库中）
+├── pose_landmarker_lite.task   # MediaPipe 姿态模型（仓库已包含）
+├── gesture_recognizer.task     # MediaPipe 手势模型（仓库已包含）
 │
 ├── pyproject.toml              # 依赖管理（uv）
 ├── .env.example                # 环境变量模板
@@ -695,7 +700,7 @@ wakeupagent/
 ### 常见问题
 
 **Q: 我在认真学习，但系统总是把我判定为摆烂。**
-小脑使用"疑罪从无"原则 —— 模糊情况默认为健康。如果你持续被误判，将 Moondream 描述你行为时使用的具体词语添加到 `perception.py` 的 `_HEALTHY_KEYWORDS` 中。
+小脑使用"疑罪从无"原则 —— 模糊情况默认为健康。如果你持续被误判，先记录 Moondream 的原始描述，检查是否误命中 `perception.py` 中的 `_UNHEALTHY_KEYWORDS`，再通过回归测试调整关键词或 `_CLASSIFIER_PROMPT`。
 
 **Q: 微信消息发不出去。**
 检查：(1) 微信 Mac 已登录并在运行；(2) 终端已获得辅助功能权限；(3) `WECHAT_CONTACTS` 的值与微信搜索结果完全一致（包括空格和特殊字符）。
