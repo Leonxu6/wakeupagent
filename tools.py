@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import time
 import webbrowser
+from urllib.parse import urlparse
 
 from langchain_core.tools import tool
 from rich.console import Console
@@ -19,6 +20,15 @@ console = Console()
 
 # macOS TTS 普通话语音（系统偏好 > 辅助功能 > 朗读内容 可安装更多声音）
 _TTS_VOICE = "Tingting"
+
+
+def _has_http_url_target(url: str) -> bool:
+    """Return whether a URL uses HTTP(S) and includes a hostname."""
+    try:
+        parsed = urlparse(url)
+        return parsed.scheme.lower() in {"http", "https"} and bool(parsed.hostname)
+    except (AttributeError, ValueError):
+        return False
 
 
 @tool
@@ -135,9 +145,13 @@ def open_webpage(url: str) -> str:
     Returns:
         执行结果描述
     """
+    if not _has_http_url_target(url):
+        return "Error: URL 必须是包含主机名的 http:// 或 https:// 地址"
+
     console.print(f"[bold red]🌐 [浏览器] 强制打开 {url}[/bold red]")
     try:
-        webbrowser.open(url)
+        if not webbrowser.open(url):
+            return f"Error: 浏览器未能打开：{url}"
         return f"已在浏览器中打开：{url}"
     except Exception as e:
         return f"Error: {e}"
