@@ -24,6 +24,16 @@ class RuntimePathTests(unittest.TestCase):
                 Path("/home/test/report.md"),
             )
 
+    def test_rejects_blank_string_paths(self):
+        for value in ("", " ", "\t"):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "must not be empty"):
+                    runtime_paths.resolve_runtime_path(value)
+
+    def test_rejects_null_bytes(self):
+        with self.assertRaisesRegex(ValueError, "null bytes"):
+            runtime_paths.resolve_runtime_path("memory/\x00report.md")
+
 
 if __name__ == "__main__":
     unittest.main()
