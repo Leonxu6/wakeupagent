@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import platform
 import stat
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,6 +17,16 @@ class Check:
     name: str
     ok: bool
     detail: str
+
+
+def _python_check(version: tuple[int, int] | None = None) -> Check:
+    """Verify the interpreter matches the project's declared Python floor."""
+    current = version or (sys.version_info.major, sys.version_info.minor)
+    ok = current >= (3, 12)
+    detail = platform.python_version() if version is None else f"{current[0]}.{current[1]}"
+    if not ok:
+        detail += " (requires Python >=3.12)"
+    return Check("python", ok, detail)
 
 
 def _model_check(name: str, path: Path) -> Check:
@@ -72,7 +83,7 @@ def collect_checks(base_dir: Path | None = None) -> list[Check]:
     """Collect checks without opening the camera or contacting network services."""
     root = base_dir or Path(__file__).resolve().parent
     checks = [
-        Check("python", True, platform.python_version()),
+        _python_check(),
         Check("platform", platform.system() == "Darwin", platform.platform()),
         _model_check("pose-model", root / "pose_landmarker_lite.task"),
         _model_check("gesture-model", root / "gesture_recognizer.task"),
