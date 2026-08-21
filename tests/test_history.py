@@ -33,13 +33,23 @@ class ContextHistoryTests(unittest.TestCase):
         self.assertEqual(history.render(), "")
 
     def test_invalid_limits_are_rejected(self):
-        for value in (0, -1, True, 1.5):
-            with self.subTest(value=value), self.assertRaises(ValueError):
-                ContextHistory(max_items=value)
+        fields = ("max_items", "summary_limit", "observation_limit", "decision_limit")
+        for field in fields:
+            for value in (0, -1, True, 1.5, "2"):
+                with self.subTest(field=field, value=value), self.assertRaises(ValueError):
+                    ContextHistory(**{field: value})
+
         history = ContextHistory()
         for value in (0, -2, True, "2"):
             with self.subTest(recent=value), self.assertRaises(ValueError):
                 history.render(recent=value)
+
+    def test_limit_validation_preserves_valid_custom_sizes(self):
+        history = ContextHistory(max_items=2, summary_limit=3, observation_limit=4, decision_limit=5)
+        history.set_summary("abcdef")
+        history.add_observation("abcdef")
+        history.add_decision("abcdef")
+        self.assertEqual(history.render(), "Summary: abc\n\nRecent history:\n[Obs] abcd\n[Brain] abcde")
 
 
 if __name__ == "__main__":
