@@ -54,8 +54,11 @@ def require_http_url(value: object, *, max_length: int = 2048) -> str:
         _ = parsed.port  # force malformed port validation
     except (TypeError, ValueError) as exc:
         raise ValueError("url is malformed") from exc
-    if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+    hostname = parsed.hostname
+    if parsed.scheme.lower() not in {"http", "https"} or not hostname:
         raise ValueError("url must use http:// or https:// and include a hostname")
+    if any(ch.isspace() for ch in hostname):
+        raise ValueError("url hostname must not contain whitespace")
     if parsed.username is not None or parsed.password is not None:
         raise ValueError("url must not contain embedded credentials")
     return url
