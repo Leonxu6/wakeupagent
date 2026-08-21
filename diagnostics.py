@@ -4,9 +4,9 @@ from __future__ import annotations
 import platform
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlparse
 
 import config
+from safety import require_http_url
 
 
 @dataclass(frozen=True)
@@ -36,6 +36,15 @@ def _directory_check(name: str, path: Path) -> Check:
     return Check(name, True, str(path))
 
 
+def _http_url_check(name: str, value: object) -> Check:
+    """Apply the same HTTP(S) boundary used by browser-facing runtime tools."""
+    try:
+        normalized = require_http_url(value)
+    except ValueError as exc:
+        return Check(name, False, str(exc))
+    return Check(name, True, normalized)
+
+
 def collect_checks(base_dir: Path | None = None) -> list[Check]:
     """Collect checks without opening the camera or contacting network services."""
     root = base_dir or Path(__file__).resolve().parent
@@ -51,10 +60,8 @@ def collect_checks(base_dir: Path | None = None) -> list[Check]:
     checks.append(_directory_check("checkpoint-dir", checkpoint_parent))
     checks.append(_directory_check("report-dir", report_parent))
 
-    ollama = urlparse(config.OLLAMA_HOST)
-    checks.append(Check("ollama-url", bool(ollama.hostname), config.OLLAMA_HOST))
-    deepseek = urlparse(config.DEEPSEEK_BASE_URL)
-    checks.append(Check("deepseek-url", bool(deepseek.hostname), config.DEEPSEEK_BASE_URL))
+    checks.append(_http_url_check("ollama-url", config.OLLAMA_HOST))
+    checks.append(_http_url_check("deepseek-url", config.DEEPSEEK_BASE_URL))
     checks.append(
         Check(
             "deepseek-key",
