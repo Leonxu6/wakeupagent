@@ -4,6 +4,7 @@ main.py — Cyber-Superego entry point
 usage:
     uv run main.py           # perception loop (live camera)
     uv run main.py --graph   # one-shot langgraph run (mock)
+    uv run main.py --check   # validate local installation without camera/network calls
 """
 import argparse
 from datetime import datetime
@@ -95,20 +96,39 @@ def run_graph_mode():
     console.print(f"{LOG_A} graph run complete")
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--graph", action="store_true", help="run mock graph flow")
-    args = ap.parse_args()
+def run_check_mode() -> int:
+    """Print installation diagnostics without starting camera or network clients."""
+    from diagnostics import collect_checks, diagnostics_exit_code, format_checks
+
+    checks = collect_checks()
+    console.print(format_checks(checks))
+    return diagnostics_exit_code(checks)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="WakeUpAgent edge-cloud productivity supervisor")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--graph", action="store_true", help="run mock graph flow")
+    mode.add_argument("--check", action="store_true", help="validate installation without camera/network side effects")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+
+    if args.check:
+        return run_check_mode()
 
     console.print("[cyan]CYBER-SUPEREGO[/cyan]  edge-cloud hybrid supervisor")
-    console.print(f"  nodes: [R] reset  [A] perception+cerebellum  [B] decision  [C] execution")
-    console.print(f"  stack: mediapipe / moondream / qwen2.5(cerebellum) / deepseek / langgraph\n")
+    console.print("  nodes: [R] reset  [A] perception+cerebellum  [B] decision  [C] execution")
+    console.print("  stack: mediapipe / moondream / qwen2.5(cerebellum) / deepseek / langgraph\n")
 
     if args.graph:
         run_graph_mode()
     else:
         run_perception_mode()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
