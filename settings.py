@@ -99,8 +99,11 @@ def env_http_url(name: str, default: str) -> str:
         _ = parsed.port
     except ValueError as exc:
         raise ValueError(f"{name} is not a valid URL") from exc
-    if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+    hostname = parsed.hostname
+    if parsed.scheme.lower() not in {"http", "https"} or not hostname:
         raise ValueError(f"{name} must be an http(s) URL with a hostname")
+    if any(ch.isspace() for ch in hostname):
+        raise ValueError(f"{name} hostname must not contain whitespace")
     if parsed.username is not None or parsed.password is not None:
         raise ValueError(f"{name} must not contain credentials")
     if parsed.query or parsed.fragment:
