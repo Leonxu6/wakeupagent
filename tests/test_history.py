@@ -25,6 +25,16 @@ class ContextHistoryTests(unittest.TestCase):
         self.assertIn("[Obs] obser", rendered)
         self.assertIn("[Brain] decisi", rendered)
 
+    def test_multiline_and_repeated_whitespace_are_normalized(self):
+        history = ContextHistory()
+        history.set_summary("first\nsecond")
+        history.add_observation("look\taway\nnow")
+        history.add_decision("  resume   work  ")
+        self.assertEqual(
+            history.render(),
+            "Summary: first second\n\nRecent history:\n[Obs] look away now\n[Brain] resume work",
+        )
+
     def test_non_text_items_are_ignored(self):
         history = ContextHistory()
         history.set_summary(None)
