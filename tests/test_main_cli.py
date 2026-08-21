@@ -35,6 +35,14 @@ class MainCliTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             parser.parse_args(["--graph", "--check"])
 
+    def test_message_text_preserves_structured_text_blocks(self):
+        self.assertEqual(main._message_text("plain"), "plain")
+        self.assertEqual(
+            main._message_text([{"type": "text", "text": "first"}, "second", {"type": "image", "url": "x"}]),
+            "first second",
+        )
+        self.assertEqual(main._message_text({"text": "not-a-list"}), "")
+
     def test_shutdown_runtime_error_detection_is_narrow(self):
         self.assertTrue(
             main._is_shutdown_runtime_error(RuntimeError("cannot schedule new futures after shutdown"))
