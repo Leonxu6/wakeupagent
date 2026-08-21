@@ -9,6 +9,22 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    """Parse a strict boolean environment flag with actionable errors."""
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    value = raw.strip().lower()
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(
+        f"{name} must be one of: 1/0, true/false, yes/no, on/off"
+    )
+
+
 # ── Camera & Perception ───────────────────────────────────────
 CAMERA_INDEX         = 0     # Webcam index (0 = default, 1/2 for external cameras)
 CAPTURE_INTERVAL_SEC = 30    # Seconds between Moondream vision analyses
@@ -38,6 +54,12 @@ DEEPSEEK_API_KEY  = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_MODEL    = "deepseek-chat"
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 
+# ── Side-effect safety ────────────────────────────────────────
+# Potentially disruptive actions are disabled unless the operator explicitly opts in.
+ENABLE_WECHAT_ACTIONS = _env_flag("WAKEUP_ENABLE_WECHAT_ACTIONS")
+ENABLE_APP_TERMINATION = _env_flag("WAKEUP_ENABLE_APP_TERMINATION")
+ENABLE_CHAOS_ACTIONS = _env_flag("WAKEUP_ENABLE_CHAOS_ACTIONS")
+
 # ── Agent Memory & Persistence ────────────────────────────────
 CHECKPOINT_DB_PATH   = "./superego.db"           # SQLite file for LangGraph checkpointer
 DAILY_REPORT_PATH    = "./memory/daily_reports.md"
@@ -48,11 +70,11 @@ REACT_MAX_ITERATIONS = 5    # Max DeepSeek ReAct loop rounds per punishment sess
 # ── WeChat Contacts ───────────────────────────────────────────
 # Keys are internal aliases used by the LLM when calling send_wechat_shame_message.
 # Values must exactly match the contact/group name as it appears in WeChat search.
-# ⚠️  Fill in your real contact names before running — defaults are placeholders.
+# Fill in real contact names only when WAKEUP_ENABLE_WECHAT_ACTIONS is explicitly enabled.
 WECHAT_CONTACTS = {
-    "老妈":   "妈妈",       # e.g. "Mom" — your mother's WeChat display name
-    "导师":   "导师",       # e.g. "Prof. Zhang" — your supervisor's WeChat name
-    "班级群": "班级群",     # e.g. "Class 2024" — your class group chat name
+    "老妈":   "妈妈",
+    "导师":   "导师",
+    "班级群": "班级群",
 }
 
 # ── Console Log Prefixes (Rich markup) ───────────────────────
