@@ -30,6 +30,12 @@ def _observation_state(text: str, ts: str, is_healthy: bool, should_escalate: bo
     }
 
 
+def _is_shutdown_runtime_error(exc: RuntimeError) -> bool:
+    """Recognize the executor shutdown race that can happen while quitting."""
+    message = str(exc).lower()
+    return "cannot schedule new futures after" in message and "shutdown" in message
+
+
 def run_perception_mode():
     from perception import run_perception_loop
     from graph import build_graph
@@ -49,8 +55,9 @@ def run_perception_mode():
                     for message in node_output.get("messages", []):
                         if getattr(message, "type", None) == "ai":
                             history.add_decision(getattr(message, "content", ""))
-        except RuntimeError:
-            pass  # main-thread shutdown can close the executor while a frame completes
+        except RuntimeError as exc:
+            if not _is_shutdown_runtime_error(exc):
+                console.print(f"[red]stream runtime error: {exc}[/red]")
         except Exception as exc:  # noqa: BLE001
             console.print(f"[red]stream error: {exc}[/red]")
 
