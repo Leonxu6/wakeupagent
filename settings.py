@@ -92,6 +92,7 @@ def env_bool(name: str, default: bool) -> bool:
 
 
 def env_http_url(name: str, default: str) -> str:
+    """Read a clean HTTP(S) service base URL without credentials or URL state."""
     value = env_text(name, default, max_length=2048)
     try:
         parsed = urlparse(value)
@@ -102,6 +103,8 @@ def env_http_url(name: str, default: str) -> str:
         raise ValueError(f"{name} must be an http(s) URL with a hostname")
     if parsed.username is not None or parsed.password is not None:
         raise ValueError(f"{name} must not contain credentials")
+    if parsed.query or parsed.fragment:
+        raise ValueError(f"{name} must not contain a query string or fragment")
     return value.rstrip("/")
 
 
