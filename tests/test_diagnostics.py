@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -60,12 +61,29 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertTrue(valid.ok)
         self.assertEqual(valid.detail, "https://example.com:8443/api")
 
+    def test_feature_flag_check_reports_enabled_disabled_and_invalid_values(self):
+        with patch.dict(os.environ, {}, clear=True):
+            disabled = diagnostics._feature_flag_check("feature", "FEATURE")
+        self.assertTrue(disabled.ok)
+        self.assertEqual(disabled.detail, "disabled")
+
+        with patch.dict(os.environ, {"FEATURE": "true"}, clear=True):
+            enabled = diagnostics._feature_flag_check("feature", "FEATURE")
+        self.assertTrue(enabled.ok)
+        self.assertEqual(enabled.detail, "enabled")
+
+        with patch.dict(os.environ, {"FEATURE": "sometimes"}, clear=True):
+            invalid = diagnostics._feature_flag_check("feature", "FEATURE")
+        self.assertFalse(invalid.ok)
+        self.assertIn("must be one of", invalid.detail)
+
     def test_collect_checks_is_side_effect_free_and_reports_configuration(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "pose_landmarker_lite.task").write_bytes(b"pose")
             (root / "gesture_recognizer.task").write_bytes(b"gesture")
-            with patch.object(diagnostics.config, "CHECKPOINT_DB_PATH", str(root / "state.db")), \
+            with patch.dict(os.environ, {}, clear=True), \
+                 patch.object(diagnostics.config, "CHECKPOINT_DB_PATH", str(root / "state.db")), \
                  patch.object(diagnostics.config, "DAILY_REPORT_PATH", str(root / "reports.md")), \
                  patch.object(diagnostics.config, "OLLAMA_HOST", "http://localhost:11434"), \
                  patch.object(diagnostics.config, "DEEPSEEK_BASE_URL", "https://api.deepseek.com"), \
@@ -79,6 +97,8 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertTrue(by_name["ollama-url"].ok)
         self.assertTrue(by_name["deepseek-url"].ok)
         self.assertFalse(by_name["deepseek-key"].ok)
+        self.assertEqual(by_name["external-messaging"].detail, "disabled")
+        self.assertEqual(by_name["process-control"].detail, "disabled")
 
     def test_format_checks_has_stable_markers(self):
         text = diagnostics.format_checks([
