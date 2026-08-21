@@ -1,0 +1,50 @@
+name: Bug report
+description: Report a reproducible WakeUpAgent defect
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting a reproducible problem. Do not include API keys, contact names, screenshots with personal data, or camera frames.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Provide the smallest safe sequence that reproduces the issue.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      placeholder: macOS 15.x, Python 3.12.x
+    validations:
+      required: true
+  - type: dropdown
+    id: side_effect
+    attributes:
+      label: Does this involve an external side effect?
+      options:
+        - No
+        - Browser
+        - Text-to-speech
+        - App termination
+        - WeChat automation
+        - Camera
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      description: Remove secrets and personal data before pasting logs.
+      render: shell
