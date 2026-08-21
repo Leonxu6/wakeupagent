@@ -55,10 +55,17 @@ class EnvironmentParserTests(unittest.TestCase):
         with patch.dict(os.environ, {"FLAG": "maybe"}, clear=True), self.assertRaises(ValueError):
             env_bool("FLAG", False)
 
-    def test_http_url_parser_requires_host_and_forbids_credentials(self):
+    def test_http_url_parser_requires_clean_service_base_url(self):
         with patch.dict(os.environ, {"URL": "https://example.com/api/"}, clear=True):
             self.assertEqual(env_http_url("URL", "http://localhost"), "https://example.com/api")
-        for value in ("file:///tmp/x", "https:///missing", "https://u:p@example.com"):
+        invalid = (
+            "file:///tmp/x",
+            "https:///missing",
+            "https://u:p@example.com",
+            "https://example.com/api?token=1",
+            "https://example.com/api#section",
+        )
+        for value in invalid:
             with self.subTest(value=value), patch.dict(os.environ, {"URL": value}, clear=True):
                 with self.assertRaises(ValueError):
                     env_http_url("URL", "http://localhost")
