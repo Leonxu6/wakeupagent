@@ -14,10 +14,7 @@ from config import LOG_A, LOG_B, LOG_C
 
 console = Console()
 
-# 固定 thread_id：让 checkpointer 跨轮累积同一用户的状态
 _THREAD_CONFIG = {"configurable": {"thread_id": "superego_main"}}
-
-# 同步给小脑的滚动上下文：保留最近 N 条记录（观察文本 + 大脑判决）
 _CONTEXT_WINDOW = 15
 
 
@@ -31,13 +28,23 @@ def _observation_state(text: str, ts: str, is_healthy: bool, should_escalate: bo
     }
 
 
+def _build_context(summary: str, recent_items: list[str], window: int = _CONTEXT_WINDOW) -> str:
+    """Build the bounded text context shared with the local classifier."""
+    parts = []
+    if summary:
+        parts.append(f"Summary: {summary[:200]}")
+    if recent_items:
+        parts.append("Recent history:\n" + "\n".join(recent_items[-window:]))
+    return "\n\n".join(parts)
+
+
 def run_perception_mode():
     from perception import run_perception_loop
     from graph import build_graph
 
     graph = build_graph()
-    last_summary = [""]          # 压缩摘要（长期记忆）
-    recent_items: list[str] = [] # 近期观察+判决 滚动列表（短期记忆）
+    last_summary = [""]
+    recent_items: list[str] = []
 
     def _stream_graph(state: dict):
         """运行图并更新 recent_items / last_summary。"""
@@ -52,7 +59,7 @@ def run_perception_mode():
                         if getattr(m, "type", None) == "ai" and getattr(m, "content", ""):
                             recent_items.append(f"[Brain] {m.content[:120]}")
         except RuntimeError:
-            pass  # 主线程退出时 executor 已关闭，忽略
+            pass
         except Exception as e:
             console.print(f"[red]stream error: {e}[/red]")
 
@@ -60,19 +67,12 @@ def run_perception_mode():
             recent_items.pop(0)
 
     def on_vision(text: str, ts: str, is_healthy: bool, should_escalate: bool):
-        """定时摄像头触发的感知回调。"""
         recent_items.append(f"[Obs] {text[:100]}")
         state = _observation_state(text, ts, is_healthy, should_escalate)
         _stream_graph(state)
 
     def get_context() -> str:
-        """返回给小脑的完整上下文字符串：摘要 + 近期记录。"""
-        parts = []
-        if last_summary[0]:
-            parts.append(f"Summary: {last_summary[0][:200]}")
-        if recent_items:
-            parts.append("Recent history:\n" + "\n".join(recent_items[-10:]))
-        return "\n\n".join(parts)
+        return _build_context(last_summary[0], recent_items)
 
     run_perception_loop(
         state_callback=on_vision,
