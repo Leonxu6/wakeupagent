@@ -21,9 +21,19 @@ def _model_check(name: str, path: Path) -> Check:
         return Check(name, False, f"missing: {path}")
     if not path.is_file():
         return Check(name, False, f"not a file: {path}")
-    if path.stat().st_size == 0:
+    size = path.stat().st_size
+    if size == 0:
         return Check(name, False, f"empty model file: {path}")
-    return Check(name, True, f"{path.name} ({path.stat().st_size} bytes)")
+    return Check(name, True, f"{path.name} ({size} bytes)")
+
+
+def _directory_check(name: str, path: Path) -> Check:
+    """Report whether a configured persistence parent is an existing directory."""
+    if not path.exists():
+        return Check(name, False, f"missing: {path}")
+    if not path.is_dir():
+        return Check(name, False, f"not a directory: {path}")
+    return Check(name, True, str(path))
 
 
 def collect_checks(base_dir: Path | None = None) -> list[Check]:
@@ -38,8 +48,8 @@ def collect_checks(base_dir: Path | None = None) -> list[Check]:
 
     checkpoint_parent = Path(config.CHECKPOINT_DB_PATH).expanduser().resolve().parent
     report_parent = Path(config.DAILY_REPORT_PATH).expanduser().resolve().parent
-    checks.append(Check("checkpoint-dir", checkpoint_parent.exists(), str(checkpoint_parent)))
-    checks.append(Check("report-dir", report_parent.exists(), str(report_parent)))
+    checks.append(_directory_check("checkpoint-dir", checkpoint_parent))
+    checks.append(_directory_check("report-dir", report_parent))
 
     ollama = urlparse(config.OLLAMA_HOST)
     checks.append(Check("ollama-url", bool(ollama.hostname), config.OLLAMA_HOST))
