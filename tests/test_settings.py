@@ -2,13 +2,14 @@ import os
 import unittest
 from unittest.mock import patch
 
-from settings import env_bool, env_float, env_http_url, env_int, env_path, env_text
+from settings import env_bool, env_float, env_http_url, env_int, env_path, env_secret, env_text
 
 
 class EnvironmentParserTests(unittest.TestCase):
     def test_defaults_are_returned_when_variables_are_missing(self):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(env_text("TEXT", "fallback"), "fallback")
+            self.assertEqual(env_secret("TOKEN"), "")
             self.assertEqual(env_int("COUNT", 3), 3)
             self.assertEqual(env_float("RATE", 0.5), 0.5)
             self.assertTrue(env_bool("ENABLED", True))
@@ -19,6 +20,15 @@ class EnvironmentParserTests(unittest.TestCase):
             with self.subTest(value=value), patch.dict(os.environ, {"VALUE": value}, clear=True):
                 with self.assertRaises(ValueError):
                     env_text("VALUE", "ok", max_length=5)
+
+    def test_secret_parser_allows_empty_but_rejects_unsafe_header_values(self):
+        for value in ("", "token-123", "abc.def_456"):
+            with self.subTest(value=value), patch.dict(os.environ, {"TOKEN": value}, clear=True):
+                self.assertEqual(env_secret("TOKEN"), value)
+        for value in (" padded", "padded ", "line\nbreak", "tab\tvalue", "123456"):
+            with self.subTest(value=value), patch.dict(os.environ, {"TOKEN": value}, clear=True):
+                with self.assertRaises(ValueError):
+                    env_secret("TOKEN", max_length=5)
 
     def test_integer_parser_enforces_ascii_and_bounds(self):
         for value in ("0", "3", "10", "-2"):
