@@ -37,6 +37,15 @@ class DiagnosticsTests(unittest.TestCase):
             valid = diagnostics._directory_check("state", root)
             self.assertTrue(valid.ok)
 
+    def test_http_url_check_matches_runtime_url_boundaries(self):
+        for value in ("ftp://example.com", "https://user:secret@example.com", "https://example.com:bad"):
+            with self.subTest(value=value):
+                self.assertFalse(diagnostics._http_url_check("service", value).ok)
+
+        valid = diagnostics._http_url_check("service", "https://example.com:8443/api")
+        self.assertTrue(valid.ok)
+        self.assertEqual(valid.detail, "https://example.com:8443/api")
+
     def test_collect_checks_is_side_effect_free_and_reports_configuration(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -53,6 +62,8 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertTrue(by_name["pose-model"].ok)
         self.assertTrue(by_name["gesture-model"].ok)
         self.assertTrue(by_name["checkpoint-dir"].ok)
+        self.assertTrue(by_name["ollama-url"].ok)
+        self.assertTrue(by_name["deepseek-url"].ok)
         self.assertFalse(by_name["deepseek-key"].ok)
 
     def test_format_checks_has_stable_markers(self):
