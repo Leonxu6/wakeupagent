@@ -7,6 +7,8 @@ no changes needed in other source files.
 import os
 from dotenv import load_dotenv
 
+from runtime_paths import resolve_runtime_path
+
 load_dotenv()
 
 
@@ -61,8 +63,10 @@ ENABLE_APP_TERMINATION = _env_flag("WAKEUP_ENABLE_APP_TERMINATION")
 ENABLE_CHAOS_ACTIONS = _env_flag("WAKEUP_ENABLE_CHAOS_ACTIONS")
 
 # ── Agent Memory & Persistence ────────────────────────────────
-CHECKPOINT_DB_PATH   = "./superego.db"           # SQLite file for LangGraph checkpointer
-DAILY_REPORT_PATH    = "./memory/daily_reports.md"
+# Resolve from the project root so launching from another cwd does not create
+# checkpoints or reports in surprising directories.
+CHECKPOINT_DB_PATH = str(resolve_runtime_path("superego.db"))
+DAILY_REPORT_PATH = str(resolve_runtime_path("memory/daily_reports.md"))
 CONTEXT_MAX_MESSAGES = 20   # Max messages kept in LLM context window (trim_messages count)
 SUMMARIZE_THRESHOLD  = 30   # Compress history into summary when message count exceeds this
 REACT_MAX_ITERATIONS = 5    # Max DeepSeek ReAct loop rounds per punishment session
