@@ -44,6 +44,13 @@ class DiagnosticsTests(unittest.TestCase):
             valid = diagnostics._directory_check("state", root)
             self.assertTrue(valid.ok)
 
+    def test_directory_check_reports_unreadable_metadata_without_crashing(self):
+        with patch.object(Path, "stat", side_effect=PermissionError("blocked")):
+            check = diagnostics._directory_check("state", Path("memory"))
+        self.assertFalse(check.ok)
+        self.assertIn("unreadable", check.detail)
+        self.assertIn("blocked", check.detail)
+
     def test_http_url_check_matches_runtime_url_boundaries(self):
         for value in ("ftp://example.com", "https://user:secret@example.com", "https://example.com:bad"):
             with self.subTest(value=value):
