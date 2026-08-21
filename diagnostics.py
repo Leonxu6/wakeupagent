@@ -63,6 +63,11 @@ def _feature_flag_check(name: str, env_name: str) -> Check:
     return Check(name, True, "enabled" if enabled else "disabled")
 
 
+def _single_line(value: object) -> str:
+    """Keep diagnostics machine-readable even when an OS error contains newlines."""
+    return " ".join(str(value).split())
+
+
 def collect_checks(base_dir: Path | None = None) -> list[Check]:
     """Collect checks without opening the camera or contacting network services."""
     root = base_dir or Path(__file__).resolve().parent
@@ -93,11 +98,11 @@ def collect_checks(base_dir: Path | None = None) -> list[Check]:
 
 
 def format_checks(checks: list[Check]) -> str:
-    """Render a deterministic human-readable diagnostics report."""
+    """Render a deterministic one-line-per-check diagnostics report."""
     lines = []
     for check in checks:
         marker = "OK" if check.ok else "WARN"
-        lines.append(f"[{marker}] {check.name}: {check.detail}")
+        lines.append(f"[{marker}] {_single_line(check.name)}: {_single_line(check.detail)}")
     return "\n".join(lines)
 
 
