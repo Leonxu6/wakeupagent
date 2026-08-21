@@ -27,7 +27,7 @@ def env_text(name: str, default: str, *, max_length: int = 500) -> str:
         return default
     if len(value) > max_length:
         raise ValueError(f"{name} must be at most {max_length} characters")
-    if any(ord(ch) < 32 and ch not in "\t" for ch in value):
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
         raise ValueError(f"{name} contains control characters")
     return value
 
