@@ -4,11 +4,9 @@ config.py — Global configuration for Cyber-Superego.
 Defaults are suitable for local development. Runtime-specific values can be
 overridden through validated environment variables without editing source.
 """
-import os
-
 from dotenv import load_dotenv
 
-from settings import env_float, env_http_url, env_int, env_path, env_text
+from settings import env_float, env_http_url, env_int, env_path, env_secret, env_text
 
 load_dotenv()
 
@@ -37,7 +35,7 @@ MOONDREAM_PROMPT = env_text("MOONDREAM_PROMPT", "What is the person doing?", max
 LOCAL_CLASSIFIER_MODEL = env_text("LOCAL_CLASSIFIER_MODEL", "qwen2.5:1.5b", max_length=120)
 
 # ── Cloud LLM (DeepSeek) ─────────────────────────────────────
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
+DEEPSEEK_API_KEY = env_secret("DEEPSEEK_API_KEY")
 DEEPSEEK_MODEL = env_text("DEEPSEEK_MODEL", "deepseek-chat", max_length=120)
 DEEPSEEK_BASE_URL = env_http_url("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 
