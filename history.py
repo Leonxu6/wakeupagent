@@ -11,6 +11,14 @@ def _positive_int(value: object, *, field_name: str) -> int:
     return value
 
 
+def _bounded_text(value: object, *, limit: int) -> str:
+    """Normalize model/user text into one bounded context line."""
+    if not isinstance(value, str):
+        return ""
+    normalized = " ".join(value.split())
+    return normalized[:limit]
+
+
 @dataclass
 class ContextHistory:
     """Store bounded human-readable context without growing for the process lifetime."""
@@ -30,17 +38,17 @@ class ContextHistory:
         self._items = deque(maxlen=self.max_items)
 
     def set_summary(self, text: object) -> None:
-        if not isinstance(text, str):
-            return
-        self._summary = text.strip()[: self.summary_limit]
+        self._summary = _bounded_text(text, limit=self.summary_limit)
 
     def add_observation(self, text: object) -> None:
-        if isinstance(text, str) and text.strip():
-            self._items.append(f"[Obs] {text.strip()[: self.observation_limit]}")
+        normalized = _bounded_text(text, limit=self.observation_limit)
+        if normalized:
+            self._items.append(f"[Obs] {normalized}")
 
     def add_decision(self, text: object) -> None:
-        if isinstance(text, str) and text.strip():
-            self._items.append(f"[Brain] {text.strip()[: self.decision_limit]}")
+        normalized = _bounded_text(text, limit=self.decision_limit)
+        if normalized:
+            self._items.append(f"[Brain] {normalized}")
 
     def render(self, *, recent: int = 10) -> str:
         recent = _positive_int(recent, field_name="recent")
