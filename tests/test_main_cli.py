@@ -35,6 +35,13 @@ class MainCliTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             parser.parse_args(["--graph", "--check"])
 
+    def test_shutdown_runtime_error_detection_is_narrow(self):
+        self.assertTrue(
+            main._is_shutdown_runtime_error(RuntimeError("cannot schedule new futures after shutdown"))
+        )
+        self.assertFalse(main._is_shutdown_runtime_error(RuntimeError("database is locked")))
+        self.assertFalse(main._is_shutdown_runtime_error(RuntimeError("shutdown requested")))
+
 
 if __name__ == "__main__":
     unittest.main()
