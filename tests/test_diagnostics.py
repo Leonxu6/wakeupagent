@@ -8,6 +8,15 @@ import diagnostics
 
 
 class DiagnosticsTests(unittest.TestCase):
+    def test_python_check_enforces_declared_runtime_floor(self):
+        unsupported = diagnostics._python_check((3, 11))
+        self.assertFalse(unsupported.ok)
+        self.assertIn("requires Python >=3.12", unsupported.detail)
+
+        supported = diagnostics._python_check((3, 12))
+        self.assertTrue(supported.ok)
+        self.assertEqual(supported.detail, "3.12")
+
     def test_model_check_reports_missing_empty_and_valid_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -91,6 +100,7 @@ class DiagnosticsTests(unittest.TestCase):
                 checks = diagnostics.collect_checks(root)
 
         by_name = {check.name: check for check in checks}
+        self.assertTrue(by_name["python"].ok)
         self.assertTrue(by_name["pose-model"].ok)
         self.assertTrue(by_name["gesture-model"].ok)
         self.assertTrue(by_name["checkpoint-dir"].ok)
