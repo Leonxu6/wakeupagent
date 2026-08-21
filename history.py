@@ -5,6 +5,12 @@ from collections import deque
 from dataclasses import dataclass, field
 
 
+def _positive_int(value: object, *, field_name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ValueError(f"{field_name} must be a positive integer")
+    return value
+
+
 @dataclass
 class ContextHistory:
     """Store bounded human-readable context without growing for the process lifetime."""
@@ -17,8 +23,10 @@ class ContextHistory:
     _summary: str = field(default="", init=False, repr=False)
 
     def __post_init__(self) -> None:
-        if isinstance(self.max_items, bool) or not isinstance(self.max_items, int) or self.max_items < 1:
-            raise ValueError("max_items must be a positive integer")
+        self.max_items = _positive_int(self.max_items, field_name="max_items")
+        self.summary_limit = _positive_int(self.summary_limit, field_name="summary_limit")
+        self.observation_limit = _positive_int(self.observation_limit, field_name="observation_limit")
+        self.decision_limit = _positive_int(self.decision_limit, field_name="decision_limit")
         self._items = deque(maxlen=self.max_items)
 
     def set_summary(self, text: object) -> None:
@@ -35,8 +43,7 @@ class ContextHistory:
             self._items.append(f"[Brain] {text.strip()[: self.decision_limit]}")
 
     def render(self, *, recent: int = 10) -> str:
-        if isinstance(recent, bool) or not isinstance(recent, int) or recent < 1:
-            raise ValueError("recent must be a positive integer")
+        recent = _positive_int(recent, field_name="recent")
         parts: list[str] = []
         if self._summary:
             parts.append(f"Summary: {self._summary}")
