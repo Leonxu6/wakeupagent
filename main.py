@@ -4,6 +4,7 @@ main.py — Cyber-Superego entry point
 usage:
     uv run main.py           # perception loop (live camera)
     uv run main.py --graph   # one-shot langgraph run (mock)
+    uv run main.py --doctor  # network-free setup diagnostics
 """
 import argparse
 from datetime import datetime
@@ -95,15 +96,40 @@ def run_graph_mode():
     console.print(f"{LOG_A} graph run complete")
 
 
+def run_doctor_mode() -> int:
+    """Print offline setup diagnostics and return a process-style status code."""
+    from doctor import collect_diagnostics, required_checks_pass
+
+    results = collect_diagnostics()
+    for result in results:
+        if result.ok:
+            marker = "[green]PASS[/green]"
+        elif result.required:
+            marker = "[red]FAIL[/red]"
+        else:
+            marker = "[yellow]WARN[/yellow]"
+        console.print(f"{marker} {result.name}: {result.detail}")
+
+    if required_checks_pass(results):
+        console.print("[green]required checks passed[/green]")
+        return 0
+    console.print("[red]one or more required checks failed[/red]")
+    return 1
+
+
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--graph", action="store_true", help="run mock graph flow")
+    ap = argparse.ArgumentParser(description="WakeUpAgent edge-cloud productivity supervisor")
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--graph", action="store_true", help="run mock graph flow")
+    mode.add_argument("--doctor", action="store_true", help="run offline setup diagnostics")
     args = ap.parse_args()
 
     console.print("[cyan]CYBER-SUPEREGO[/cyan]  edge-cloud hybrid supervisor")
     console.print(f"  nodes: [R] reset  [A] perception+cerebellum  [B] decision  [C] execution")
     console.print(f"  stack: mediapipe / moondream / qwen2.5(cerebellum) / deepseek / langgraph\n")
 
+    if args.doctor:
+        raise SystemExit(run_doctor_mode())
     if args.graph:
         run_graph_mode()
     else:
