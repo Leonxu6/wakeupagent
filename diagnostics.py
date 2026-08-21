@@ -8,6 +8,7 @@ from pathlib import Path
 
 import config
 from safety import require_http_url
+from settings import env_bool
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,15 @@ def _http_url_check(name: str, value: object) -> Check:
     return Check(name, True, normalized)
 
 
+def _feature_flag_check(name: str, env_name: str) -> Check:
+    """Validate an opt-in side-effect flag without enabling the feature."""
+    try:
+        enabled = env_bool(env_name, False)
+    except ValueError as exc:
+        return Check(name, False, str(exc))
+    return Check(name, True, "enabled" if enabled else "disabled")
+
+
 def collect_checks(base_dir: Path | None = None) -> list[Check]:
     """Collect checks without opening the camera or contacting network services."""
     root = base_dir or Path(__file__).resolve().parent
@@ -77,6 +87,8 @@ def collect_checks(base_dir: Path | None = None) -> list[Check]:
             "configured" if config.DEEPSEEK_API_KEY else "not configured",
         )
     )
+    checks.append(_feature_flag_check("external-messaging", "WAKEUP_ALLOW_EXTERNAL_MESSAGING"))
+    checks.append(_feature_flag_check("process-control", "WAKEUP_ALLOW_PROCESS_CONTROL"))
     return checks
 
 
