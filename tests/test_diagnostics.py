@@ -21,6 +21,22 @@ class DiagnosticsTests(unittest.TestCase):
             valid = diagnostics._model_check("model", valid_path)
             self.assertTrue(valid.ok)
 
+    def test_directory_check_rejects_missing_and_non_directory_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            missing = diagnostics._directory_check("state", root / "missing")
+            self.assertFalse(missing.ok)
+            self.assertIn("missing", missing.detail)
+
+            regular_file = root / "state"
+            regular_file.write_text("not a directory", encoding="utf-8")
+            not_directory = diagnostics._directory_check("state", regular_file)
+            self.assertFalse(not_directory.ok)
+            self.assertIn("not a directory", not_directory.detail)
+
+            valid = diagnostics._directory_check("state", root)
+            self.assertTrue(valid.ok)
+
     def test_collect_checks_is_side_effect_free_and_reports_configuration(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
