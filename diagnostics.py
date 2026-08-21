@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import platform
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -17,14 +18,17 @@ class Check:
 
 
 def _model_check(name: str, path: Path) -> Check:
-    if not path.exists():
+    try:
+        metadata = path.stat()
+    except FileNotFoundError:
         return Check(name, False, f"missing: {path}")
-    if not path.is_file():
+    except OSError as exc:
+        return Check(name, False, f"unreadable: {path} ({exc})")
+    if not stat.S_ISREG(metadata.st_mode):
         return Check(name, False, f"not a file: {path}")
-    size = path.stat().st_size
-    if size == 0:
+    if metadata.st_size == 0:
         return Check(name, False, f"empty model file: {path}")
-    return Check(name, True, f"{path.name} ({size} bytes)")
+    return Check(name, True, f"{path.name} ({metadata.st_size} bytes)")
 
 
 def _directory_check(name: str, path: Path) -> Check:
