@@ -62,6 +62,7 @@ class EnvironmentParserTests(unittest.TestCase):
             "file:///tmp/x",
             "https:///missing",
             "https://u:p@example.com",
+            "https://exa mple.com/api",
             "https://example.com/api?token=1",
             "https://example.com/api#section",
         )
