@@ -26,6 +26,6 @@ jobs:
       - name: Sync dependencies
         run: uv sync --frozen
       - name: Compile source
-        run: uv run python -m compileall -q config.py graph.py main.py perception.py safety.py settings.py tools.py
+        run: uv run python -m compileall -q config.py diagnostics.py graph.py history.py main.py perception.py safety.py settings.py tools.py
       - name: Run tests
         run: uv run --with pytest pytest -q
