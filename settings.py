@@ -1,0 +1,96 @@
+"""Typed environment-variable parsing for WakeUpAgent configuration."""
+from __future__ import annotations
+
+import math
+import os
+from pathlib import Path
+from urllib.parse import urlparse
+
+_TRUE = {"1", "true", "yes", "on"}
+_FALSE = {"0", "false", "no", "off"}
+
+
+def _raw(name: str) -> str | None:
+    value = os.getenv(name)
+    if value is None:
+        return None
+    if value != value.strip():
+        raise ValueError(f"{name} must not have leading or trailing whitespace")
+    if not value:
+        raise ValueError(f"{name} must not be empty")
+    return value
+
+
+def env_text(name: str, default: str, *, max_length: int = 500) -> str:
+    value = _raw(name)
+    if value is None:
+        return default
+    if len(value) > max_length:
+        raise ValueError(f"{name} must be at most {max_length} characters")
+    if any(ord(ch) < 32 and ch not in "\t" for ch in value):
+        raise ValueError(f"{name} contains control characters")
+    return value
+
+
+def env_int(name: str, default: int, *, minimum: int | None = None, maximum: int | None = None) -> int:
+    value = _raw(name)
+    if value is None:
+        result = default
+    else:
+        if value.startswith("+") or not value.lstrip("-").isascii() or not value.lstrip("-").isdigit():
+            raise ValueError(f"{name} must be an integer")
+        result = int(value)
+    if minimum is not None and result < minimum:
+        raise ValueError(f"{name} must be at least {minimum}")
+    if maximum is not None and result > maximum:
+        raise ValueError(f"{name} must be at most {maximum}")
+    return result
+
+
+def env_float(name: str, default: float, *, minimum: float | None = None, maximum: float | None = None) -> float:
+    value = _raw(name)
+    if value is None:
+        result = float(default)
+    else:
+        try:
+            result = float(value)
+        except ValueError as exc:
+            raise ValueError(f"{name} must be a number") from exc
+    if not math.isfinite(result):
+        raise ValueError(f"{name} must be finite")
+    if minimum is not None and result < minimum:
+        raise ValueError(f"{name} must be at least {minimum:g}")
+    if maximum is not None and result > maximum:
+        raise ValueError(f"{name} must be at most {maximum:g}")
+    return result
+
+
+def env_bool(name: str, default: bool) -> bool:
+    value = _raw(name)
+    if value is None:
+        return default
+    normalized = value.lower()
+    if normalized in _TRUE:
+        return True
+    if normalized in _FALSE:
+        return False
+    raise ValueError(f"{name} must be one of: 1/0, true/false, yes/no, on/off")
+
+
+def env_http_url(name: str, default: str) -> str:
+    value = env_text(name, default, max_length=2048)
+    try:
+        parsed = urlparse(value)
+        _ = parsed.port
+    except ValueError as exc:
+        raise ValueError(f"{name} is not a valid URL") from exc
+    if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+        raise ValueError(f"{name} must be an http(s) URL with a hostname")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError(f"{name} must not contain credentials")
+    return value.rstrip("/")
+
+
+def env_path(name: str, default: str) -> str:
+    value = env_text(name, default, max_length=4096)
+    return str(Path(value).expanduser())
