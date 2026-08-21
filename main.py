@@ -10,15 +10,14 @@ import argparse
 from datetime import datetime
 
 from rich.console import Console
-from config import LOG_A, LOG_B, LOG_C
+
+from config import LOG_A
+from history import ContextHistory
 
 console = Console()
 
 # 固定 thread_id：让 checkpointer 跨轮累积同一用户的状态
 _THREAD_CONFIG = {"configurable": {"thread_id": "superego_main"}}
-
-# 同步给小脑的滚动上下文：保留最近 N 条记录（观察文本 + 大脑判决）
-_CONTEXT_WINDOW = 15
 
 
 def _observation_state(text: str, ts: str, is_healthy: bool, should_escalate: bool) -> dict:
@@ -36,52 +35,40 @@ def run_perception_mode():
     from graph import build_graph
 
     graph = build_graph()
-    last_summary = [""]          # 压缩摘要（长期记忆）
-    recent_items: list[str] = [] # 近期观察+判决 滚动列表（短期记忆）
+    history = ContextHistory(max_items=15)
 
     def _stream_graph(state: dict):
-        """运行图并更新 recent_items / last_summary。"""
+        """Run the graph and feed bounded summaries/decisions back to perception."""
         try:
             for update in graph.stream(state, config=_THREAD_CONFIG, stream_mode="updates"):
                 for node_output in update.values():
                     if not isinstance(node_output, dict):
                         continue
                     if node_output.get("conversation_summary"):
-                        last_summary[0] = node_output["conversation_summary"]
-                    for m in node_output.get("messages", []):
-                        if getattr(m, "type", None) == "ai" and getattr(m, "content", ""):
-                            recent_items.append(f"[Brain] {m.content[:120]}")
+                        history.set_summary(node_output["conversation_summary"])
+                    for message in node_output.get("messages", []):
+                        if getattr(message, "type", None) == "ai":
+                            history.add_decision(getattr(message, "content", ""))
         except RuntimeError:
-            pass  # 主线程退出时 executor 已关闭，忽略
-        except Exception as e:
-            console.print(f"[red]stream error: {e}[/red]")
-
-        while len(recent_items) > _CONTEXT_WINDOW:
-            recent_items.pop(0)
+            pass  # main-thread shutdown can close the executor while a frame completes
+        except Exception as exc:  # noqa: BLE001
+            console.print(f"[red]stream error: {exc}[/red]")
 
     def on_vision(text: str, ts: str, is_healthy: bool, should_escalate: bool):
         """定时摄像头触发的感知回调。"""
-        recent_items.append(f"[Obs] {text[:100]}")
-        state = _observation_state(text, ts, is_healthy, should_escalate)
-        _stream_graph(state)
+        history.add_observation(text)
+        _stream_graph(_observation_state(text, ts, is_healthy, should_escalate))
 
     def get_context() -> str:
-        """返回给小脑的完整上下文字符串：摘要 + 近期记录。"""
-        parts = []
-        if last_summary[0]:
-            parts.append(f"Summary: {last_summary[0][:200]}")
-        if recent_items:
-            parts.append("Recent history:\n" + "\n".join(recent_items[-10:]))
-        return "\n\n".join(parts)
+        """Return the bounded summary and recent observations/decisions."""
+        return history.render(recent=10)
 
-    run_perception_loop(
-        state_callback=on_vision,
-        get_context=get_context,
-    )
+    run_perception_loop(state_callback=on_vision, get_context=get_context)
 
 
 def run_graph_mode():
     from graph import build_graph
+
     console.print(f"{LOG_A} building langgraph")
     graph = build_graph()
     state = _observation_state(
@@ -115,7 +102,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-
     if args.check:
         return run_check_mode()
 
