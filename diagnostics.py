@@ -33,9 +33,13 @@ def _model_check(name: str, path: Path) -> Check:
 
 def _directory_check(name: str, path: Path) -> Check:
     """Report whether a configured persistence parent is an existing directory."""
-    if not path.exists():
+    try:
+        metadata = path.stat()
+    except FileNotFoundError:
         return Check(name, False, f"missing: {path}")
-    if not path.is_dir():
+    except OSError as exc:
+        return Check(name, False, f"unreadable: {path} ({exc})")
+    if not stat.S_ISDIR(metadata.st_mode):
         return Check(name, False, f"not a directory: {path}")
     return Check(name, True, str(path))
 
