@@ -100,12 +100,13 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertEqual(by_name["external-messaging"].detail, "disabled")
         self.assertEqual(by_name["process-control"].detail, "disabled")
 
-    def test_format_checks_has_stable_markers(self):
+    def test_format_checks_has_stable_markers_and_one_line_per_check(self):
         text = diagnostics.format_checks([
             diagnostics.Check("a", True, "ready"),
-            diagnostics.Check("b", False, "missing"),
+            diagnostics.Check("b\nspoof", False, "missing\n[OK] forged: yes"),
         ])
-        self.assertEqual(text, "[OK] a: ready\n[WARN] b: missing")
+        self.assertEqual(text, "[OK] a: ready\n[WARN] b spoof: missing [OK] forged: yes")
+        self.assertEqual(len(text.splitlines()), 2)
 
     def test_exit_code_only_fails_for_critical_models(self):
         self.assertEqual(diagnostics.diagnostics_exit_code([diagnostics.Check("deepseek-key", False, "missing")]), 0)
