@@ -1,7 +1,7 @@
 """Input validation helpers for side-effecting WakeUpAgent actions.
 
 These helpers keep validation deterministic and testable without importing the
-macOS automation stack.  Side-effecting tools should validate inputs before
+macOS automation stack. Side-effecting tools should validate inputs before
 opening browsers, spawning subprocesses, touching contacts, or calling models.
 """
 from __future__ import annotations
@@ -10,8 +10,17 @@ import math
 import re
 from urllib.parse import urlparse
 
-_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _APP_NAME = re.compile(r"^[\w .+()\-]{1,80}$", re.UNICODE)
+
+
+def _has_disallowed_control(value: str, *, allow_newlines: bool) -> bool:
+    for ch in value:
+        code = ord(ch)
+        if ch in "\n\r" and allow_newlines:
+            continue
+        if code < 32 or code == 127:
+            return True
+    return False
 
 
 def require_text(
@@ -30,7 +39,7 @@ def require_text(
         raise ValueError(f"{field} must not be empty")
     if len(value) > max_length:
         raise ValueError(f"{field} must be at most {max_length} characters")
-    if _CONTROL_CHARS.search(value):
+    if _has_disallowed_control(value, allow_newlines=allow_newlines):
         raise ValueError(f"{field} contains control characters")
     if not allow_newlines and ("\n" in value or "\r" in value):
         raise ValueError(f"{field} must be a single line")
