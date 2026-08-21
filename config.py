@@ -1,18 +1,21 @@
 """
 config.py — Global configuration for Cyber-Superego.
 
-All tuneable parameters live here. Edit this file to customize behavior;
-no changes needed in other source files.
+Defaults are suitable for local development. Runtime-specific values can be
+overridden through validated environment variables without editing source.
 """
 import os
+
 from dotenv import load_dotenv
+
+from settings import env_float, env_http_url, env_int, env_path, env_text
 
 load_dotenv()
 
 # ── Camera & Perception ───────────────────────────────────────
-CAMERA_INDEX         = 0     # Webcam index (0 = default, 1/2 for external cameras)
-CAPTURE_INTERVAL_SEC = 30    # Seconds between Moondream vision analyses
-MEDIAPIPE_CONFIDENCE = 0.5   # Detection/tracking confidence threshold for MediaPipe
+CAMERA_INDEX = env_int("WAKEUP_CAMERA_INDEX", 0, minimum=0, maximum=32)
+CAPTURE_INTERVAL_SEC = env_float("WAKEUP_CAPTURE_INTERVAL_SEC", 30.0, minimum=0.1, maximum=3600)
+MEDIAPIPE_CONFIDENCE = env_float("WAKEUP_MEDIAPIPE_CONFIDENCE", 0.5, minimum=0.0, maximum=1.0)
 
 # ── OpenCV Display ────────────────────────────────────────────
 GREEN_BOX_COLOR     = (0, 255, 0)   # Person bounding box color (BGR)
@@ -28,31 +31,31 @@ HAND_DOT_RADIUS = 4
 GESTURE_COLOR   = (0, 220, 255)     # Gesture label color
 
 # ── Local Models (Ollama) ─────────────────────────────────────
-OLLAMA_HOST            = "http://localhost:11434"
-MOONDREAM_MODEL        = "moondream"                  # Vision model for behavior description
-MOONDREAM_PROMPT       = "What is the person doing?"  # Prompt sent to Moondream each cycle
-LOCAL_CLASSIFIER_MODEL = "qwen2.5:1.5b"               # Cerebellum: yes/no behavior classifier
+OLLAMA_HOST = env_http_url("OLLAMA_HOST", "http://localhost:11434")
+MOONDREAM_MODEL = env_text("MOONDREAM_MODEL", "moondream", max_length=120)
+MOONDREAM_PROMPT = env_text("MOONDREAM_PROMPT", "What is the person doing?", max_length=500)
+LOCAL_CLASSIFIER_MODEL = env_text("LOCAL_CLASSIFIER_MODEL", "qwen2.5:1.5b", max_length=120)
 
 # ── Cloud LLM (DeepSeek) ─────────────────────────────────────
-DEEPSEEK_API_KEY  = os.getenv("DEEPSEEK_API_KEY", "")
-DEEPSEEK_MODEL    = "deepseek-chat"
-DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
+DEEPSEEK_MODEL = env_text("DEEPSEEK_MODEL", "deepseek-chat", max_length=120)
+DEEPSEEK_BASE_URL = env_http_url("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 
 # ── Agent Memory & Persistence ────────────────────────────────
-CHECKPOINT_DB_PATH   = "./superego.db"           # SQLite file for LangGraph checkpointer
-DAILY_REPORT_PATH    = "./memory/daily_reports.md"
-CONTEXT_MAX_MESSAGES = 20   # Max messages kept in LLM context window (trim_messages count)
-SUMMARIZE_THRESHOLD  = 30   # Compress history into summary when message count exceeds this
-REACT_MAX_ITERATIONS = 5    # Max DeepSeek ReAct loop rounds per punishment session
+CHECKPOINT_DB_PATH = env_path("WAKEUP_CHECKPOINT_DB_PATH", "./superego.db")
+DAILY_REPORT_PATH = env_path("WAKEUP_DAILY_REPORT_PATH", "./memory/daily_reports.md")
+CONTEXT_MAX_MESSAGES = env_int("WAKEUP_CONTEXT_MAX_MESSAGES", 20, minimum=1, maximum=500)
+SUMMARIZE_THRESHOLD = env_int("WAKEUP_SUMMARIZE_THRESHOLD", 30, minimum=2, maximum=2000)
+REACT_MAX_ITERATIONS = env_int("WAKEUP_REACT_MAX_ITERATIONS", 5, minimum=1, maximum=20)
 
 # ── WeChat Contacts ───────────────────────────────────────────
 # Keys are internal aliases used by the LLM when calling send_wechat_shame_message.
 # Values must exactly match the contact/group name as it appears in WeChat search.
-# ⚠️  Fill in your real contact names before running — defaults are placeholders.
+# Fill in your real contact names before enabling external messaging.
 WECHAT_CONTACTS = {
-    "老妈":   "妈妈",       # e.g. "Mom" — your mother's WeChat display name
-    "导师":   "导师",       # e.g. "Prof. Zhang" — your supervisor's WeChat name
-    "班级群": "班级群",     # e.g. "Class 2024" — your class group chat name
+    "老妈":   "妈妈",
+    "导师":   "导师",
+    "班级群": "班级群",
 }
 
 # ── Console Log Prefixes (Rich markup) ───────────────────────
