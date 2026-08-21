@@ -9,15 +9,17 @@ class RequireTextTests(unittest.TestCase):
         self.assertEqual(require_text("focus", field="message", max_length=20), "focus")
 
     def test_rejects_non_strings_padding_empty_and_controls(self):
-        for value in (None, 7, "", " focus", "focus ", "bad\x00text", "two\nlines"):
+        for value in (None, 7, "", " focus", "focus ", "bad\x00text", "bad\ttext", "two\nlines"):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 require_text(value, field="message", max_length=20)
 
-    def test_allows_newlines_when_explicitly_requested(self):
+    def test_allows_newlines_when_explicitly_requested_but_not_other_controls(self):
         self.assertEqual(
             require_text("line one\nline two", field="message", max_length=30, allow_newlines=True),
             "line one\nline two",
         )
+        with self.assertRaises(ValueError):
+            require_text("line one\tline two", field="message", max_length=30, allow_newlines=True)
 
     def test_enforces_length_limit(self):
         with self.assertRaisesRegex(ValueError, "at most 4"):
