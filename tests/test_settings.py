@@ -15,7 +15,7 @@ class EnvironmentParserTests(unittest.TestCase):
             self.assertTrue(env_bool("ENABLED", True))
 
     def test_text_rejects_padding_empty_control_and_oversize_values(self):
-        invalid = (" padded", "padded ", "", "bad\x00value", "123456")
+        invalid = (" padded", "padded ", "", "bad\x00value", "bad\tvalue", "bad\x7fvalue", "123456")
         for value in invalid:
             with self.subTest(value=value), patch.dict(os.environ, {"VALUE": value}, clear=True):
                 with self.assertRaises(ValueError):
