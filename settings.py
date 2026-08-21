@@ -32,6 +32,20 @@ def env_text(name: str, default: str, *, max_length: int = 500) -> str:
     return value
 
 
+def env_secret(name: str, default: str = "", *, max_length: int = 4096) -> str:
+    """Read an optional secret while rejecting whitespace and header-breaking controls."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    if value != value.strip():
+        raise ValueError(f"{name} must not have leading or trailing whitespace")
+    if len(value) > max_length:
+        raise ValueError(f"{name} must be at most {max_length} characters")
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+        raise ValueError(f"{name} contains control characters")
+    return value
+
+
 def env_int(name: str, default: int, *, minimum: int | None = None, maximum: int | None = None) -> int:
     value = _raw(name)
     if value is None:
