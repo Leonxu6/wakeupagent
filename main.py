@@ -30,6 +30,21 @@ def _observation_state(text: str, ts: str, is_healthy: bool, should_escalate: bo
     }
 
 
+def _message_text(content: object) -> str:
+    """Extract readable text from string or structured LangChain message content."""
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    parts: list[str] = []
+    for block in content:
+        if isinstance(block, str):
+            parts.append(block)
+        elif isinstance(block, dict) and isinstance(block.get("text"), str):
+            parts.append(block["text"])
+    return " ".join(part for part in parts if part.strip())
+
+
 def _is_shutdown_runtime_error(exc: RuntimeError) -> bool:
     """Recognize the executor shutdown race that can happen while quitting."""
     message = str(exc).lower()
@@ -54,7 +69,7 @@ def run_perception_mode():
                         history.set_summary(node_output["conversation_summary"])
                     for message in node_output.get("messages", []):
                         if getattr(message, "type", None) == "ai":
-                            history.add_decision(getattr(message, "content", ""))
+                            history.add_decision(_message_text(getattr(message, "content", "")))
         except RuntimeError as exc:
             if not _is_shutdown_runtime_error(exc):
                 console.print(f"[red]stream runtime error: {exc}[/red]")
