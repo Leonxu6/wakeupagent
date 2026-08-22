@@ -8,7 +8,9 @@ Browser navigation accepts only validated HTTP(S) URLs. External messaging and p
 
 ## External messaging
 
-Enable `WAKEUP_ALLOW_EXTERNAL_MESSAGING=true` only after reviewing `WECHAT_CONTACTS` and macOS Accessibility permissions. Targets must resolve through configured aliases. Message text is bounded and control characters are rejected before AppleScript runs.
+Enable `WAKEUP_ALLOW_EXTERNAL_MESSAGING=true` only after reviewing the contact mapping and macOS Accessibility permissions. Targets must resolve through configured aliases. Message text is bounded and control characters are rejected before AppleScript runs.
+
+The built-in aliases are development defaults. For a real installation, prefer `WAKEUP_WECHAT_CONTACTS_JSON` in `.env` instead of editing `config.py`, for example `{"family":"Mom","mentor":"Dr Xu"}`. The mapping parser requires a bounded JSON object with clean string keys and values; malformed JSON, padded names, control characters, non-string values, and oversized maps fail during configuration loading. Do not commit real private contact names to the repository.
 
 ## Process control
 
