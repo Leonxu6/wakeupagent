@@ -6,7 +6,7 @@ overridden through validated environment variables without editing source.
 """
 from dotenv import load_dotenv
 
-from settings import env_float, env_http_url, env_int, env_path, env_secret, env_text
+from settings import env_float, env_http_url, env_int, env_json_string_map, env_path, env_secret, env_text
 
 load_dotenv()
 
@@ -47,14 +47,18 @@ SUMMARIZE_THRESHOLD = env_int("WAKEUP_SUMMARIZE_THRESHOLD", 30, minimum=2, maxim
 REACT_MAX_ITERATIONS = env_int("WAKEUP_REACT_MAX_ITERATIONS", 5, minimum=1, maximum=20)
 
 # ── WeChat Contacts ───────────────────────────────────────────
-# Keys are internal aliases used by the LLM when calling send_wechat_shame_message.
-# Values must exactly match the contact/group name as it appears in WeChat search.
-# Fill in your real contact names before enabling external messaging.
-WECHAT_CONTACTS = {
-    "老妈":   "妈妈",
-    "导师":   "导师",
-    "班级群": "班级群",
-}
+# Aliases are used by the model; values must exactly match WeChat search names.
+# Override without editing source, for example:
+# WAKEUP_WECHAT_CONTACTS_JSON='{"family":"Mom","mentor":"Dr Xu"}'
+WECHAT_CONTACTS = env_json_string_map(
+    "WAKEUP_WECHAT_CONTACTS_JSON",
+    {
+        "老妈": "妈妈",
+        "导师": "导师",
+        "班级群": "班级群",
+    },
+    max_entries=50,
+)
 
 # ── Console Log Prefixes (Rich markup) ───────────────────────
 LOG_A = "[cyan][A][/cyan]"      # Perception node
