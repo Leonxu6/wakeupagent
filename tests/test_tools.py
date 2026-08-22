@@ -20,6 +20,16 @@ class OpenWebpageTests(unittest.TestCase):
             ],
         )
 
+    @patch("tools.console.print")
+    @patch("tools.webbrowser.open", return_value=True)
+    def test_escapes_rich_markup_in_browser_logs(self, browser_open, console_print):
+        url = "https://example.com/[red]study[/red]"
+        result = open_webpage.invoke({"url": url})
+        self.assertIn(url, result)
+        browser_open.assert_called_once_with(url)
+        rendered = console_print.call_args.args[0]
+        self.assertIn(r"\[red]study\[/red]", rendered)
+
     @patch("tools.webbrowser.open")
     def test_rejects_non_http_or_hostless_urls_without_side_effects(self, browser_open):
         invalid_urls = (
