@@ -47,8 +47,12 @@ def require_text(
 
 
 def require_http_url(value: object, *, max_length: int = 2048) -> str:
-    """Validate a browser target without allowing credentials or odd schemes."""
+    """Validate a browser target without allowing credentials or ambiguous URL syntax."""
     url = require_text(value, field="url", max_length=max_length)
+    if any(ch.isspace() for ch in url):
+        raise ValueError("url must not contain whitespace")
+    if "\\" in url:
+        raise ValueError("url must not contain backslashes")
     try:
         parsed = urlparse(url)
         _ = parsed.port  # force malformed port validation
@@ -57,8 +61,6 @@ def require_http_url(value: object, *, max_length: int = 2048) -> str:
     hostname = parsed.hostname
     if parsed.scheme.lower() not in {"http", "https"} or not hostname:
         raise ValueError("url must use http:// or https:// and include a hostname")
-    if any(ch.isspace() for ch in hostname):
-        raise ValueError("url hostname must not contain whitespace")
     if parsed.username is not None or parsed.password is not None:
         raise ValueError("url must not contain embedded credentials")
     return url
