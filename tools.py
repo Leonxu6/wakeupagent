@@ -28,6 +28,12 @@ def _error(exc: ValueError) -> str:
     return f"Error: {exc}"
 
 
+def _bounded_detail(value: object, *, limit: int = 500) -> str:
+    """Keep driver/subprocess failures compact and single-line for agent context."""
+    text = " ".join(str(value).split())
+    return text[:limit] if text else "unknown error"
+
+
 def _escape_applescript(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
@@ -52,9 +58,9 @@ def play_tts_punishment(text: str) -> str:
             subprocess.run(["say", text], timeout=60, check=True)
             return "TTS 播放完毕（默认声音）"
         except Exception as exc:  # noqa: BLE001
-            return f"Error: {exc}"
+            return f"Error: {_bounded_detail(exc)}"
     except Exception as exc:  # noqa: BLE001
-        return f"Error: {exc}"
+        return f"Error: {_bounded_detail(exc)}"
 
 
 @tool
@@ -101,12 +107,12 @@ end tell
     try:
         result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
-            return f"Error: {result.stderr.strip() or 'osascript 执行失败'}"
+            return f"Error: {_bounded_detail(result.stderr or 'osascript 执行失败')}"
         return f"已向别名 {target} 发送消息"
     except subprocess.TimeoutExpired:
         return "Error: 微信操作超时"
     except Exception as exc:  # noqa: BLE001
-        return f"Error: {exc}"
+        return f"Error: {_bounded_detail(exc)}"
 
 
 @tool
@@ -122,7 +128,7 @@ def open_webpage(url: str) -> str:
             return f"Error: 浏览器未能打开：{url}"
         return f"已在浏览器中打开：{url}"
     except Exception as exc:  # noqa: BLE001
-        return f"Error: {exc}"
+        return f"Error: {_bounded_detail(exc)}"
 
 
 @tool
@@ -141,17 +147,17 @@ def force_close_app(app_name: str) -> str:
         if result.returncode == 0:
             return f"已通过 osascript 关闭 {app_name}"
     except Exception as exc:  # noqa: BLE001
-        osascript_error = str(exc)
+        osascript_error = _bounded_detail(exc)
     else:
-        osascript_error = result.stderr.strip() or "application did not quit"
+        osascript_error = _bounded_detail(result.stderr or "application did not quit")
 
     try:
         result = subprocess.run(["killall", app_name], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             return f"已通过 killall 关闭 {app_name}"
-        killall_error = result.stderr.strip() or "process not found"
+        killall_error = _bounded_detail(result.stderr or "process not found")
     except Exception as exc:  # noqa: BLE001
-        killall_error = str(exc)
+        killall_error = _bounded_detail(exc)
     return f"Error: 无法关闭 {app_name}。osascript: {osascript_error}; killall: {killall_error}"
 
 
