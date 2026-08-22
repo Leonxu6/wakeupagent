@@ -36,7 +36,7 @@ def env_secret(name: str, default: str = "", *, max_length: int = 4096) -> str:
     """Read an optional secret while rejecting whitespace and header-breaking controls."""
     value = os.getenv(name)
     if value is None:
-        return default
+        value = default
     if value != value.strip():
         raise ValueError(f"{name} must not have leading or trailing whitespace")
     if len(value) > max_length:
