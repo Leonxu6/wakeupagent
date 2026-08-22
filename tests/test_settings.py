@@ -14,6 +14,13 @@ class EnvironmentParserTests(unittest.TestCase):
             self.assertEqual(env_float("RATE", 0.5), 0.5)
             self.assertTrue(env_bool("ENABLED", True))
 
+    def test_secret_defaults_are_validated_when_variable_is_missing(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(env_secret("TOKEN", "safe-token"), "safe-token")
+            for default in (" padded", "padded ", "line\nbreak", "123456"):
+                with self.subTest(default=default), self.assertRaises(ValueError):
+                    env_secret("TOKEN", default, max_length=5)
+
     def test_text_rejects_padding_empty_control_and_oversize_values(self):
         invalid = (" padded", "padded ", "", "bad\x00value", "bad\tvalue", "bad\x7fvalue", "123456")
         for value in invalid:
