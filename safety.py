@@ -69,7 +69,7 @@ def require_http_url(value: object, *, max_length: int = 2048) -> str:
 def require_app_name(value: object) -> str:
     """Validate an application/process name before passing it to OS tools."""
     app_name = require_text(value, field="app_name", max_length=80)
-    if not _APP_NAME.fullmatch(app_name):
+    if not _APP_NAME.fullmatch(app_name) or not app_name.strip("."):
         raise ValueError("app_name contains unsupported characters")
     return app_name
 
