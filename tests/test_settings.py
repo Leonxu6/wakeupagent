@@ -43,6 +43,12 @@ class EnvironmentParserTests(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         env_secret("TOKEN", "", max_length=limit)  # type: ignore[arg-type]
 
+    def test_integer_defaults_must_be_real_integers(self):
+        with patch.dict(os.environ, {}, clear=True):
+            for default in (True, False, 2.5, "3", None):
+                with self.subTest(default=default), self.assertRaises(ValueError):
+                    env_int("COUNT", default)  # type: ignore[arg-type]
+
     def test_text_rejects_padding_empty_control_and_oversize_values(self):
         invalid = (" padded", "padded ", "", "bad\x00value", "bad\tvalue", "bad\x7fvalue", "123456")
         for value in invalid:
