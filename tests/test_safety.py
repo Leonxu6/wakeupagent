@@ -53,8 +53,8 @@ class AppNameValidationTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertEqual(require_app_name(name), name)
 
-    def test_rejects_shell_and_applescript_metacharacters(self):
-        for name in ('Safari" to quit', "Steam; rm -rf ~", "$(whoami)", "../Safari"):
+    def test_rejects_shell_applescript_metacharacters_and_dot_only_names(self):
+        for name in ('Safari" to quit', "Steam; rm -rf ~", "$(whoami)", "../Safari", ".", "..", "..."):
             with self.subTest(name=name), self.assertRaises(ValueError):
                 require_app_name(name)
 
