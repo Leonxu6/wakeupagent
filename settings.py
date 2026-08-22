@@ -43,6 +43,8 @@ def env_secret(name: str, default: str = "", *, max_length: int = 4096) -> str:
     value = os.getenv(name)
     if value is None:
         value = default
+    if not isinstance(value, str):
+        raise ValueError(f"{name} default must be a string")
     if value != value.strip():
         raise ValueError(f"{name} must not have leading or trailing whitespace")
     if len(value) > max_length:
