@@ -24,7 +24,13 @@ def _raw(name: str) -> str | None:
 def env_text(name: str, default: str, *, max_length: int = 500) -> str:
     value = _raw(name)
     if value is None:
-        return default
+        value = default
+    if not isinstance(value, str):
+        raise ValueError(f"{name} default must be a string")
+    if value != value.strip():
+        raise ValueError(f"{name} must not have leading or trailing whitespace")
+    if not value:
+        raise ValueError(f"{name} must not be empty")
     if len(value) > max_length:
         raise ValueError(f"{name} must be at most {max_length} characters")
     if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
