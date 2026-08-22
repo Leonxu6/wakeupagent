@@ -94,6 +94,8 @@ def env_int(name: str, default: int, *, minimum: int | None = None, maximum: int
 def env_float(name: str, default: float, *, minimum: float | None = None, maximum: float | None = None) -> float:
     value = _raw(name)
     if value is None:
+        if isinstance(default, bool) or not isinstance(default, (int, float)):
+            raise ValueError(f"{name} default must be a number")
         result = float(default)
     else:
         try:
