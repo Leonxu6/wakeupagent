@@ -129,6 +129,8 @@ def env_float(name: str, default: float, *, minimum: float | None = None, maximu
 def env_bool(name: str, default: bool) -> bool:
     value = _raw(name)
     if value is None:
+        if not isinstance(default, bool):
+            raise ValueError(f"{name} default must be a boolean")
         return default
     normalized = value.lower()
     if normalized in _TRUE:
