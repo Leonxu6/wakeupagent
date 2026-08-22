@@ -1,6 +1,7 @@
 """Typed environment-variable parsing for WakeUpAgent configuration."""
 from __future__ import annotations
 
+import json
 import math
 import os
 from pathlib import Path
@@ -165,3 +166,30 @@ def env_http_url(name: str, default: str) -> str:
 def env_path(name: str, default: str) -> str:
     value = env_text(name, default, max_length=4096)
     return str(Path(value).expanduser())
+
+
+def env_json_string_map(name: str, default: dict[str, str], *, max_entries: int = 100) -> dict[str, str]:
+    """Read a small JSON object whose keys and values are clean, bounded strings."""
+    max_entries = _positive_limit(max_entries, field="max_entries")
+    raw = os.getenv(name)
+    if raw is None:
+        value: object = default
+    else:
+        if len(raw) > 16384:
+            raise ValueError(f"{name} must be at most 16384 characters")
+        try:
+            value = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{name} must be a JSON object") from exc
+    if not isinstance(value, dict):
+        raise ValueError(f"{name} must be a JSON object")
+    if len(value) > max_entries:
+        raise ValueError(f"{name} must contain at most {max_entries} entries")
+    normalized: dict[str, str] = {}
+    for key, item in value.items():
+        if not isinstance(key, str) or not isinstance(item, str):
+            raise ValueError(f"{name} keys and values must be strings")
+        clean_key = env_text(f"{name} key", key, max_length=80)
+        clean_value = env_text(f"{name} value", item, max_length=200)
+        normalized[clean_key] = clean_value
+    return normalized
