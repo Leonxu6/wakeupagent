@@ -32,13 +32,15 @@ class UrlValidationTests(unittest.TestCase):
             with self.subTest(url=url):
                 self.assertEqual(require_http_url(url), url)
 
-    def test_rejects_non_http_hostless_credentials_bad_ports_and_host_whitespace(self):
+    def test_rejects_non_http_hostless_credentials_bad_ports_and_ambiguous_syntax(self):
         invalid = (
             "file:///tmp/x",
             "https:///missing-host",
             "https://user:pass@example.com/private",
             "https://example.com:not-a-port",
             "https://exa mple.com/private",
+            "https://example.com/a b",
+            "https://example.com\\@evil.test/path",
         )
         for url in invalid:
             with self.subTest(url=url), self.assertRaises(ValueError):
