@@ -118,9 +118,11 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertEqual(text, "[OK] a: ready\n[WARN] b spoof: missing [OK] forged: yes")
         self.assertEqual(len(text.splitlines()), 2)
 
-    def test_exit_code_only_fails_for_critical_models(self):
+    def test_exit_code_fails_for_runtime_and_required_models_only(self):
         self.assertEqual(diagnostics.diagnostics_exit_code([diagnostics.Check("deepseek-key", False, "missing")]), 0)
+        self.assertEqual(diagnostics.diagnostics_exit_code([diagnostics.Check("python", False, "3.11")]), 1)
         self.assertEqual(diagnostics.diagnostics_exit_code([diagnostics.Check("pose-model", False, "missing")]), 1)
+        self.assertEqual(diagnostics.diagnostics_exit_code([diagnostics.Check("gesture-model", False, "missing")]), 1)
 
 
 if __name__ == "__main__":
