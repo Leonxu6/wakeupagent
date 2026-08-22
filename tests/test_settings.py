@@ -14,6 +14,13 @@ class EnvironmentParserTests(unittest.TestCase):
             self.assertEqual(env_float("RATE", 0.5), 0.5)
             self.assertTrue(env_bool("ENABLED", True))
 
+    def test_text_defaults_are_validated_when_variable_is_missing(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(env_text("TEXT", "fallback", max_length=8), "fallback")
+            for default in (" padded", "padded ", "", "bad\nvalue", "toolong"):
+                with self.subTest(default=default), self.assertRaises(ValueError):
+                    env_text("TEXT", default, max_length=6)
+
     def test_secret_defaults_are_validated_when_variable_is_missing(self):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(env_secret("TOKEN", "safe-token"), "safe-token")
