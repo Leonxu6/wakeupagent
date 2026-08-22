@@ -1,4 +1,5 @@
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import main
@@ -49,6 +50,21 @@ class MainCliTests(unittest.TestCase):
             main._message_text([" first\nline ", {"text": " second\tline "}, {"text": "   "}]),
             "first line second line",
         )
+
+    def test_ai_message_texts_tolerates_missing_and_malformed_batches(self):
+        for output in (None, [], {}, {"messages": None}, {"messages": "not-a-list"}):
+            with self.subTest(output=output):
+                self.assertEqual(main._ai_message_texts(output), [])
+
+        output = {
+            "messages": [
+                SimpleNamespace(type="human", content="ignore"),
+                SimpleNamespace(type="ai", content=" first\nanswer "),
+                SimpleNamespace(type="ai", content=[{"text": "second"}]),
+                SimpleNamespace(type="ai", content=None),
+            ]
+        }
+        self.assertEqual(main._ai_message_texts(output), ["first answer", "second"])
 
     def test_shutdown_runtime_error_detection_is_narrow(self):
         self.assertTrue(
