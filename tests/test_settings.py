@@ -55,6 +55,12 @@ class EnvironmentParserTests(unittest.TestCase):
                 with self.subTest(minimum=minimum, maximum=maximum), self.assertRaises(ValueError):
                     env_int("COUNT", 5, minimum=minimum, maximum=maximum)  # type: ignore[arg-type]
 
+    def test_float_defaults_must_be_numeric_and_finite(self):
+        with patch.dict(os.environ, {}, clear=True):
+            for default in (True, False, "0.5", None, float("nan"), float("inf")):
+                with self.subTest(default=default), self.assertRaises(ValueError):
+                    env_float("RATE", default)  # type: ignore[arg-type]
+
     def test_text_rejects_padding_empty_control_and_oversize_values(self):
         invalid = (" padded", "padded ", "", "bad\x00value", "bad\tvalue", "bad\x7fvalue", "123456")
         for value in invalid:
