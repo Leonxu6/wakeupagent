@@ -23,6 +23,15 @@ def _has_disallowed_control(value: str, *, allow_newlines: bool) -> bool:
     return False
 
 
+def _finite_number(value: object, *, field: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{field} must be a number")
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"{field} must be finite")
+    return number
+
+
 def require_text(
     value: object,
     *,
@@ -81,12 +90,14 @@ def require_positive_number(
     minimum: float = 0.0,
     maximum: float | None = None,
 ) -> float:
-    """Normalize a finite positive numeric configuration value."""
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"{field} must be a number")
-    number = float(value)
-    if not math.isfinite(number) or number <= minimum:
-        raise ValueError(f"{field} must be greater than {minimum:g}")
-    if maximum is not None and number > maximum:
-        raise ValueError(f"{field} must be at most {maximum:g}")
+    """Normalize a finite numeric value bounded above an exclusive minimum."""
+    minimum_value = _finite_number(minimum, field="minimum")
+    maximum_value = None if maximum is None else _finite_number(maximum, field="maximum")
+    if maximum_value is not None and maximum_value <= minimum_value:
+        raise ValueError("maximum must be greater than minimum")
+    number = _finite_number(value, field=field)
+    if number <= minimum_value:
+        raise ValueError(f"{field} must be greater than {minimum_value:g}")
+    if maximum_value is not None and number > maximum_value:
+        raise ValueError(f"{field} must be at most {maximum_value:g}")
     return number
