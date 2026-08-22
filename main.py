@@ -16,7 +16,6 @@ from history import ContextHistory
 
 console = Console()
 
-# 固定 thread_id：让 checkpointer 跨轮累积同一用户的状态
 _THREAD_CONFIG = {"configurable": {"thread_id": "superego_main"}}
 
 
@@ -31,18 +30,23 @@ def _observation_state(text: str, ts: str, is_healthy: bool, should_escalate: bo
 
 
 def _message_text(content: object) -> str:
-    """Extract readable text from string or structured LangChain message content."""
+    """Extract compact readable text from string or structured LangChain content."""
     if isinstance(content, str):
-        return content
+        return " ".join(content.split())
     if not isinstance(content, list):
         return ""
     parts: list[str] = []
     for block in content:
         if isinstance(block, str):
-            parts.append(block)
+            text = block
         elif isinstance(block, dict) and isinstance(block.get("text"), str):
-            parts.append(block["text"])
-    return " ".join(part for part in parts if part.strip())
+            text = block["text"]
+        else:
+            continue
+        normalized = " ".join(text.split())
+        if normalized:
+            parts.append(normalized)
+    return " ".join(parts)
 
 
 def _is_shutdown_runtime_error(exc: RuntimeError) -> bool:
