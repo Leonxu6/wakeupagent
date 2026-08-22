@@ -65,6 +65,8 @@ def env_secret(name: str, default: str = "", *, max_length: int = 4096) -> str:
 def env_int(name: str, default: int, *, minimum: int | None = None, maximum: int | None = None) -> int:
     value = _raw(name)
     if value is None:
+        if isinstance(default, bool) or not isinstance(default, int):
+            raise ValueError(f"{name} default must be an integer")
         result = default
     else:
         if value.startswith("+") or not value.lstrip("-").isascii() or not value.lstrip("-").isdigit():
