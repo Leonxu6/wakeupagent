@@ -118,6 +118,6 @@ def format_checks(checks: list[Check]) -> str:
 
 
 def diagnostics_exit_code(checks: list[Check]) -> int:
-    """Return non-zero only for installation-critical model failures."""
-    critical = {"pose-model", "gesture-model"}
+    """Return non-zero when the interpreter or required local models are unusable."""
+    critical = {"python", "pose-model", "gesture-model"}
     return 1 if any(not c.ok and c.name in critical for c in checks) else 0
