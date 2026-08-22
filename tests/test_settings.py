@@ -28,6 +28,12 @@ class EnvironmentParserTests(unittest.TestCase):
                 with self.subTest(default=default), self.assertRaises(ValueError):
                     env_secret("TOKEN", default, max_length=5)
 
+    def test_secret_default_must_be_text(self):
+        with patch.dict(os.environ, {}, clear=True):
+            for default in (None, 7, False, ["token"]):
+                with self.subTest(default=default), self.assertRaises(ValueError):
+                    env_secret("TOKEN", default)  # type: ignore[arg-type]
+
     def test_text_rejects_padding_empty_control_and_oversize_values(self):
         invalid = (" padded", "padded ", "", "bad\x00value", "bad\tvalue", "bad\x7fvalue", "123456")
         for value in invalid:
