@@ -29,13 +29,16 @@ class ExternalMessagingTests(unittest.TestCase):
         run.assert_not_called()
 
     @patch("tools.subprocess.run")
-    def test_opted_in_message_uses_osascript_and_avoids_echoing_body_in_result(self, run):
+    def test_opted_in_message_redacts_body_and_resolved_contact_from_result(self, run):
         run.return_value.returncode = 0
         run.return_value.stderr = ""
-        with patch.dict(os.environ, {"WAKEUP_ALLOW_EXTERNAL_MESSAGING": "true"}, clear=True):
-            result = send_wechat_shame_message.invoke({"target": "导师", "message": "Please check in"})
+        with patch.dict(os.environ, {"WAKEUP_ALLOW_EXTERNAL_MESSAGING": "true"}, clear=True), \
+             patch("config.WECHAT_CONTACTS", {"mentor": "Private Real Contact"}):
+            result = send_wechat_shame_message.invoke({"target": "mentor", "message": "Please check in"})
         self.assertIn("发送消息", result)
+        self.assertIn("mentor", result)
         self.assertNotIn("Please check in", result)
+        self.assertNotIn("Private Real Contact", result)
         run.assert_called_once()
         self.assertEqual(run.call_args.args[0][:2], ["osascript", "-e"])
 
