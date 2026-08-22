@@ -1,9 +1,4 @@
-"""Input validation helpers for side-effecting WakeUpAgent actions.
-
-These helpers keep validation deterministic and testable without importing the
-macOS automation stack. Side-effecting tools should validate inputs before
-opening browsers, spawning subprocesses, touching contacts, or calling models.
-"""
+"""Input validation helpers for side-effecting WakeUpAgent actions."""
 from __future__ import annotations
 
 import math
@@ -32,14 +27,19 @@ def _finite_number(value: object, *, field: str) -> float:
     return number
 
 
-def require_text(
-    value: object,
-    *,
-    field: str,
-    max_length: int,
-    allow_newlines: bool = False,
-) -> str:
+def _validator_options(field: object, max_length: object, allow_newlines: object) -> tuple[str, int, bool]:
+    if not isinstance(field, str) or not field or field != field.strip() or _has_disallowed_control(field, allow_newlines=False):
+        raise ValueError("field must be clean non-empty text")
+    if isinstance(max_length, bool) or not isinstance(max_length, int) or max_length < 1:
+        raise ValueError("max_length must be a positive integer")
+    if not isinstance(allow_newlines, bool):
+        raise ValueError("allow_newlines must be a boolean")
+    return field, max_length, allow_newlines
+
+
+def require_text(value: object, *, field: str, max_length: int, allow_newlines: bool = False) -> str:
     """Return validated text or raise ``ValueError`` with a stable message."""
+    field, max_length, allow_newlines = _validator_options(field, max_length, allow_newlines)
     if not isinstance(value, str):
         raise ValueError(f"{field} must be a string")
     if value != value.strip():
@@ -64,7 +64,7 @@ def require_http_url(value: object, *, max_length: int = 2048) -> str:
         raise ValueError("url must not contain backslashes")
     try:
         parsed = urlparse(url)
-        _ = parsed.port  # force malformed port validation
+        _ = parsed.port
     except (TypeError, ValueError) as exc:
         raise ValueError("url is malformed") from exc
     hostname = parsed.hostname
@@ -83,13 +83,7 @@ def require_app_name(value: object) -> str:
     return app_name
 
 
-def require_positive_number(
-    value: object,
-    *,
-    field: str,
-    minimum: float = 0.0,
-    maximum: float | None = None,
-) -> float:
+def require_positive_number(value: object, *, field: str, minimum: float = 0.0, maximum: float | None = None) -> float:
     """Normalize a finite numeric value bounded above an exclusive minimum."""
     minimum_value = _finite_number(minimum, field="minimum")
     maximum_value = None if maximum is None else _finite_number(maximum, field="maximum")
