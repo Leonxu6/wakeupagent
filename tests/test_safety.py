@@ -69,6 +69,21 @@ class PositiveNumberValidationTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 require_positive_number(value, field="timeout", maximum=10)
 
+    def test_rejects_invalid_nonfinite_and_reversed_bounds(self):
+        cases = (
+            (True, 10),
+            (0, False),
+            ("0", 10),
+            (0, "10"),
+            (math.nan, 10),
+            (0, math.inf),
+            (10, 10),
+            (11, 10),
+        )
+        for minimum, maximum in cases:
+            with self.subTest(minimum=minimum, maximum=maximum), self.assertRaises(ValueError):
+                require_positive_number(5, field="timeout", minimum=minimum, maximum=maximum)  # type: ignore[arg-type]
+
 
 if __name__ == "__main__":
     unittest.main()
