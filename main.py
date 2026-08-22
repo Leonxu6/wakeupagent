@@ -49,6 +49,23 @@ def _message_text(content: object) -> str:
     return " ".join(parts)
 
 
+def _ai_message_texts(node_output: object) -> list[str]:
+    """Return readable AI messages from one graph node without trusting its shape."""
+    if not isinstance(node_output, dict):
+        return []
+    messages = node_output.get("messages")
+    if not isinstance(messages, (list, tuple)):
+        return []
+    texts: list[str] = []
+    for message in messages:
+        if getattr(message, "type", None) != "ai":
+            continue
+        text = _message_text(getattr(message, "content", ""))
+        if text:
+            texts.append(text)
+    return texts
+
+
 def _is_shutdown_runtime_error(exc: RuntimeError) -> bool:
     """Recognize the executor shutdown race that can happen while quitting."""
     message = str(exc).lower()
@@ -71,9 +88,8 @@ def run_perception_mode():
                         continue
                     if node_output.get("conversation_summary"):
                         history.set_summary(node_output["conversation_summary"])
-                    for message in node_output.get("messages", []):
-                        if getattr(message, "type", None) == "ai":
-                            history.add_decision(_message_text(getattr(message, "content", "")))
+                    for text in _ai_message_texts(node_output):
+                        history.add_decision(text)
         except RuntimeError as exc:
             if not _is_shutdown_runtime_error(exc):
                 console.print(f"[red]stream runtime error: {exc}[/red]")
