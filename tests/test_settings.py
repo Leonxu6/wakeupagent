@@ -49,6 +49,12 @@ class EnvironmentParserTests(unittest.TestCase):
                 with self.subTest(default=default), self.assertRaises(ValueError):
                     env_int("COUNT", default)  # type: ignore[arg-type]
 
+    def test_integer_bounds_must_be_ordered_integers(self):
+        with patch.dict(os.environ, {}, clear=True):
+            for minimum, maximum in ((True, 10), (0, False), (0.5, 10), (0, "10"), (11, 10)):
+                with self.subTest(minimum=minimum, maximum=maximum), self.assertRaises(ValueError):
+                    env_int("COUNT", 5, minimum=minimum, maximum=maximum)  # type: ignore[arg-type]
+
     def test_text_rejects_padding_empty_control_and_oversize_values(self):
         invalid = (" padded", "padded ", "", "bad\x00value", "bad\tvalue", "bad\x7fvalue", "123456")
         for value in invalid:
