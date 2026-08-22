@@ -14,6 +14,7 @@ import webbrowser
 
 from langchain_core.tools import tool
 from rich.console import Console
+from rich.markup import escape
 
 from config import CAPTURE_INTERVAL_SEC
 from safety import require_app_name, require_http_url, require_text
@@ -48,7 +49,7 @@ def play_tts_punishment(text: str) -> str:
     except ValueError as exc:
         return _error(exc)
 
-    console.print(f"[bold yellow]🔊 [TTS] {text}[/bold yellow]")
+    console.print(f"[bold yellow]🔊 [TTS] {escape(text)}[/bold yellow]")
     try:
         subprocess.run(["say", "-v", _TTS_VOICE, text], timeout=60, check=True)
         return f"TTS 播放完毕：{text}"
@@ -92,7 +93,7 @@ def send_wechat_shame_message(target: str, message: str) -> str:
     except ValueError as exc:
         return _error(exc)
 
-    console.print(f"[bold yellow]🦾 [WeChat] → {target}({contact})[/bold yellow]")
+    console.print(f"[bold yellow]🦾 [WeChat] → {escape(target)}({escape(contact)})[/bold yellow]")
     script = f'''
 do shell script "open -a WeChat"
 delay 2.0
@@ -137,7 +138,7 @@ def open_webpage(url: str) -> str:
     except ValueError as exc:
         return _error(exc)
 
-    console.print(f"[bold cyan]🌐 [browser] opening {url}[/bold cyan]")
+    console.print(f"[bold cyan]🌐 [browser] opening {escape(url)}[/bold cyan]")
     try:
         if not webbrowser.open(url):
             return f"Error: 浏览器未能打开：{url}"
@@ -161,7 +162,7 @@ def force_close_app(app_name: str) -> str:
     except ValueError as exc:
         return _error(exc)
 
-    console.print(f"[bold yellow]⏹ [process] closing app: {app_name}[/bold yellow]")
+    console.print(f"[bold yellow]⏹ [process] closing app: {escape(app_name)}[/bold yellow]")
     escaped_name = _escape_applescript(app_name)
     try:
         result = subprocess.run(
@@ -207,12 +208,10 @@ def observe_camera() -> str:
     if frame is None:
         return "camera not available"
     description = query_moondream(frame)
-    console.print(f"[bold cyan]👁️  [observe] {description}[/bold cyan]")
+    console.print(f"[bold cyan]👁️  [observe] {escape(description)}[/bold cyan]")
     return description
 
 
-# Destructive chaos mode remains importable for checkpoint compatibility but is
-# deliberately not registered as an LLM-callable tool.
 ALL_TOOLS = [
     play_tts_punishment,
     send_wechat_shame_message,
