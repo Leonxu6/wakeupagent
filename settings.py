@@ -143,6 +143,10 @@ def env_bool(name: str, default: bool) -> bool:
 def env_http_url(name: str, default: str) -> str:
     """Read a clean HTTP(S) service base URL without credentials or URL state."""
     value = env_text(name, default, max_length=2048)
+    if any(ch.isspace() for ch in value):
+        raise ValueError(f"{name} must not contain whitespace")
+    if "\\" in value:
+        raise ValueError(f"{name} must not contain backslashes")
     try:
         parsed = urlparse(value)
         _ = parsed.port
@@ -151,8 +155,6 @@ def env_http_url(name: str, default: str) -> str:
     hostname = parsed.hostname
     if parsed.scheme.lower() not in {"http", "https"} or not hostname:
         raise ValueError(f"{name} must be an http(s) URL with a hostname")
-    if any(ch.isspace() for ch in hostname):
-        raise ValueError(f"{name} hostname must not contain whitespace")
     if parsed.username is not None or parsed.password is not None:
         raise ValueError(f"{name} must not contain credentials")
     if parsed.query or parsed.fragment:
