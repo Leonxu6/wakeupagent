@@ -43,6 +43,13 @@ class MainCliTests(unittest.TestCase):
         )
         self.assertEqual(main._message_text({"text": "not-a-list"}), "")
 
+    def test_message_text_normalizes_multiline_and_empty_blocks(self):
+        self.assertEqual(main._message_text("  first\nsecond  "), "first second")
+        self.assertEqual(
+            main._message_text([" first\nline ", {"text": " second\tline "}, {"text": "   "}]),
+            "first line second line",
+        )
+
     def test_shutdown_runtime_error_detection_is_narrow(self):
         self.assertTrue(
             main._is_shutdown_runtime_error(RuntimeError("cannot schedule new futures after shutdown"))
