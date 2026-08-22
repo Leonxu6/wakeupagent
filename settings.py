@@ -47,22 +47,26 @@ def _float_bound(value: object, *, field: str) -> float | None:
     return result
 
 
+def _validate_text(value: object, *, field: str, max_length: int, allow_empty: bool = False) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a string")
+    if value != value.strip():
+        raise ValueError(f"{field} must not have leading or trailing whitespace")
+    if not value and not allow_empty:
+        raise ValueError(f"{field} must not be empty")
+    if len(value) > max_length:
+        raise ValueError(f"{field} must be at most {max_length} characters")
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+        raise ValueError(f"{field} contains control characters")
+    return value
+
+
 def env_text(name: str, default: str, *, max_length: int = 500) -> str:
     max_length = _positive_limit(max_length, field="max_length")
     value = _raw(name)
     if value is None:
         value = default
-    if not isinstance(value, str):
-        raise ValueError(f"{name} default must be a string")
-    if value != value.strip():
-        raise ValueError(f"{name} must not have leading or trailing whitespace")
-    if not value:
-        raise ValueError(f"{name} must not be empty")
-    if len(value) > max_length:
-        raise ValueError(f"{name} must be at most {max_length} characters")
-    if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
-        raise ValueError(f"{name} contains control characters")
-    return value
+    return _validate_text(value, field=name, max_length=max_length)
 
 
 def env_secret(name: str, default: str = "", *, max_length: int = 4096) -> str:
@@ -71,15 +75,7 @@ def env_secret(name: str, default: str = "", *, max_length: int = 4096) -> str:
     value = os.getenv(name)
     if value is None:
         value = default
-    if not isinstance(value, str):
-        raise ValueError(f"{name} default must be a string")
-    if value != value.strip():
-        raise ValueError(f"{name} must not have leading or trailing whitespace")
-    if len(value) > max_length:
-        raise ValueError(f"{name} must be at most {max_length} characters")
-    if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
-        raise ValueError(f"{name} contains control characters")
-    return value
+    return _validate_text(value, field=name, max_length=max_length, allow_empty=True)
 
 
 def env_int(name: str, default: int, *, minimum: int | None = None, maximum: int | None = None) -> int:
@@ -187,9 +183,7 @@ def env_json_string_map(name: str, default: dict[str, str], *, max_entries: int 
         raise ValueError(f"{name} must contain at most {max_entries} entries")
     normalized: dict[str, str] = {}
     for key, item in value.items():
-        if not isinstance(key, str) or not isinstance(item, str):
-            raise ValueError(f"{name} keys and values must be strings")
-        clean_key = env_text(f"{name} key", key, max_length=80)
-        clean_value = env_text(f"{name} value", item, max_length=200)
+        clean_key = _validate_text(key, field=f"{name} key", max_length=80)
+        clean_value = _validate_text(item, field=f"{name} value", max_length=200)
         normalized[clean_key] = clean_value
     return normalized
