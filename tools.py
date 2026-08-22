@@ -1,15 +1,8 @@
-"""Bounded local tools used by the WakeUpAgent LangGraph execution node.
-
-Potentially disruptive side effects are opt-in. Browser navigation remains
-available by default because it is bounded to validated HTTP(S) URLs. External
-messaging and process control require explicit environment flags, and the old
-chaos mode is intentionally disabled.
-"""
+"""Bounded local tools used by the WakeUpAgent LangGraph execution node."""
 from __future__ import annotations
 
 import os
 import subprocess
-import time
 import webbrowser
 
 from langchain_core.tools import tool
@@ -25,7 +18,6 @@ _TTS_VOICE = "Tingting"
 
 
 def _feature_enabled(name: str) -> bool:
-    """Read a side-effect feature flag at call time so tests/config can change it."""
     try:
         return env_bool(name, False)
     except ValueError:
@@ -37,7 +29,6 @@ def _error(exc: ValueError) -> str:
 
 
 def _escape_applescript(value: str) -> str:
-    """Escape text embedded inside an AppleScript double-quoted string."""
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
@@ -48,11 +39,10 @@ def play_tts_punishment(text: str) -> str:
         text = require_text(text, field="text", max_length=200)
     except ValueError as exc:
         return _error(exc)
-
     console.print(f"[bold yellow]🔊 [TTS] {escape(text)}[/bold yellow]")
     try:
         subprocess.run(["say", "-v", _TTS_VOICE, text], timeout=60, check=True)
-        return f"TTS 播放完毕：{text}"
+        return "TTS 播放完毕"
     except FileNotFoundError:
         return "Error: say 命令不存在（仅支持 macOS）"
     except subprocess.TimeoutExpired:
@@ -60,7 +50,7 @@ def play_tts_punishment(text: str) -> str:
     except subprocess.CalledProcessError:
         try:
             subprocess.run(["say", text], timeout=60, check=True)
-            return f"TTS 播放完毕（默认声音）：{text}"
+            return "TTS 播放完毕（默认声音）"
         except Exception as exc:  # noqa: BLE001
             return f"Error: {exc}"
     except Exception as exc:  # noqa: BLE001
@@ -69,14 +59,9 @@ def play_tts_punishment(text: str) -> str:
 
 @tool
 def send_wechat_shame_message(target: str, message: str) -> str:
-    """Send a user-approved WeChat message when external messaging is enabled.
-
-    Set ``WAKEUP_ALLOW_EXTERNAL_MESSAGING=true`` only after reviewing configured
-    contacts and granting the required macOS Accessibility permission.
-    """
+    """Send a user-approved WeChat message when external messaging is enabled."""
     if not _feature_enabled("WAKEUP_ALLOW_EXTERNAL_MESSAGING"):
         return "Error: external messaging is disabled; set WAKEUP_ALLOW_EXTERNAL_MESSAGING=true to opt in"
-
     try:
         target = require_text(target, field="target", max_length=40)
         message = require_text(message, field="message", max_length=500)
@@ -84,7 +69,6 @@ def send_wechat_shame_message(target: str, message: str) -> str:
         return _error(exc)
 
     from config import WECHAT_CONTACTS
-
     contact = WECHAT_CONTACTS.get(target)
     if not contact:
         return f"Error: 不支持的 target '{target}'，只能用: {list(WECHAT_CONTACTS.keys())}"
@@ -115,15 +99,10 @@ tell application "System Events"
 end tell
 '''
     try:
-        result = subprocess.run(
-            ["osascript", "-e", script],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
             return f"Error: {result.stderr.strip() or 'osascript 执行失败'}"
-        return f"已向 {target}({contact}) 发送消息"
+        return f"已向别名 {target} 发送消息"
     except subprocess.TimeoutExpired:
         return "Error: 微信操作超时"
     except Exception as exc:  # noqa: BLE001
@@ -137,7 +116,6 @@ def open_webpage(url: str) -> str:
         url = require_http_url(url)
     except ValueError as exc:
         return _error(exc)
-
     console.print(f"[bold cyan]🌐 [browser] opening {escape(url)}[/bold cyan]")
     try:
         if not webbrowser.open(url):
@@ -149,28 +127,17 @@ def open_webpage(url: str) -> str:
 
 @tool
 def force_close_app(app_name: str) -> str:
-    """Close one explicitly named app when process control has been enabled.
-
-    Set ``WAKEUP_ALLOW_PROCESS_CONTROL=true`` to opt in. No fuzzy ``pkill``
-    fallback is used because a partial-name match can terminate unrelated work.
-    """
+    """Close one explicitly named app when process control has been enabled."""
     if not _feature_enabled("WAKEUP_ALLOW_PROCESS_CONTROL"):
         return "Error: process control is disabled; set WAKEUP_ALLOW_PROCESS_CONTROL=true to opt in"
-
     try:
         app_name = require_app_name(app_name)
     except ValueError as exc:
         return _error(exc)
-
     console.print(f"[bold yellow]⏹ [process] closing app: {escape(app_name)}[/bold yellow]")
     escaped_name = _escape_applescript(app_name)
     try:
-        result = subprocess.run(
-            ["osascript", "-e", f'tell application "{escaped_name}" to quit'],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
+        result = subprocess.run(["osascript", "-e", f'tell application "{escaped_name}" to quit'], capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
             return f"已通过 osascript 关闭 {app_name}"
     except Exception as exc:  # noqa: BLE001
@@ -185,7 +152,6 @@ def force_close_app(app_name: str) -> str:
         killall_error = result.stderr.strip() or "process not found"
     except Exception as exc:  # noqa: BLE001
         killall_error = str(exc)
-
     return f"Error: 无法关闭 {app_name}。osascript: {osascript_error}; killall: {killall_error}"
 
 
@@ -199,7 +165,6 @@ def chaos_terminal_punishment(message: str) -> str:
 def observe_camera() -> str:
     """Wait one perception interval and return the latest local vision summary."""
     from perception import _stop_event, get_latest_frame, query_moondream
-
     console.print(f"[bold cyan]👁️  [observe] waiting {CAPTURE_INTERVAL_SEC}s for response...[/bold cyan]")
     _stop_event.wait(timeout=CAPTURE_INTERVAL_SEC)
     if _stop_event.is_set():
@@ -212,10 +177,4 @@ def observe_camera() -> str:
     return description
 
 
-ALL_TOOLS = [
-    play_tts_punishment,
-    send_wechat_shame_message,
-    open_webpage,
-    force_close_app,
-    observe_camera,
-]
+ALL_TOOLS = [play_tts_punishment, send_wechat_shame_message, open_webpage, force_close_app, observe_camera]
