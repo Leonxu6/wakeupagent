@@ -1,10 +1,12 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+import sys
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "maintenance" / "markdown_links.py"
 spec = spec_from_file_location("markdown_links", MODULE_PATH)
 module = module_from_spec(spec)
 assert spec and spec.loader
+sys.modules[spec.name] = module
 spec.loader.exec_module(module)
 
 
