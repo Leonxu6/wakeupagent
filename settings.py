@@ -27,6 +27,14 @@ def _positive_limit(value: object, *, field: str) -> int:
     return value
 
 
+def _integer_bound(value: object, *, field: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{field} must be an integer")
+    return value
+
+
 def env_text(name: str, default: str, *, max_length: int = 500) -> str:
     max_length = _positive_limit(max_length, field="max_length")
     value = _raw(name)
@@ -63,6 +71,10 @@ def env_secret(name: str, default: str = "", *, max_length: int = 4096) -> str:
 
 
 def env_int(name: str, default: int, *, minimum: int | None = None, maximum: int | None = None) -> int:
+    minimum = _integer_bound(minimum, field="minimum")
+    maximum = _integer_bound(maximum, field="maximum")
+    if minimum is not None and maximum is not None and minimum > maximum:
+        raise ValueError("minimum must not exceed maximum")
     value = _raw(name)
     if value is None:
         if isinstance(default, bool) or not isinstance(default, int):
