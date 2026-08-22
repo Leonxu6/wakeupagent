@@ -21,7 +21,14 @@ def _raw(name: str) -> str | None:
     return value
 
 
+def _positive_limit(value: object, *, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ValueError(f"{field} must be a positive integer")
+    return value
+
+
 def env_text(name: str, default: str, *, max_length: int = 500) -> str:
+    max_length = _positive_limit(max_length, field="max_length")
     value = _raw(name)
     if value is None:
         value = default
@@ -40,6 +47,7 @@ def env_text(name: str, default: str, *, max_length: int = 500) -> str:
 
 def env_secret(name: str, default: str = "", *, max_length: int = 4096) -> str:
     """Read an optional secret while rejecting whitespace and header-breaking controls."""
+    max_length = _positive_limit(max_length, field="max_length")
     value = os.getenv(name)
     if value is None:
         value = default
