@@ -145,6 +145,12 @@ class EnvironmentParserTests(unittest.TestCase):
         with patch.dict(os.environ, {"HOME": "/tmp/test-home", "PATH_VALUE": "~/data.db"}, clear=True):
             self.assertEqual(env_path("PATH_VALUE", "default.db"), "/tmp/test-home/data.db")
 
+    def test_path_parser_normalizes_home_expansion_failures(self):
+        with patch.dict(os.environ, {"PATH_VALUE": "~ghost/data.db"}, clear=True):
+            with patch("settings.Path.expanduser", side_effect=RuntimeError("unknown home")):
+                with self.assertRaisesRegex(ValueError, "could not expand"):
+                    env_path("PATH_VALUE", "default.db")
+
     def test_json_string_map_rejects_duplicate_keys(self):
         with patch.dict(os.environ, {"CONTACTS": '{"mentor":"Alice","mentor":"Bob"}'}, clear=True):
             with self.assertRaisesRegex(ValueError, "duplicate keys"):
