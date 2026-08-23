@@ -19,6 +19,7 @@ console = Console()
 _THREAD_CONFIG = {"configurable": {"thread_id": "superego_main"}}
 _MESSAGE_TEXT_LIMIT = 2000
 _MESSAGE_BLOCK_LIMIT = 20
+_AI_MESSAGE_LIMIT = 20
 
 
 def _observation_state(text: str, ts: str, is_healthy: bool, should_escalate: bool) -> dict:
@@ -52,14 +53,14 @@ def _message_text(content: object) -> str:
 
 
 def _ai_message_texts(node_output: object) -> list[str]:
-    """Return readable AI messages from one graph node without trusting its shape."""
+    """Return a bounded set of readable AI messages without trusting node output shape."""
     if not isinstance(node_output, dict):
         return []
     messages = node_output.get("messages")
     if not isinstance(messages, (list, tuple)):
         return []
     texts: list[str] = []
-    for message in messages:
+    for message in messages[-_AI_MESSAGE_LIMIT:]:
         if getattr(message, "type", None) != "ai":
             continue
         text = _message_text(getattr(message, "content", ""))
