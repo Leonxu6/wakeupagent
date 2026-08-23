@@ -121,7 +121,9 @@ end tell
 
 @tool
 def open_webpage(url: str) -> str:
-    """Open a validated HTTP(S) URL in the user's default browser."""
+    """Open a validated HTTP(S) URL after browser control has been explicitly enabled."""
+    if not _feature_enabled("WAKEUP_ALLOW_BROWSER_CONTROL"):
+        return "Error: browser control is disabled; set WAKEUP_ALLOW_BROWSER_CONTROL=true to opt in"
     try:
         url = require_http_url(url)
     except ValueError as exc:
