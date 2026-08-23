@@ -85,7 +85,9 @@ def send_wechat_shame_message(target: str, message: str) -> str:
     except ValueError as exc:
         return _error(exc)
 
-    console.print(f"[bold yellow]🦾 [WeChat] → {escape(target)}({escape(contact)})[/bold yellow]")
+    # Log only the model-facing alias. The resolved address-book name is private
+    # configuration and should not be copied into terminal scrollback.
+    console.print(f"[bold yellow]🦾 [WeChat] → alias {escape(target)}[/bold yellow]")
     script = f'''
 do shell script "open -a WeChat"
 delay 2.0
