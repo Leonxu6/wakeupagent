@@ -74,6 +74,13 @@ class MainCliTests(unittest.TestCase):
         }
         self.assertEqual(main._ai_message_texts(output), ["first answer", "second"])
 
+    def test_ai_message_texts_only_processes_the_bounded_recent_batch(self):
+        messages = [SimpleNamespace(type="ai", content=f"ai-{i}") for i in range(main._AI_MESSAGE_LIMIT + 5)]
+        texts = main._ai_message_texts({"messages": messages})
+        self.assertEqual(len(texts), main._AI_MESSAGE_LIMIT)
+        self.assertEqual(texts[0], "ai-5")
+        self.assertEqual(texts[-1], f"ai-{main._AI_MESSAGE_LIMIT + 4}")
+
     def test_shutdown_runtime_error_detection_is_narrow(self):
         self.assertTrue(
             main._is_shutdown_runtime_error(RuntimeError("cannot schedule new futures after shutdown"))
