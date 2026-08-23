@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import call, patch
 
@@ -5,12 +6,21 @@ from tools import open_webpage
 
 
 class OpenWebpageTests(unittest.TestCase):
+    @patch("tools.webbrowser.open")
+    def test_browser_control_is_disabled_by_default(self, browser_open):
+        with patch.dict(os.environ, {}, clear=True):
+            result = open_webpage.invoke({"url": "https://example.com"})
+        self.assertIn("disabled", result)
+        self.assertIn("WAKEUP_ALLOW_BROWSER_CONTROL", result)
+        browser_open.assert_not_called()
+
     @patch("tools.webbrowser.open", return_value=True)
     def test_opens_http_and_https_urls(self, browser_open):
-        for url in ("http://example.com", "https://example.com/study?q=1"):
-            with self.subTest(url=url):
-                result = open_webpage.invoke({"url": url})
-                self.assertIn("已在浏览器中打开", result)
+        with patch.dict(os.environ, {"WAKEUP_ALLOW_BROWSER_CONTROL": "true"}, clear=True):
+            for url in ("http://example.com", "https://example.com/study?q=1"):
+                with self.subTest(url=url):
+                    result = open_webpage.invoke({"url": url})
+                    self.assertIn("已在浏览器中打开", result)
 
         self.assertEqual(
             browser_open.call_args_list,
@@ -24,7 +34,8 @@ class OpenWebpageTests(unittest.TestCase):
     @patch("tools.webbrowser.open", return_value=True)
     def test_escapes_rich_markup_in_browser_logs(self, browser_open, console_print):
         url = "https://example.com/[red]study[/red]"
-        result = open_webpage.invoke({"url": url})
+        with patch.dict(os.environ, {"WAKEUP_ALLOW_BROWSER_CONTROL": "true"}, clear=True):
+            result = open_webpage.invoke({"url": url})
         self.assertIn(url, result)
         browser_open.assert_called_once_with(url)
         rendered = console_print.call_args.args[0]
@@ -39,23 +50,26 @@ class OpenWebpageTests(unittest.TestCase):
             "not-a-url",
         )
 
-        for url in invalid_urls:
-            with self.subTest(url=url):
-                result = open_webpage.invoke({"url": url})
-                self.assertIn("Error", result)
+        with patch.dict(os.environ, {"WAKEUP_ALLOW_BROWSER_CONTROL": "true"}, clear=True):
+            for url in invalid_urls:
+                with self.subTest(url=url):
+                    result = open_webpage.invoke({"url": url})
+                    self.assertIn("Error", result)
 
         browser_open.assert_not_called()
 
     @patch("tools.webbrowser.open", return_value=False)
     def test_reports_when_browser_declines_url(self, browser_open):
-        result = open_webpage.invoke({"url": "https://example.com"})
+        with patch.dict(os.environ, {"WAKEUP_ALLOW_BROWSER_CONTROL": "true"}, clear=True):
+            result = open_webpage.invoke({"url": "https://example.com"})
 
         self.assertIn("Error", result)
         browser_open.assert_called_once_with("https://example.com")
 
     @patch("tools.webbrowser.open", side_effect=RuntimeError("browser unavailable"))
     def test_reports_browser_errors(self, browser_open):
-        result = open_webpage.invoke({"url": "https://example.com"})
+        with patch.dict(os.environ, {"WAKEUP_ALLOW_BROWSER_CONTROL": "true"}, clear=True):
+            result = open_webpage.invoke({"url": "https://example.com"})
 
         self.assertEqual(result, "Error: browser unavailable")
         browser_open.assert_called_once_with("https://example.com")
