@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import patch
 
@@ -6,16 +7,26 @@ from tools import play_tts_punishment
 
 class TtsSafetyTests(unittest.TestCase):
     @patch("tools.subprocess.run")
+    def test_tts_is_disabled_until_explicitly_enabled(self, run):
+        with patch.dict(os.environ, {}, clear=True):
+            result = play_tts_punishment.invoke({"text": "Back to the task."})
+        self.assertIn("disabled", result)
+        self.assertIn("WAKEUP_ALLOW_TTS", result)
+        run.assert_not_called()
+
+    @patch("tools.subprocess.run")
     def test_rejects_empty_padded_control_and_multiline_text(self, run):
         invalid = ("", " padded", "padded ", "bad\x00text", "line one\nline two")
-        for text in invalid:
-            with self.subTest(text=text):
-                self.assertIn("Error", play_tts_punishment.invoke({"text": text}))
+        with patch.dict(os.environ, {"WAKEUP_ALLOW_TTS": "true"}, clear=True):
+            for text in invalid:
+                with self.subTest(text=text):
+                    self.assertIn("Error", play_tts_punishment.invoke({"text": text}))
         run.assert_not_called()
 
     @patch("tools.subprocess.run")
     def test_rejects_oversize_text(self, run):
-        result = play_tts_punishment.invoke({"text": "x" * 201})
+        with patch.dict(os.environ, {"WAKEUP_ALLOW_TTS": "true"}, clear=True):
+            result = play_tts_punishment.invoke({"text": "x" * 201})
         self.assertIn("at most 200", result)
         run.assert_not_called()
 
@@ -23,7 +34,8 @@ class TtsSafetyTests(unittest.TestCase):
     def test_valid_text_uses_bounded_say_invocation_without_echoing_prompt(self, run):
         run.return_value.returncode = 0
         prompt = "Back to the task."
-        result = play_tts_punishment.invoke({"text": prompt})
+        with patch.dict(os.environ, {"WAKEUP_ALLOW_TTS": "true"}, clear=True):
+            result = play_tts_punishment.invoke({"text": prompt})
         self.assertIn("TTS", result)
         self.assertNotIn(prompt, result)
         run.assert_called_once_with(
