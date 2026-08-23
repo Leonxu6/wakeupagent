@@ -113,6 +113,7 @@ def collect_checks(base_dir: Path | None = None) -> list[Check]:
         )
     )
     checks.append(_feature_flag_check("tts", "WAKEUP_ALLOW_TTS"))
+    checks.append(_feature_flag_check("browser-control", "WAKEUP_ALLOW_BROWSER_CONTROL"))
     checks.append(_feature_flag_check("external-messaging", "WAKEUP_ALLOW_EXTERNAL_MESSAGING"))
     checks.append(_feature_flag_check("process-control", "WAKEUP_ALLOW_PROCESS_CONTROL"))
     return checks
