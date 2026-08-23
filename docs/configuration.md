@@ -18,18 +18,22 @@ WakeUpAgent loads `.env` before evaluating `config.py`. Runtime overrides are pa
 
 ## Persistence
 
-`WAKEUP_CHECKPOINT_DB_PATH` and `WAKEUP_DAILY_REPORT_PATH` support `~` expansion. Context and iteration limits are bounded integers so a typo cannot silently allocate unbounded work.
+`WAKEUP_CHECKPOINT_DB_PATH` and `WAKEUP_DAILY_REPORT_PATH` support `~` expansion. Context and iteration limits are bounded integers so a typo cannot silently allocate unbounded work. The installation check converts path-resolution failures into diagnostic warnings instead of aborting the whole report.
 
 ## Side effects
 
-External messaging and process control are disabled unless explicitly enabled with:
+All user-visible or external side effects are disabled unless the corresponding capability is explicitly enabled:
 
 ```text
+WAKEUP_ALLOW_TTS=true
+WAKEUP_ALLOW_BROWSER_CONTROL=true
 WAKEUP_ALLOW_EXTERNAL_MESSAGING=true
 WAKEUP_ALLOW_PROCESS_CONTROL=true
 ```
 
-Keep both disabled while evaluating the project or running tests. The diagnostics command also parses these flags and reports malformed boolean values instead of silently treating a typo as a valid configuration.
+Enable only the capabilities you actually want to grant. TTS allows local audio output, browser control allows opening validated HTTP(S) URLs, external messaging enables the configured WeChat alias map, and process control allows requesting that an explicitly named app quit. Leaving a flag unset or `false` keeps that capability unavailable to agent tools.
+
+The diagnostics command parses all four flags without triggering them. Invalid boolean spellings are reported as warnings, which makes `.env` mistakes visible before a live run.
 
 ## Installation check
 
@@ -39,4 +43,4 @@ Run:
 uv run main.py --check
 ```
 
-The check verifies model files, persistence directories, endpoint shapes, optional cloud credentials, and side-effect feature flags. It does not open the camera or contact network services. Filesystem metadata errors are reported as warnings rather than crashing the diagnostic command.
+The check verifies model files, persistence directories, endpoint shapes, optional cloud credentials, and side-effect feature flags. It does not open the camera, play audio, launch a browser, send messages, close apps, or contact network services. Filesystem metadata errors are reported as warnings rather than crashing the diagnostic command.
