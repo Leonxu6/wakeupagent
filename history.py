@@ -38,7 +38,9 @@ class ContextHistory:
         self._items = deque(maxlen=self.max_items)
 
     def set_summary(self, text: object) -> None:
-        self._summary = _bounded_text(text, limit=self.summary_limit)
+        normalized = _bounded_text(text, limit=self.summary_limit)
+        if normalized:
+            self._summary = normalized
 
     def add_observation(self, text: object) -> None:
         normalized = _bounded_text(text, limit=self.observation_limit)
