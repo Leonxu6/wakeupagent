@@ -84,6 +84,12 @@ class PositiveNumberValidationTests(unittest.TestCase):
             with self.subTest(minimum=minimum, maximum=maximum), self.assertRaises(ValueError):
                 require_positive_number(5, field="timeout", minimum=minimum, maximum=maximum)  # type: ignore[arg-type]
 
+    def test_normalizes_huge_integer_overflow_to_value_errors(self):
+        huge = 10**10000
+        for value, minimum, maximum in ((huge, 0, None), (1, -huge, 10), (1, 0, huge)):
+            with self.subTest(value=value, minimum=minimum, maximum=maximum), self.assertRaises(ValueError):
+                require_positive_number(value, field="timeout", minimum=minimum, maximum=maximum)
+
 
 if __name__ == "__main__":
     unittest.main()
