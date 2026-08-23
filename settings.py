@@ -89,7 +89,8 @@ def env_int(name: str, default: int, *, minimum: int | None = None, maximum: int
             raise ValueError(f"{name} default must be an integer")
         result = default
     else:
-        if value.startswith("+") or not value.lstrip("-").isascii() or not value.lstrip("-").isdigit():
+        digits = value[1:] if value.startswith("-") else value
+        if value.startswith("+") or not digits or not digits.isascii() or not digits.isdigit():
             raise ValueError(f"{name} must be an integer")
         result = int(value)
     if minimum is not None and result < minimum:
