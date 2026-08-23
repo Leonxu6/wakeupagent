@@ -56,6 +56,17 @@ def _directory_check(name: str, path: Path) -> Check:
     return Check(name, True, str(path))
 
 
+def _persistence_parent_check(name: str, value: object) -> Check:
+    """Resolve a configured persistence path without letting path errors abort diagnostics."""
+    if not isinstance(value, (str, Path)):
+        return Check(name, False, "configured path must be text or Path")
+    try:
+        parent = Path(value).expanduser().resolve().parent
+    except (OSError, RuntimeError, ValueError) as exc:
+        return Check(name, False, f"invalid path: {value} ({exc})")
+    return _directory_check(name, parent)
+
+
 def _http_url_check(name: str, value: object) -> Check:
     """Apply the same HTTP(S) boundary used by browser-facing runtime tools."""
     try:
@@ -89,10 +100,8 @@ def collect_checks(base_dir: Path | None = None) -> list[Check]:
         _model_check("gesture-model", root / "gesture_recognizer.task"),
     ]
 
-    checkpoint_parent = Path(config.CHECKPOINT_DB_PATH).expanduser().resolve().parent
-    report_parent = Path(config.DAILY_REPORT_PATH).expanduser().resolve().parent
-    checks.append(_directory_check("checkpoint-dir", checkpoint_parent))
-    checks.append(_directory_check("report-dir", report_parent))
+    checks.append(_persistence_parent_check("checkpoint-dir", config.CHECKPOINT_DB_PATH))
+    checks.append(_persistence_parent_check("report-dir", config.DAILY_REPORT_PATH))
 
     checks.append(_http_url_check("ollama-url", config.OLLAMA_HOST))
     checks.append(_http_url_check("deepseek-url", config.DEEPSEEK_BASE_URL))
