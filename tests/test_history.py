@@ -50,6 +50,17 @@ class ContextHistoryTests(unittest.TestCase):
                 history.set_summary(value)
                 self.assertEqual(history.render(), "Summary: keep this summary")
 
+    def test_consecutive_duplicate_entries_are_suppressed(self):
+        history = ContextHistory()
+        history.add_observation("same scene")
+        history.add_observation("same   scene")
+        self.assertEqual(len(history), 1)
+        history.add_decision("focus now")
+        history.add_decision("focus\nnow")
+        self.assertEqual(len(history), 2)
+        history.add_observation("same scene")
+        self.assertEqual(len(history), 3)
+
     def test_invalid_limits_are_rejected(self):
         fields = ("max_items", "summary_limit", "observation_limit", "decision_limit")
         for field in fields:
