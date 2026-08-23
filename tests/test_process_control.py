@@ -27,22 +27,22 @@ class ProcessControlTests(unittest.TestCase):
         run.return_value.stderr = ""
         with patch.dict(os.environ, {"WAKEUP_ALLOW_PROCESS_CONTROL": "true"}, clear=True):
             result = force_close_app.invoke({"app_name": "Safari"})
-        self.assertIn("osascript", result)
+        self.assertIn("正常退出", result)
         self.assertEqual(run.call_count, 1)
         command = run.call_args.args[0]
         self.assertEqual(command[:2], ["osascript", "-e"])
         self.assertIn('tell application "Safari" to quit', command[2])
 
     @patch("tools.subprocess.run")
-    def test_no_fuzzy_pkill_fallback_is_used(self, run):
-        first = unittest.mock.Mock(returncode=1, stderr="not running")
-        second = unittest.mock.Mock(returncode=1, stderr="not found")
-        run.side_effect = [first, second]
+    def test_failed_graceful_quit_never_falls_back_to_killall(self, run):
+        run.return_value.returncode = 1
+        run.return_value.stderr = "not running"
         with patch.dict(os.environ, {"WAKEUP_ALLOW_PROCESS_CONTROL": "true"}, clear=True):
             result = force_close_app.invoke({"app_name": "Safari"})
         self.assertIn("Error", result)
-        self.assertEqual(run.call_count, 2)
-        self.assertEqual(run.call_args_list[1].args[0], ["killall", "Safari"])
+        self.assertIn("not running", result)
+        self.assertEqual(run.call_count, 1)
+        self.assertEqual(run.call_args.args[0][:2], ["osascript", "-e"])
 
 
 if __name__ == "__main__":
