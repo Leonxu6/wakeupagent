@@ -42,15 +42,20 @@ class ContextHistory:
         if normalized:
             self._summary = normalized
 
+    def _append_unique(self, entry: str) -> None:
+        if self._items and self._items[-1] == entry:
+            return
+        self._items.append(entry)
+
     def add_observation(self, text: object) -> None:
         normalized = _bounded_text(text, limit=self.observation_limit)
         if normalized:
-            self._items.append(f"[Obs] {normalized}")
+            self._append_unique(f"[Obs] {normalized}")
 
     def add_decision(self, text: object) -> None:
         normalized = _bounded_text(text, limit=self.decision_limit)
         if normalized:
-            self._items.append(f"[Brain] {normalized}")
+            self._append_unique(f"[Brain] {normalized}")
 
     def render(self, *, recent: int = 10) -> str:
         recent = _positive_int(recent, field_name="recent")
