@@ -17,6 +17,8 @@ from history import ContextHistory
 console = Console()
 
 _THREAD_CONFIG = {"configurable": {"thread_id": "superego_main"}}
+_MESSAGE_TEXT_LIMIT = 2000
+_MESSAGE_BLOCK_LIMIT = 20
 
 
 def _observation_state(text: str, ts: str, is_healthy: bool, should_escalate: bool) -> dict:
@@ -30,13 +32,13 @@ def _observation_state(text: str, ts: str, is_healthy: bool, should_escalate: bo
 
 
 def _message_text(content: object) -> str:
-    """Extract compact readable text from string or structured LangChain content."""
+    """Extract compact bounded text from string or structured LangChain content."""
     if isinstance(content, str):
-        return " ".join(content.split())
+        return " ".join(content.split())[:_MESSAGE_TEXT_LIMIT]
     if not isinstance(content, list):
         return ""
     parts: list[str] = []
-    for block in content:
+    for block in content[:_MESSAGE_BLOCK_LIMIT]:
         if isinstance(block, str):
             text = block
         elif isinstance(block, dict) and isinstance(block.get("text"), str):
@@ -46,7 +48,7 @@ def _message_text(content: object) -> str:
         normalized = " ".join(text.split())
         if normalized:
             parts.append(normalized)
-    return " ".join(parts)
+    return " ".join(parts)[:_MESSAGE_TEXT_LIMIT]
 
 
 def _ai_message_texts(node_output: object) -> list[str]:
