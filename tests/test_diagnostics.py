@@ -107,8 +107,23 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertTrue(by_name["ollama-url"].ok)
         self.assertTrue(by_name["deepseek-url"].ok)
         self.assertFalse(by_name["deepseek-key"].ok)
+        self.assertEqual(by_name["tts"].detail, "disabled")
         self.assertEqual(by_name["external-messaging"].detail, "disabled")
         self.assertEqual(by_name["process-control"].detail, "disabled")
+
+    def test_collect_checks_reports_enabled_tts_without_starting_audio(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "pose_landmarker_lite.task").write_bytes(b"pose")
+            (root / "gesture_recognizer.task").write_bytes(b"gesture")
+            with patch.dict(os.environ, {"WAKEUP_ALLOW_TTS": "true"}, clear=True), \
+                 patch.object(diagnostics.config, "CHECKPOINT_DB_PATH", str(root / "state.db")), \
+                 patch.object(diagnostics.config, "DAILY_REPORT_PATH", str(root / "reports.md")), \
+                 patch.object(diagnostics.config, "OLLAMA_HOST", "http://localhost:11434"), \
+                 patch.object(diagnostics.config, "DEEPSEEK_BASE_URL", "https://api.deepseek.com"), \
+                 patch.object(diagnostics.config, "DEEPSEEK_API_KEY", ""):
+                checks = diagnostics.collect_checks(root)
+        self.assertEqual({c.name: c for c in checks}["tts"].detail, "enabled")
 
     def test_format_checks_has_stable_markers_and_one_line_per_check(self):
         text = diagnostics.format_checks([
