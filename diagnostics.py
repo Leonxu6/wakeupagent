@@ -103,6 +103,7 @@ def collect_checks(base_dir: Path | None = None) -> list[Check]:
             "configured" if config.DEEPSEEK_API_KEY else "not configured",
         )
     )
+    checks.append(_feature_flag_check("tts", "WAKEUP_ALLOW_TTS"))
     checks.append(_feature_flag_check("external-messaging", "WAKEUP_ALLOW_EXTERNAL_MESSAGING"))
     checks.append(_feature_flag_check("process-control", "WAKEUP_ALLOW_PROCESS_CONTROL"))
     return checks
