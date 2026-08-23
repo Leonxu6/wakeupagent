@@ -163,7 +163,7 @@ def env_http_url(name: str, default: str) -> str:
         raise ValueError(f"{name} must not contain backslashes")
     try:
         parsed = urlparse(value)
-        _ = parsed.port
+        port = parsed.port
     except ValueError as exc:
         raise ValueError(f"{name} is not a valid URL") from exc
     hostname = parsed.hostname
@@ -173,6 +173,8 @@ def env_http_url(name: str, default: str) -> str:
         raise ValueError(f"{name} must not contain credentials")
     if parsed.query or parsed.fragment:
         raise ValueError(f"{name} must not contain a query string or fragment")
+    if parsed.netloc.endswith(":") or port == 0:
+        raise ValueError(f"{name} must use a valid non-zero port when a port is present")
     return value.rstrip("/")
 
 
