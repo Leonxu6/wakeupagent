@@ -2,7 +2,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from settings import env_bool, env_float, env_http_url, env_int, env_path, env_secret, env_text
+from settings import env_bool, env_float, env_http_url, env_int, env_json_string_map, env_path, env_secret, env_text
 
 
 class EnvironmentParserTests(unittest.TestCase):
@@ -144,6 +144,11 @@ class EnvironmentParserTests(unittest.TestCase):
     def test_path_parser_expands_home_directory(self):
         with patch.dict(os.environ, {"HOME": "/tmp/test-home", "PATH_VALUE": "~/data.db"}, clear=True):
             self.assertEqual(env_path("PATH_VALUE", "default.db"), "/tmp/test-home/data.db")
+
+    def test_json_string_map_rejects_duplicate_keys(self):
+        with patch.dict(os.environ, {"CONTACTS": '{"mentor":"Alice","mentor":"Bob"}'}, clear=True):
+            with self.assertRaisesRegex(ValueError, "duplicate keys"):
+                env_json_string_map("CONTACTS", {})
 
 
 if __name__ == "__main__":
