@@ -194,6 +194,8 @@ def env_json_string_map(name: str, default: dict[str, str], *, max_entries: int 
     if raw is None:
         value: object = default
     else:
+        if not raw or raw != raw.strip():
+            raise ValueError(f"{name} must be non-empty JSON without surrounding whitespace")
         if len(raw) > 16384:
             raise ValueError(f"{name} must be at most 16384 characters")
 
