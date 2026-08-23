@@ -34,6 +34,16 @@ def _bounded_detail(value: object, *, limit: int = 500) -> str:
     return text[:limit] if text else "unknown error"
 
 
+def _observation_text(value: object, *, limit: int = 1000) -> str:
+    """Normalize a local vision response before logging or returning it to the graph."""
+    if not isinstance(value, str):
+        raise ValueError("camera description must be text")
+    text = " ".join(value.split())
+    if not text:
+        raise ValueError("camera description must not be empty")
+    return text[:limit]
+
+
 def _escape_applescript(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
@@ -184,7 +194,10 @@ def observe_camera() -> str:
     frame = get_latest_frame()
     if frame is None:
         return "camera not available"
-    description = query_moondream(frame)
+    try:
+        description = _observation_text(query_moondream(frame))
+    except ValueError as exc:
+        return _error(exc)
     console.print(f"[bold cyan]👁️  [observe] {escape(description)}[/bold cyan]")
     return description
 
