@@ -61,6 +61,14 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertIn("unreadable", check.detail)
         self.assertIn("blocked", check.detail)
 
+    def test_persistence_parent_check_normalizes_bad_paths_into_checks(self):
+        self.assertFalse(diagnostics._persistence_parent_check("state", None).ok)
+        with patch.object(Path, "resolve", side_effect=RuntimeError("home loop")):
+            check = diagnostics._persistence_parent_check("state", "~/state.db")
+        self.assertFalse(check.ok)
+        self.assertIn("invalid path", check.detail)
+        self.assertIn("home loop", check.detail)
+
     def test_http_url_check_matches_runtime_url_boundaries(self):
         for value in ("ftp://example.com", "https://user:secret@example.com", "https://example.com:bad"):
             with self.subTest(value=value):
