@@ -149,32 +149,27 @@ def open_webpage(url: str) -> str:
 
 @tool
 def force_close_app(app_name: str) -> str:
-    """Close one explicitly named app when process control has been enabled."""
+    """Request a graceful quit for one explicitly named app when process control is enabled."""
     if not _feature_enabled("WAKEUP_ALLOW_PROCESS_CONTROL"):
         return "Error: process control is disabled; set WAKEUP_ALLOW_PROCESS_CONTROL=true to opt in"
     try:
         app_name = require_app_name(app_name)
     except ValueError as exc:
         return _error(exc)
-    console.print(f"[bold yellow]⏹ [process] closing app: {escape(app_name)}[/bold yellow]")
+    console.print(f"[bold yellow]⏹ [process] requesting app quit: {escape(app_name)}[/bold yellow]")
     escaped_name = _escape_applescript(app_name)
     try:
-        result = subprocess.run(["osascript", "-e", f'tell application "{escaped_name}" to quit'], capture_output=True, text=True, timeout=10)
-        if result.returncode == 0:
-            return f"已通过 osascript 关闭 {app_name}"
+        result = subprocess.run(
+            ["osascript", "-e", f'tell application "{escaped_name}" to quit'],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
     except Exception as exc:  # noqa: BLE001
-        osascript_error = _bounded_detail(exc)
-    else:
-        osascript_error = _bounded_detail(result.stderr or "application did not quit")
-
-    try:
-        result = subprocess.run(["killall", app_name], capture_output=True, text=True, timeout=5)
-        if result.returncode == 0:
-            return f"已通过 killall 关闭 {app_name}"
-        killall_error = _bounded_detail(result.stderr or "process not found")
-    except Exception as exc:  # noqa: BLE001
-        killall_error = _bounded_detail(exc)
-    return f"Error: 无法关闭 {app_name}。osascript: {osascript_error}; killall: {killall_error}"
+        return f"Error: 无法请求 {app_name} 退出：{_bounded_detail(exc)}"
+    if result.returncode == 0:
+        return f"已请求 {app_name} 正常退出"
+    return f"Error: 无法请求 {app_name} 退出：{_bounded_detail(result.stderr or 'application did not quit')}"
 
 
 @tool
