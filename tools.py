@@ -186,7 +186,10 @@ def observe_camera() -> str:
     _stop_event.wait(timeout=CAPTURE_INTERVAL_SEC)
     if _stop_event.is_set():
         return "observation cancelled: program stopping"
-    frame = get_latest_frame()
+    try:
+        frame = get_latest_frame()
+    except Exception as exc:  # noqa: BLE001
+        return f"Error: camera frame unavailable: {_bounded_detail(exc)}"
     if frame is None:
         return "camera not available"
     try:
