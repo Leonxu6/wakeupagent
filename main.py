@@ -10,6 +10,7 @@ import argparse
 from datetime import datetime
 
 from rich.console import Console
+from rich.markup import escape
 
 from config import LOG_A
 from history import ContextHistory
@@ -20,6 +21,7 @@ _THREAD_CONFIG = {"configurable": {"thread_id": "superego_main"}}
 _MESSAGE_TEXT_LIMIT = 2000
 _MESSAGE_BLOCK_LIMIT = 20
 _AI_MESSAGE_LIMIT = 20
+_ERROR_TEXT_LIMIT = 500
 
 
 def _observation_state(text: str, ts: str, is_healthy: bool, should_escalate: bool) -> dict:
@@ -69,6 +71,12 @@ def _ai_message_texts(node_output: object) -> list[str]:
     return texts
 
 
+def _log_error(exc: object) -> str:
+    """Render bounded one-line exception text without allowing Rich markup injection."""
+    text = " ".join(str(exc).split())[:_ERROR_TEXT_LIMIT] or "unknown error"
+    return escape(text)
+
+
 def _is_shutdown_runtime_error(exc: RuntimeError) -> bool:
     """Recognize the executor shutdown race that can happen while quitting."""
     message = str(exc).lower()
@@ -95,9 +103,9 @@ def run_perception_mode():
                         history.add_decision(text)
         except RuntimeError as exc:
             if not _is_shutdown_runtime_error(exc):
-                console.print(f"[red]stream runtime error: {exc}[/red]")
+                console.print(f"[red]stream runtime error: {_log_error(exc)}[/red]")
         except Exception as exc:  # noqa: BLE001
-            console.print(f"[red]stream error: {exc}[/red]")
+            console.print(f"[red]stream error: {_log_error(exc)}[/red]")
 
     def on_vision(text: str, ts: str, is_healthy: bool, should_escalate: bool):
         """定时摄像头触发的感知回调。"""
