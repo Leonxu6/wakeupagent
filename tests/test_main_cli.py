@@ -81,6 +81,12 @@ class MainCliTests(unittest.TestCase):
         self.assertEqual(texts[0], "ai-5")
         self.assertEqual(texts[-1], f"ai-{main._AI_MESSAGE_LIMIT + 4}")
 
+    def test_runtime_error_text_is_single_line_bounded_and_rich_escaped(self):
+        text = main._log_error(RuntimeError("[bold]boom[/bold]\n" + "x" * 1000))
+        self.assertIn(r"\[bold]boom\[/bold]", text)
+        self.assertNotIn("\n", text)
+        self.assertLessEqual(len(text.replace(r"\[", "[").replace(r"\]", "]")), main._ERROR_TEXT_LIMIT)
+
     def test_shutdown_runtime_error_detection_is_narrow(self):
         self.assertTrue(
             main._is_shutdown_runtime_error(RuntimeError("cannot schedule new futures after shutdown"))
