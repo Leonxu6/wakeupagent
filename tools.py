@@ -40,7 +40,9 @@ def _escape_applescript(value: str) -> str:
 
 @tool
 def play_tts_punishment(text: str) -> str:
-    """Speak one short local reminder through the macOS ``say`` command."""
+    """Speak one short local reminder when local TTS has been explicitly enabled."""
+    if not _feature_enabled("WAKEUP_ALLOW_TTS"):
+        return "Error: local TTS is disabled; set WAKEUP_ALLOW_TTS=true to opt in"
     try:
         text = require_text(text, field="text", max_length=200)
     except ValueError as exc:
