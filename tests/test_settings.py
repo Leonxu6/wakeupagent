@@ -116,6 +116,13 @@ class EnvironmentParserTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     env_float("RATE", 0.5, minimum=0, maximum=1)
 
+    def test_float_parser_normalizes_integer_overflow(self):
+        huge = 10**10000
+        with patch.dict(os.environ, {}, clear=True):
+            for kwargs in ({"default": huge}, {"default": 0.5, "minimum": -huge}, {"default": 0.5, "maximum": huge}):
+                with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                    env_float("RATE", **kwargs)  # type: ignore[arg-type]
+
     def test_boolean_parser_supports_explicit_common_spellings(self):
         for value, expected in (("1", True), ("true", True), ("YES", True), ("off", False), ("0", False)):
             with self.subTest(value=value), patch.dict(os.environ, {"FLAG": value}, clear=True):
