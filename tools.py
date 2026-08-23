@@ -198,6 +198,8 @@ def observe_camera() -> str:
         description = _observation_text(query_moondream(frame))
     except ValueError as exc:
         return _error(exc)
+    except Exception as exc:  # noqa: BLE001
+        return f"Error: camera description failed: {_bounded_detail(exc)}"
     console.print(f"[bold cyan]👁️  [observe] {escape(description)}[/bold cyan]")
     return description
 
