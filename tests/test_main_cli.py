@@ -51,6 +51,14 @@ class MainCliTests(unittest.TestCase):
             "first line second line",
         )
 
+    def test_message_text_bounds_large_strings_and_structured_block_lists(self):
+        self.assertEqual(len(main._message_text("x" * (main._MESSAGE_TEXT_LIMIT + 100))), main._MESSAGE_TEXT_LIMIT)
+        blocks = [f"part-{i}" for i in range(main._MESSAGE_BLOCK_LIMIT + 5)]
+        text = main._message_text(blocks)
+        self.assertIn("part-0", text)
+        self.assertIn(f"part-{main._MESSAGE_BLOCK_LIMIT - 1}", text)
+        self.assertNotIn(f"part-{main._MESSAGE_BLOCK_LIMIT}", text)
+
     def test_ai_message_texts_tolerates_missing_and_malformed_batches(self):
         for output in (None, [], {}, {"messages": None}, {"messages": "not-a-list"}):
             with self.subTest(output=output):
