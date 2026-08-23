@@ -174,8 +174,17 @@ def env_json_string_map(name: str, default: dict[str, str], *, max_entries: int 
     else:
         if len(raw) > 16384:
             raise ValueError(f"{name} must be at most 16384 characters")
+
+        def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+            result: dict[str, object] = {}
+            for key, item in pairs:
+                if key in result:
+                    raise ValueError(f"{name} must not contain duplicate keys")
+                result[key] = item
+            return result
+
         try:
-            value = json.loads(raw)
+            value = json.loads(raw, object_pairs_hook=_unique_object)
         except json.JSONDecodeError as exc:
             raise ValueError(f"{name} must be a JSON object") from exc
     if not isinstance(value, dict):
