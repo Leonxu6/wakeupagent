@@ -41,7 +41,10 @@ def _float_bound(value: object, *, field: str) -> float | None:
         return None
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{field} must be a number")
-    result = float(value)
+    try:
+        result = float(value)
+    except OverflowError as exc:
+        raise ValueError(f"{field} must be finite") from exc
     if not math.isfinite(result):
         raise ValueError(f"{field} must be finite")
     return result
@@ -109,11 +112,14 @@ def env_float(name: str, default: float, *, minimum: float | None = None, maximu
     if value is None:
         if isinstance(default, bool) or not isinstance(default, (int, float)):
             raise ValueError(f"{name} default must be a number")
-        result = float(default)
+        try:
+            result = float(default)
+        except OverflowError as exc:
+            raise ValueError(f"{name} default must be finite") from exc
     else:
         try:
             result = float(value)
-        except ValueError as exc:
+        except (OverflowError, ValueError) as exc:
             raise ValueError(f"{name} must be a number") from exc
     if not math.isfinite(result):
         raise ValueError(f"{name} must be finite")
@@ -162,7 +168,10 @@ def env_http_url(name: str, default: str) -> str:
 
 def env_path(name: str, default: str) -> str:
     value = env_text(name, default, max_length=4096)
-    return str(Path(value).expanduser())
+    try:
+        return str(Path(value).expanduser())
+    except RuntimeError as exc:
+        raise ValueError(f"{name} could not expand the user home directory") from exc
 
 
 def env_json_string_map(name: str, default: dict[str, str], *, max_entries: int = 100) -> dict[str, str]:
