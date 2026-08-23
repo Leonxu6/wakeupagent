@@ -38,6 +38,20 @@ class ObserveCameraTests(unittest.TestCase):
             self.assertIn("Error", result)
             self.assertIn("camera description", result)
 
+    @patch("tools.console.print")
+    def test_reports_camera_model_failures_without_raising_from_tool(self, console_print):
+        def _boom(frame):
+            raise RuntimeError("model backend\nfailed")
+
+        fake = types.SimpleNamespace(
+            _stop_event=_StopEvent(),
+            get_latest_frame=lambda: object(),
+            query_moondream=_boom,
+        )
+        with patch.dict(sys.modules, {"perception": fake}):
+            result = observe_camera.invoke({})
+        self.assertEqual(result, "Error: camera description failed: model backend failed")
+
 
 if __name__ == "__main__":
     unittest.main()
