@@ -21,7 +21,10 @@ def _has_disallowed_control(value: str, *, allow_newlines: bool) -> bool:
 def _finite_number(value: object, *, field: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{field} must be a number")
-    number = float(value)
+    try:
+        number = float(value)
+    except OverflowError as exc:
+        raise ValueError(f"{field} must be finite") from exc
     if not math.isfinite(number):
         raise ValueError(f"{field} must be finite")
     return number
