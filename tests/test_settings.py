@@ -14,6 +14,20 @@ class EnvironmentParserTests(unittest.TestCase):
             self.assertEqual(env_float("RATE", 0.5), 0.5)
             self.assertTrue(env_bool("ENABLED", True))
 
+    def test_environment_variable_names_are_validated_consistently(self):
+        parsers = (
+            lambda name: env_text(name, "ok"),
+            lambda name: env_secret(name),
+            lambda name: env_int(name, 1),
+            lambda name: env_float(name, 1.0),
+            lambda name: env_bool(name, False),
+            lambda name: env_json_string_map(name, {}),
+        )
+        for name in (None, "", " BAD", "BAD ", "BAD NAME", "BAD=VALUE", "BAD\nNAME"):
+            for parser in parsers:
+                with self.subTest(name=name, parser=parser), self.assertRaises(ValueError):
+                    parser(name)  # type: ignore[arg-type]
+
     def test_text_defaults_are_validated_when_variable_is_missing(self):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(env_text("TEXT", "fallback", max_length=8), "fallback")
