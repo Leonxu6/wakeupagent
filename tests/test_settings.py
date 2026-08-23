@@ -179,6 +179,12 @@ class EnvironmentParserTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "duplicate keys"):
                 env_json_string_map("CONTACTS", {})
 
+    def test_json_string_map_rejects_empty_and_padded_environment_values(self):
+        for raw in ("", " ", ' {"mentor":"Alice"}', '{"mentor":"Alice"} '):
+            with self.subTest(raw=raw), patch.dict(os.environ, {"CONTACTS": raw}, clear=True):
+                with self.assertRaises(ValueError):
+                    env_json_string_map("CONTACTS", {})
+
 
 if __name__ == "__main__":
     unittest.main()
