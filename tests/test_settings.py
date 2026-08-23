@@ -103,7 +103,7 @@ class EnvironmentParserTests(unittest.TestCase):
             with self.subTest(value=value), patch.dict(os.environ, {"COUNT": value}, clear=True):
                 result = env_int("COUNT", 5, minimum=-2, maximum=10)
                 self.assertEqual(result, int(value))
-        for value in ("+2", "2.0", "１２", "11", "-3"):
+        for value in ("+2", "--1", "---2", "2.0", "１２", "11", "-3"):
             with self.subTest(value=value), patch.dict(os.environ, {"COUNT": value}, clear=True):
                 with self.assertRaises(ValueError):
                     env_int("COUNT", 5, minimum=-2, maximum=10)
