@@ -42,6 +42,14 @@ class ContextHistoryTests(unittest.TestCase):
         history.add_decision(7)
         self.assertEqual(history.render(), "")
 
+    def test_malformed_summary_updates_do_not_erase_existing_context(self):
+        history = ContextHistory()
+        history.set_summary("keep this summary")
+        for value in (None, 7, "", "   "):
+            with self.subTest(value=value):
+                history.set_summary(value)
+                self.assertEqual(history.render(), "Summary: keep this summary")
+
     def test_invalid_limits_are_rejected(self):
         fields = ("max_items", "summary_limit", "observation_limit", "decision_limit")
         for field in fields:
