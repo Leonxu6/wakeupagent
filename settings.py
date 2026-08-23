@@ -11,7 +11,16 @@ _TRUE = {"1", "true", "yes", "on"}
 _FALSE = {"0", "false", "no", "off"}
 
 
+def _env_name(name: object) -> str:
+    if not isinstance(name, str) or not name or name != name.strip():
+        raise ValueError("environment variable name must be clean non-empty text")
+    if "=" in name or any(ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in name):
+        raise ValueError("environment variable name contains unsupported characters")
+    return name
+
+
 def _raw(name: str) -> str | None:
+    name = _env_name(name)
     value = os.getenv(name)
     if value is None:
         return None
@@ -74,6 +83,7 @@ def env_text(name: str, default: str, *, max_length: int = 500) -> str:
 
 def env_secret(name: str, default: str = "", *, max_length: int = 4096) -> str:
     """Read an optional secret while rejecting whitespace and header-breaking controls."""
+    name = _env_name(name)
     max_length = _positive_limit(max_length, field="max_length")
     value = os.getenv(name)
     if value is None:
@@ -176,6 +186,7 @@ def env_path(name: str, default: str) -> str:
 
 def env_json_string_map(name: str, default: dict[str, str], *, max_entries: int = 100) -> dict[str, str]:
     """Read a small JSON object whose keys and values are clean, bounded strings."""
+    name = _env_name(name)
     max_entries = _positive_limit(max_entries, field="max_entries")
     raw = os.getenv(name)
     if raw is None:
