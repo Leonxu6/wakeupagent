@@ -51,6 +51,17 @@ class ExternalMessagingTests(unittest.TestCase):
         run.assert_called_once()
         self.assertEqual(run.call_args.args[0][:2], ["osascript", "-e"])
 
+    @patch("tools.subprocess.run")
+    def test_automation_failures_do_not_echo_private_script_details(self, run):
+        run.return_value.returncode = 1
+        run.return_value.stderr = "failed around Private Real Contact and Please check in"
+        with patch.dict(os.environ, {"WAKEUP_ALLOW_EXTERNAL_MESSAGING": "true"}, clear=True), \
+             patch("config.WECHAT_CONTACTS", {"mentor": "Private Real Contact"}):
+            result = send_wechat_shame_message.invoke({"target": "mentor", "message": "Please check in"})
+        self.assertEqual(result, "Error: 微信自动化执行失败")
+        self.assertNotIn("Private Real Contact", result)
+        self.assertNotIn("Please check in", result)
+
 
 if __name__ == "__main__":
     unittest.main()
