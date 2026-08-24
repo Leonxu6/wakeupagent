@@ -84,10 +84,10 @@ def play_tts_punishment(text: str) -> str:
         try:
             subprocess.run(["say", text], timeout=60, check=True)
             return "TTS 播放完毕（默认声音）"
-        except Exception as exc:  # noqa: BLE001
-            return f"Error: {_bounded_detail(exc)}"
-    except Exception as exc:  # noqa: BLE001
-        return f"Error: {_bounded_detail(exc)}"
+        except Exception:  # noqa: BLE001
+            return "Error: TTS 播放失败"
+    except Exception:  # noqa: BLE001
+        return "Error: TTS 播放失败"
 
 
 @tool
