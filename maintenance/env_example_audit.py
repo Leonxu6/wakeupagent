@@ -6,12 +6,17 @@ from pathlib import Path
 import re
 
 _KEY = re.compile(r"^[A-Z][A-Z0-9_]*$")
+_SECRET_SUFFIXES = ("_API_KEY", "_TOKEN", "_PASSWORD", "_SECRET")
 
 
 @dataclass(frozen=True)
 class EnvIssue:
     line: int
     message: str
+
+
+def _looks_sensitive(key: str) -> bool:
+    return key.endswith(_SECRET_SUFFIXES)
 
 
 def audit_env_example(path: Path) -> list[EnvIssue]:
@@ -35,6 +40,8 @@ def audit_env_example(path: Path) -> list[EnvIssue]:
             issues.append(EnvIssue(number, f"{key} value has surrounding whitespace"))
         if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
             issues.append(EnvIssue(number, f"{key} value contains control characters"))
+        if _looks_sensitive(key) and value.strip():
+            issues.append(EnvIssue(number, f"{key} must be empty in the tracked template"))
     return issues
 
 
