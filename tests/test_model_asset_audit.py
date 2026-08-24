@@ -18,6 +18,17 @@ def test_inspect_asset_accepts_nonempty_task_file(tmp_path):
     assert status.detail == "5 bytes"
 
 
+def test_inspect_asset_does_not_restat_with_is_file(tmp_path, monkeypatch):
+    path = tmp_path / "model.task"
+    path.write_bytes(b"model")
+
+    def fail_is_file(self):
+        raise AssertionError("inspect_asset should rely on the existing stat result")
+
+    monkeypatch.setattr(Path, "is_file", fail_is_file)
+    assert module.inspect_asset(path).ok is True
+
+
 def test_inspect_asset_reports_missing_empty_directory_and_extension(tmp_path):
     assert module.inspect_asset(tmp_path / "missing.task").detail == "missing"
     empty = tmp_path / "empty.task"
