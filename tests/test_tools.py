@@ -80,13 +80,15 @@ class OpenWebpageTests(unittest.TestCase):
         self.assertIn("Error", result)
         browser_open.assert_called_once_with("https://example.com")
 
-    @patch("tools.webbrowser.open", side_effect=RuntimeError("browser unavailable"))
-    def test_reports_browser_errors(self, browser_open):
+    @patch("tools.webbrowser.open", side_effect=RuntimeError("private token=https://secret.example"))
+    def test_browser_exceptions_do_not_leak_backend_details(self, browser_open):
         with patch.dict(os.environ, {"WAKEUP_ALLOW_BROWSER_CONTROL": "true"}, clear=True):
-            result = open_webpage.invoke({"url": "https://example.com"})
+            result = open_webpage.invoke({"url": "https://example.com/study?token=private"})
 
-        self.assertEqual(result, "Error: browser unavailable")
-        browser_open.assert_called_once_with("https://example.com")
+        self.assertEqual(result, "Error: 浏览器打开失败：https://example.com/study")
+        self.assertNotIn("private", result)
+        self.assertNotIn("secret.example", result)
+        browser_open.assert_called_once_with("https://example.com/study?token=private")
 
 
 if __name__ == "__main__":
