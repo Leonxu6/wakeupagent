@@ -134,12 +134,12 @@ end tell
     try:
         result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
-            return f"Error: {_bounded_detail(result.stderr or 'osascript 执行失败')}"
+            return "Error: 微信自动化执行失败"
         return f"已向别名 {target} 发送消息"
     except subprocess.TimeoutExpired:
         return "Error: 微信操作超时"
-    except Exception as exc:  # noqa: BLE001
-        return f"Error: {_bounded_detail(exc)}"
+    except Exception:  # noqa: BLE001
+        return "Error: 微信自动化执行失败"
 
 
 @tool
