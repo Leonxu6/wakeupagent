@@ -21,6 +21,11 @@ class ToolErrorDetailTests(unittest.TestCase):
 
         self.assertEqual(_bounded_detail(Broken()), "Broken")
 
+    def test_limit_must_be_a_positive_integer(self):
+        for limit in (0, -1, True, 1.5, "20"):
+            with self.subTest(limit=limit), self.assertRaises(ValueError):
+                _bounded_detail("error", limit=limit)  # type: ignore[arg-type]
+
 
 if __name__ == "__main__":
     unittest.main()
