@@ -4,18 +4,20 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 from pathlib import Path
 from urllib.parse import urlparse
 
 _TRUE = {"1", "true", "yes", "on"}
 _FALSE = {"0", "false", "no", "off"}
+_ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def _env_name(name: object) -> str:
     if not isinstance(name, str) or not name or name != name.strip():
         raise ValueError("environment variable name must be clean non-empty text")
-    if "=" in name or any(ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in name):
-        raise ValueError("environment variable name contains unsupported characters")
+    if not _ENV_NAME.fullmatch(name):
+        raise ValueError("environment variable name must use shell-safe letters, digits, and underscores")
     return name
 
 
