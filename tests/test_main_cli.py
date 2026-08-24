@@ -42,6 +42,10 @@ class MainCliTests(unittest.TestCase):
             main._message_text([{"type": "text", "text": "first"}, "second", {"type": "image", "url": "x"}]),
             "first second",
         )
+        self.assertEqual(
+            main._message_text(({"text": "tuple first"}, "tuple second")),
+            "tuple first tuple second",
+        )
         self.assertEqual(main._message_text({"text": "not-a-list"}), "")
 
     def test_message_text_normalizes_multiline_and_empty_blocks(self):
