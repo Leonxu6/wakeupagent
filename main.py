@@ -73,7 +73,11 @@ def _ai_message_texts(node_output: object) -> list[str]:
 
 def _log_error(exc: object) -> str:
     """Render bounded one-line exception text without allowing Rich markup injection."""
-    text = " ".join(str(exc).split())[:_ERROR_TEXT_LIMIT] or "unknown error"
+    try:
+        rendered = str(exc)
+    except Exception:  # noqa: BLE001
+        rendered = exc.__class__.__name__
+    text = " ".join(rendered.split())[:_ERROR_TEXT_LIMIT] or "unknown error"
     return escape(text)
 
 
