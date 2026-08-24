@@ -67,7 +67,7 @@ def require_http_url(value: object, *, max_length: int = 2048) -> str:
         raise ValueError("url must not contain backslashes")
     try:
         parsed = urlparse(url)
-        _ = parsed.port
+        port = parsed.port
     except (TypeError, ValueError) as exc:
         raise ValueError("url is malformed") from exc
     hostname = parsed.hostname
@@ -75,6 +75,8 @@ def require_http_url(value: object, *, max_length: int = 2048) -> str:
         raise ValueError("url must use http:// or https:// and include a hostname")
     if parsed.username is not None or parsed.password is not None:
         raise ValueError("url must not contain embedded credentials")
+    if parsed.netloc.endswith(":") or port == 0:
+        raise ValueError("url must use a valid non-zero port when a port is present")
     return url
 
 
