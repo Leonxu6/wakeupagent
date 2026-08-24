@@ -83,7 +83,10 @@ def _log_error(exc: object) -> str:
 
 def _is_shutdown_runtime_error(exc: RuntimeError) -> bool:
     """Recognize the executor shutdown race that can happen while quitting."""
-    message = str(exc).lower()
+    try:
+        message = str(exc).lower()
+    except Exception:  # noqa: BLE001
+        return False
     return "cannot schedule new futures after" in message and "shutdown" in message
 
 
