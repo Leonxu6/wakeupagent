@@ -28,6 +28,7 @@ _CRITICAL_CHECKS = {
     "configuration",
     "checkpoint-dir",
     "report-dir",
+    "deepseek-key",
 }
 
 
