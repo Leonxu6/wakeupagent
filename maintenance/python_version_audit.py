@@ -4,8 +4,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import re
+import tomllib
 
 _VERSION = re.compile(r"^(\d+)\.(\d+)(?:\.\d+)?$")
+_FLOOR = re.compile(r"^>=(\d+\.\d+)(?:\.\d+)?(?:\s*,.*)?$")
 
 
 @dataclass(frozen=True)
@@ -21,15 +23,27 @@ def parse_version(text: str) -> tuple[int, int]:
     return int(match.group(1)), int(match.group(2))
 
 
+def _requires_python_floor(pyproject: Path) -> tuple[int, int] | None:
+    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    project = data.get("project")
+    if not isinstance(project, dict):
+        return None
+    value = project.get("requires-python")
+    if not isinstance(value, str):
+        return None
+    match = _FLOOR.fullmatch(value.strip())
+    if not match:
+        return None
+    return parse_version(match.group(1))
+
+
 def audit_python_version(root: Path) -> VersionAudit:
     version_file = root / ".python-version"
     pyproject = root / "pyproject.toml"
     declared = parse_version(version_file.read_text(encoding="utf-8"))
-    project_text = pyproject.read_text(encoding="utf-8")
-    match = re.search(r'requires-python\s*=\s*">=(\d+\.\d+)', project_text)
-    if not match:
-        return VersionAudit(False, "pyproject.toml has no >= requires-python floor")
-    floor = parse_version(match.group(1))
+    floor = _requires_python_floor(pyproject)
+    if floor is None:
+        return VersionAudit(False, "pyproject.toml has no simple >= requires-python floor")
     if declared != floor:
         return VersionAudit(False, f".python-version {declared[0]}.{declared[1]} != requires-python {floor[0]}.{floor[1]}")
     return VersionAudit(True, f"Python {declared[0]}.{declared[1]}")
