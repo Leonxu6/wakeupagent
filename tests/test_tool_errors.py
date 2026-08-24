@@ -14,6 +14,13 @@ class ToolErrorDetailTests(unittest.TestCase):
     def test_empty_details_have_stable_fallback(self):
         self.assertEqual(_bounded_detail(" \n\t "), "unknown error")
 
+    def test_broken_string_conversion_uses_type_name(self):
+        class Broken:
+            def __str__(self):
+                raise RuntimeError("render failed")
+
+        self.assertEqual(_bounded_detail(Broken()), "Broken")
+
 
 if __name__ == "__main__":
     unittest.main()
