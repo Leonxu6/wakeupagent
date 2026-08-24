@@ -13,7 +13,6 @@ from datetime import datetime
 from rich.console import Console
 from rich.markup import escape
 
-from config import LOG_A
 from history import ContextHistory
 
 console = Console()
@@ -120,6 +119,7 @@ def run_perception_mode():
 
 
 def run_graph_mode():
+    from config import LOG_A
     from graph import build_graph
 
     console.print(f"{LOG_A} building langgraph")
