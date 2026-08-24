@@ -41,6 +41,20 @@ class OpenWebpageTests(unittest.TestCase):
         rendered = console_print.call_args.args[0]
         self.assertIn(r"\[red]study\[/red]", rendered)
 
+    @patch("tools.console.print")
+    @patch("tools.webbrowser.open", return_value=True)
+    def test_query_and_fragment_are_not_copied_into_logs_or_results(self, browser_open, console_print):
+        url = "https://example.com/study?token=private#focus"
+        with patch.dict(os.environ, {"WAKEUP_ALLOW_BROWSER_CONTROL": "true"}, clear=True):
+            result = open_webpage.invoke({"url": url})
+        browser_open.assert_called_once_with(url)
+        self.assertIn("https://example.com/study", result)
+        self.assertNotIn("token=private", result)
+        self.assertNotIn("focus", result)
+        rendered = console_print.call_args.args[0]
+        self.assertNotIn("token=private", rendered)
+        self.assertNotIn("#focus", rendered)
+
     @patch("tools.webbrowser.open")
     def test_rejects_non_http_or_hostless_urls_without_side_effects(self, browser_open):
         invalid_urls = (
