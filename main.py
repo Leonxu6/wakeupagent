@@ -38,7 +38,7 @@ def _message_text(content: object) -> str:
     """Extract compact bounded text from string or structured LangChain content."""
     if isinstance(content, str):
         return " ".join(content.split())[:_MESSAGE_TEXT_LIMIT]
-    if not isinstance(content, list):
+    if not isinstance(content, (list, tuple)):
         return ""
     parts: list[str] = []
     for block in content[:_MESSAGE_BLOCK_LIMIT]:
