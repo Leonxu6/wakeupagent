@@ -15,9 +15,13 @@ class ExternalMessagingTests(unittest.TestCase):
 
     @patch("tools.subprocess.run")
     def test_invalid_target_alias_does_not_start_automation(self, run):
-        with patch.dict(os.environ, {"WAKEUP_ALLOW_EXTERNAL_MESSAGING": "true"}, clear=True):
+        with patch.dict(os.environ, {"WAKEUP_ALLOW_EXTERNAL_MESSAGING": "true"}, clear=True), \
+             patch("config.WECHAT_CONTACTS", {"mentor": "Private Real Contact", "family": "Another Contact"}):
             result = send_wechat_shame_message.invoke({"target": "unknown", "message": "Status update"})
         self.assertIn("不支持", result)
+        self.assertNotIn("mentor", result)
+        self.assertNotIn("family", result)
+        self.assertNotIn("Private Real Contact", result)
         run.assert_not_called()
 
     @patch("tools.subprocess.run")
