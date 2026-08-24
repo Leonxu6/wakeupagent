@@ -20,9 +20,20 @@ class Check:
     detail: str
 
 
+def _version_pair(version: object) -> tuple[int, int]:
+    if version is None:
+        return sys.version_info.major, sys.version_info.minor
+    if not isinstance(version, tuple) or len(version) != 2:
+        raise ValueError("version must be a (major, minor) tuple")
+    major, minor = version
+    if any(isinstance(v, bool) or not isinstance(v, int) or v < 0 for v in (major, minor)):
+        raise ValueError("version components must be non-negative integers")
+    return major, minor
+
+
 def _python_check(version: tuple[int, int] | None = None) -> Check:
     """Verify the interpreter matches the project's declared Python floor."""
-    current = version or (sys.version_info.major, sys.version_info.minor)
+    current = _version_pair(version)
     ok = current >= (3, 12)
     detail = platform.python_version() if version is None else f"{current[0]}.{current[1]}"
     if not ok:
