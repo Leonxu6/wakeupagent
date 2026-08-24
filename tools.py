@@ -49,6 +49,8 @@ def _safe_url_label(url: str) -> str:
 
 def _observation_text(value: object, *, limit: int = 1000) -> str:
     """Normalize a local vision response before logging or returning it to the graph."""
+    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+        raise ValueError("observation limit must be a positive integer")
     if not isinstance(value, str):
         raise ValueError("camera description must be text")
     text = " ".join(value.split())
