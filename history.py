@@ -42,6 +42,10 @@ class ContextHistory:
         if normalized:
             self._summary = normalized
 
+    def clear_summary(self) -> None:
+        """Drop the synthesized summary without disturbing recent raw context."""
+        self._summary = ""
+
     def _append_unique(self, entry: str) -> None:
         if self._items and self._items[-1] == entry:
             return
