@@ -10,7 +10,7 @@ sys.modules[spec.name] = module
 spec.loader.exec_module(module)
 
 
-def test_ci_contract_accepts_required_workflow_elements(tmp_path):
+def test_ci_contract_accepts_setup_python_workflow(tmp_path):
     path = tmp_path / "ci.yml"
     path.write_text("push:\npull_request:\nactions/setup-python@v5\nuv sync --frozen\npytest -q\n", encoding="utf-8")
     result = module.audit_ci_contract(path)
@@ -18,9 +18,25 @@ def test_ci_contract_accepts_required_workflow_elements(tmp_path):
     assert result.missing == ()
 
 
+def test_ci_contract_accepts_setup_uv_python_provisioning(tmp_path):
+    path = tmp_path / "ci.yml"
+    path.write_text("push:\npull_request:\nastral-sh/setup-uv@v6\nuv sync --frozen\npytest -q\n", encoding="utf-8")
+    result = module.audit_ci_contract(path)
+    assert result.ok is True
+    assert result.missing == ()
+
+
 def test_ci_contract_reports_missing_test_execution(tmp_path):
     path = tmp_path / "ci.yml"
-    path.write_text("push:\npull_request:\nactions/setup-python@v5\nuv sync --frozen\n", encoding="utf-8")
+    path.write_text("push:\npull_request:\nastral-sh/setup-uv@v6\nuv sync --frozen\n", encoding="utf-8")
     result = module.audit_ci_contract(path)
     assert result.ok is False
     assert "test execution" in result.missing
+
+
+def test_ci_contract_requires_python_provisioning(tmp_path):
+    path = tmp_path / "ci.yml"
+    path.write_text("push:\npull_request:\nuv sync --frozen\npytest -q\n", encoding="utf-8")
+    result = module.audit_ci_contract(path)
+    assert result.ok is False
+    assert "Python provisioning" in result.missing
