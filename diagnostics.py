@@ -114,6 +114,26 @@ def _single_line(value: object) -> str:
     return " ".join(rendered.split())
 
 
+def _validated_checks(checks: object) -> list[Check]:
+    if not isinstance(checks, (list, tuple)):
+        raise ValueError("checks must be a list or tuple")
+    seen: set[str] = set()
+    validated: list[Check] = []
+    for check in checks:
+        if not isinstance(check, Check):
+            raise ValueError("checks must contain Check values")
+        if not isinstance(check.name, str) or not _single_line(check.name):
+            raise ValueError("check names must be non-empty text")
+        if not isinstance(check.ok, bool):
+            raise ValueError("check status must be boolean")
+        normalized_name = _single_line(check.name)
+        if normalized_name in seen:
+            raise ValueError(f"duplicate diagnostic check name: {normalized_name}")
+        seen.add(normalized_name)
+        validated.append(check)
+    return validated
+
+
 def _diagnostic_root(base_dir: object) -> Path:
     if base_dir is None:
         return Path(__file__).resolve().parent
@@ -145,13 +165,7 @@ def collect_checks(base_dir: Path | str | None = None) -> list[Check]:
         checks.append(_persistence_parent_check("report-dir", runtime_config.DAILY_REPORT_PATH))
         checks.append(_http_url_check("ollama-url", runtime_config.OLLAMA_HOST))
         checks.append(_http_url_check("deepseek-url", runtime_config.DEEPSEEK_BASE_URL))
-        checks.append(
-            Check(
-                "deepseek-key",
-                bool(runtime_config.DEEPSEEK_API_KEY),
-                "configured" if runtime_config.DEEPSEEK_API_KEY else "not configured",
-            )
-        )
+        checks.append(Check("deepseek-key", bool(runtime_config.DEEPSEEK_API_KEY), "configured" if runtime_config.DEEPSEEK_API_KEY else "not configured"))
     checks.append(_feature_flag_check("tts", "WAKEUP_ALLOW_TTS"))
     checks.append(_feature_flag_check("browser-control", "WAKEUP_ALLOW_BROWSER_CONTROL"))
     checks.append(_feature_flag_check("external-messaging", "WAKEUP_ALLOW_EXTERNAL_MESSAGING"))
@@ -161,7 +175,7 @@ def collect_checks(base_dir: Path | str | None = None) -> list[Check]:
 
 def format_checks(checks: list[Check]) -> str:
     lines = []
-    for check in checks:
+    for check in _validated_checks(checks):
         marker = "OK" if check.ok else "WARN"
         lines.append(f"[{marker}] {_single_line(check.name)}: {_single_line(check.detail)}")
     return "\n".join(lines)
@@ -169,8 +183,8 @@ def format_checks(checks: list[Check]) -> str:
 
 def checks_payload(checks: list[Check]) -> list[dict[str, object]]:
     return [
-        {"name": _single_line(check.name), "ok": bool(check.ok), "detail": _single_line(check.detail)}
-        for check in checks
+        {"name": _single_line(check.name), "ok": check.ok, "detail": _single_line(check.detail)}
+        for check in _validated_checks(checks)
     ]
 
 
@@ -179,4 +193,4 @@ def format_checks_json(checks: list[Check]) -> str:
 
 
 def diagnostics_exit_code(checks: list[Check]) -> int:
-    return 1 if any(not c.ok and c.name in _CRITICAL_CHECKS for c in checks) else 0
+    return 1 if any(not c.ok and _single_line(c.name) in _CRITICAL_CHECKS for c in _validated_checks(checks)) else 0
