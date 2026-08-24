@@ -50,6 +50,13 @@ class ContextHistoryTests(unittest.TestCase):
                 history.set_summary(value)
                 self.assertEqual(history.render(), "Summary: keep this summary")
 
+    def test_summary_can_be_cleared_without_dropping_recent_context(self):
+        history = ContextHistory()
+        history.set_summary("old summary")
+        history.add_observation("current scene")
+        history.clear_summary()
+        self.assertEqual(history.render(), "Recent history:\n[Obs] current scene")
+
     def test_consecutive_duplicate_entries_are_suppressed(self):
         history = ContextHistory()
         history.add_observation("same scene")
