@@ -23,3 +23,20 @@ def test_audit_detects_matching_and_mismatched_python_floors(tmp_path):
     result = module.audit_python_version(tmp_path)
     assert result.ok is False
     assert "!= requires-python 3.13" in result.detail
+
+
+def test_audit_ignores_requires_python_text_outside_project_metadata(tmp_path):
+    (tmp_path / ".python-version").write_text("3.12\n", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text(
+        '# requires-python = ">=9.99"\n[project]\nname = "demo"\nrequires-python = ">=3.12"\n',
+        encoding="utf-8",
+    )
+    assert module.audit_python_version(tmp_path).ok is True
+
+
+def test_audit_rejects_non_floor_requires_python_constraints(tmp_path):
+    (tmp_path / ".python-version").write_text("3.12\n", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = "~=3.12"\n', encoding="utf-8")
+    result = module.audit_python_version(tmp_path)
+    assert result.ok is False
+    assert "simple >= requires-python floor" in result.detail
