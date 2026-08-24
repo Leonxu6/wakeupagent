@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from diagnostics import Check, checks_payload, format_checks_json
 
 
@@ -22,3 +24,22 @@ def test_checks_payload_returns_new_records():
     first = checks_payload(checks)
     first[0]["detail"] = "changed"
     assert checks_payload(checks)[0]["detail"] == "3.12"
+
+
+def test_checks_payload_rejects_duplicate_normalized_names():
+    with pytest.raises(ValueError, match="duplicate diagnostic check name"):
+        checks_payload([Check("model name", True, "ok"), Check("model\nname", False, "bad")])
+
+
+@pytest.mark.parametrize(
+    "checks",
+    [
+        "not-a-list",
+        [object()],
+        [Check("", True, "empty name")],
+        [Check("python", 1, "non-boolean status")],
+    ],
+)
+def test_checks_payload_rejects_malformed_check_collections(checks):
+    with pytest.raises(ValueError):
+        checks_payload(checks)
