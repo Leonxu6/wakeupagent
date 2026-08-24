@@ -21,6 +21,16 @@ class Check:
     detail: str
 
 
+_CRITICAL_CHECKS = {
+    "python",
+    "pose-model",
+    "gesture-model",
+    "configuration",
+    "checkpoint-dir",
+    "report-dir",
+}
+
+
 def _version_pair(version: object) -> tuple[int, int]:
     if version is None:
         return sys.version_info.major, sys.version_info.minor
@@ -112,7 +122,6 @@ def _diagnostic_root(base_dir: object) -> Path:
 
 
 def _runtime_config() -> tuple[object | None, Check]:
-    """Load validated runtime settings without letting bad local env abort diagnostics."""
     try:
         module = importlib.import_module("config")
     except Exception as exc:  # noqa: BLE001
@@ -169,5 +178,4 @@ def format_checks_json(checks: list[Check]) -> str:
 
 
 def diagnostics_exit_code(checks: list[Check]) -> int:
-    critical = {"python", "pose-model", "gesture-model", "configuration"}
-    return 1 if any(not c.ok and c.name in critical for c in checks) else 0
+    return 1 if any(not c.ok and c.name in _CRITICAL_CHECKS for c in checks) else 0
