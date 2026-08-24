@@ -87,6 +87,13 @@ class MainCliTests(unittest.TestCase):
         self.assertNotIn("\n", text)
         self.assertLessEqual(len(text.replace(r"\[", "[").replace(r"\]", "]")), main._ERROR_TEXT_LIMIT)
 
+    def test_runtime_error_rendering_falls_back_when_str_raises(self):
+        class Broken:
+            def __str__(self):
+                raise RuntimeError("render failed")
+
+        self.assertEqual(main._log_error(Broken()), "Broken")
+
     def test_shutdown_runtime_error_detection_is_narrow(self):
         self.assertTrue(
             main._is_shutdown_runtime_error(RuntimeError("cannot schedule new futures after shutdown"))
