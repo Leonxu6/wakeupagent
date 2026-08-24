@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import subprocess
 import webbrowser
+from urllib.parse import urlsplit, urlunsplit
 
 from langchain_core.tools import tool
 from rich.console import Console
@@ -36,6 +37,12 @@ def _bounded_detail(value: object, *, limit: int = 500) -> str:
         rendered = value.__class__.__name__
     text = " ".join(rendered.split())
     return text[:limit] if text else "unknown error"
+
+
+def _safe_url_label(url: str) -> str:
+    """Return a browser URL label without query or fragment data."""
+    parsed = urlsplit(url)
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
 
 
 def _observation_text(value: object, *, limit: int = 1000) -> str:
@@ -142,11 +149,12 @@ def open_webpage(url: str) -> str:
         url = require_http_url(url)
     except ValueError as exc:
         return _error(exc)
-    console.print(f"[bold cyan]🌐 [browser] opening {escape(url)}[/bold cyan]")
+    label = _safe_url_label(url)
+    console.print(f"[bold cyan]🌐 [browser] opening {escape(label)}[/bold cyan]")
     try:
         if not webbrowser.open(url):
-            return f"Error: 浏览器未能打开：{url}"
-        return f"已在浏览器中打开：{url}"
+            return f"Error: 浏览器未能打开：{label}"
+        return f"已在浏览器中打开：{label}"
     except Exception as exc:  # noqa: BLE001
         return f"Error: {_bounded_detail(exc)}"
 
