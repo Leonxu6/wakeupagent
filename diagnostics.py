@@ -94,9 +94,18 @@ def _single_line(value: object) -> str:
     return " ".join(rendered.split())
 
 
-def collect_checks(base_dir: Path | None = None) -> list[Check]:
+def _diagnostic_root(base_dir: object) -> Path:
+    """Normalize an optional diagnostics root without accepting accidental scalar values."""
+    if base_dir is None:
+        return Path(__file__).resolve().parent
+    if not isinstance(base_dir, (str, Path)):
+        raise ValueError("base_dir must be a path string or Path")
+    return Path(base_dir).expanduser()
+
+
+def collect_checks(base_dir: Path | str | None = None) -> list[Check]:
     """Collect checks without opening the camera or contacting network services."""
-    root = base_dir or Path(__file__).resolve().parent
+    root = _diagnostic_root(base_dir)
     checks = [
         _python_check(),
         Check("platform", platform.system() == "Darwin", platform.platform()),
