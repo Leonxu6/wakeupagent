@@ -14,13 +14,16 @@ class CiContract:
 def audit_ci_contract(path: Path) -> CiContract:
     text = path.read_text(encoding="utf-8")
     required = {
-        "main push trigger": "push:",
-        "pull request trigger": "pull_request:",
-        "Python setup": "actions/setup-python@",
-        "locked dependency sync": "uv sync --frozen",
-        "test execution": "pytest",
+        "main push trigger": ("push:",),
+        "pull request trigger": ("pull_request:",),
+        "Python provisioning": ("actions/setup-python@", "astral-sh/setup-uv@"),
+        "locked dependency sync": ("uv sync --frozen",),
+        "test execution": ("pytest",),
     }
-    missing = tuple(name for name, needle in required.items() if needle not in text)
+    missing = tuple(
+        name for name, alternatives in required.items()
+        if not any(needle in text for needle in alternatives)
+    )
     return CiContract(not missing, missing)
 
 
