@@ -1,4 +1,5 @@
 import os
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -47,6 +48,18 @@ class TtsSafetyTests(unittest.TestCase):
             timeout=60,
             check=True,
         )
+
+    @patch("tools.subprocess.run")
+    def test_fallback_failures_do_not_echo_spoken_text(self, run):
+        prompt = "Private reminder with account details"
+        run.side_effect = [
+            subprocess.CalledProcessError(1, ["say", prompt]),
+            RuntimeError(f"failed while speaking {prompt}"),
+        ]
+        with patch.dict(os.environ, {"WAKEUP_ALLOW_TTS": "true"}, clear=True):
+            result = play_tts_punishment.invoke({"text": prompt})
+        self.assertEqual(result, "Error: TTS 播放失败")
+        self.assertNotIn(prompt, result)
 
 
 if __name__ == "__main__":
