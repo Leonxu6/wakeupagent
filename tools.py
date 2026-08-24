@@ -68,7 +68,7 @@ def play_tts_punishment(text: str) -> str:
         text = require_text(text, field="text", max_length=200)
     except ValueError as exc:
         return _error(exc)
-    console.print(f"[bold yellow]🔊 [TTS] {escape(text)}[/bold yellow]")
+    console.print(f"[bold yellow]🔊 [TTS] speaking {len(text)} characters[/bold yellow]")
     try:
         subprocess.run(["say", "-v", _TTS_VOICE, text], timeout=60, check=True)
         return "TTS 播放完毕"
@@ -106,8 +106,6 @@ def send_wechat_shame_message(target: str, message: str) -> str:
     except ValueError as exc:
         return _error(exc)
 
-    # Log only the model-facing alias. The resolved address-book name is private
-    # configuration and should not be copied into terminal scrollback.
     console.print(f"[bold yellow]🦾 [WeChat] → alias {escape(target)}[/bold yellow]")
     script = f'''
 do shell script "open -a WeChat"
