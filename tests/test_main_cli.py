@@ -101,6 +101,13 @@ class MainCliTests(unittest.TestCase):
         self.assertFalse(main._is_shutdown_runtime_error(RuntimeError("database is locked")))
         self.assertFalse(main._is_shutdown_runtime_error(RuntimeError("shutdown requested")))
 
+    def test_shutdown_runtime_error_detection_tolerates_broken_str(self):
+        class BrokenRuntimeError(RuntimeError):
+            def __str__(self):
+                raise RuntimeError("render failed")
+
+        self.assertFalse(main._is_shutdown_runtime_error(BrokenRuntimeError()))
+
 
 if __name__ == "__main__":
     unittest.main()
