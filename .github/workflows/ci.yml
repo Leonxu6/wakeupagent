@@ -26,6 +26,12 @@ jobs:
       - name: Sync dependencies
         run: uv sync --frozen
       - name: Compile source
-        run: uv run python -m compileall -q config.py diagnostics.py graph.py history.py main.py perception.py safety.py settings.py tools.py
+        run: uv run python -m compileall -q config.py diagnostics.py graph.py history.py main.py perception.py safety.py settings.py tools.py maintenance
+      - name: Run repository maintenance audits
+        run: |
+          uv run python maintenance/ci_contract_audit.py
+          uv run python maintenance/env_example_audit.py
+          uv run python maintenance/python_version_audit.py
+          uv run python maintenance/model_asset_audit.py
       - name: Run tests
         run: uv run --with pytest pytest -q
