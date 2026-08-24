@@ -30,7 +30,11 @@ def _error(exc: ValueError) -> str:
 
 def _bounded_detail(value: object, *, limit: int = 500) -> str:
     """Keep driver/subprocess failures compact and single-line for agent context."""
-    text = " ".join(str(value).split())
+    try:
+        rendered = str(value)
+    except Exception:  # noqa: BLE001
+        rendered = value.__class__.__name__
+    text = " ".join(rendered.split())
     return text[:limit] if text else "unknown error"
 
 
