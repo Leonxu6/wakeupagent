@@ -86,8 +86,12 @@ def _feature_flag_check(name: str, env_name: str) -> Check:
 
 
 def _single_line(value: object) -> str:
-    """Keep diagnostics machine-readable even when an OS error contains newlines."""
-    return " ".join(str(value).split())
+    """Keep diagnostics machine-readable even when rendering or OS errors misbehave."""
+    try:
+        rendered = str(value)
+    except Exception:  # noqa: BLE001
+        rendered = value.__class__.__name__
+    return " ".join(rendered.split())
 
 
 def collect_checks(base_dir: Path | None = None) -> list[Check]:
