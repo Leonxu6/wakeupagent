@@ -30,14 +30,18 @@ class TtsSafetyTests(unittest.TestCase):
         self.assertIn("at most 200", result)
         run.assert_not_called()
 
+    @patch("tools.console.print")
     @patch("tools.subprocess.run")
-    def test_valid_text_uses_bounded_say_invocation_without_echoing_prompt(self, run):
+    def test_valid_text_uses_bounded_say_invocation_without_echoing_prompt(self, run, console_print):
         run.return_value.returncode = 0
-        prompt = "Back to the task."
+        prompt = "Private reminder: review the draft."
         with patch.dict(os.environ, {"WAKEUP_ALLOW_TTS": "true"}, clear=True):
             result = play_tts_punishment.invoke({"text": prompt})
         self.assertIn("TTS", result)
         self.assertNotIn(prompt, result)
+        rendered_log = console_print.call_args.args[0]
+        self.assertIn(str(len(prompt)), rendered_log)
+        self.assertNotIn(prompt, rendered_log)
         run.assert_called_once_with(
             ["say", "-v", "Tingting", prompt],
             timeout=60,
