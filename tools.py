@@ -155,8 +155,8 @@ def open_webpage(url: str) -> str:
         if not webbrowser.open(url):
             return f"Error: 浏览器未能打开：{label}"
         return f"已在浏览器中打开：{label}"
-    except Exception as exc:  # noqa: BLE001
-        return f"Error: {_bounded_detail(exc)}"
+    except Exception:  # noqa: BLE001
+        return f"Error: 浏览器打开失败：{label}"
 
 
 @tool
