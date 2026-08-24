@@ -13,7 +13,18 @@ class MainCliTests(unittest.TestCase):
             status = main.main(["--check"])
 
         self.assertEqual(status, 3)
-        check.assert_called_once_with()
+        check.assert_called_once_with(json_output=False)
+        perception.assert_not_called()
+        graph.assert_not_called()
+
+    def test_check_json_mode_requests_machine_readable_output(self):
+        with patch.object(main, "run_check_mode", return_value=2) as check, \
+             patch.object(main, "run_perception_mode") as perception, \
+             patch.object(main, "run_graph_mode") as graph:
+            status = main.main(["--check-json"])
+
+        self.assertEqual(status, 2)
+        check.assert_called_once_with(json_output=True)
         perception.assert_not_called()
         graph.assert_not_called()
 
@@ -33,8 +44,9 @@ class MainCliTests(unittest.TestCase):
 
     def test_modes_are_mutually_exclusive(self):
         parser = main.build_parser()
-        with self.assertRaises(SystemExit):
-            parser.parse_args(["--graph", "--check"])
+        for args in (["--graph", "--check"], ["--check", "--check-json"], ["--graph", "--check-json"]):
+            with self.subTest(args=args), self.assertRaises(SystemExit):
+                parser.parse_args(args)
 
     def test_message_text_preserves_structured_text_blocks(self):
         self.assertEqual(main._message_text("plain"), "plain")
