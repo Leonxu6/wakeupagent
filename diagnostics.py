@@ -1,6 +1,7 @@
 """Fast, side-effect-free diagnostics for WakeUpAgent installations."""
 from __future__ import annotations
 
+import os
 import platform
 import stat
 import sys
@@ -44,7 +45,7 @@ def _model_check(name: str, path: Path) -> Check:
 
 
 def _directory_check(name: str, path: Path) -> Check:
-    """Report whether a configured persistence parent is an existing directory."""
+    """Report whether a configured persistence parent is an existing writable directory."""
     try:
         metadata = path.stat()
     except FileNotFoundError:
@@ -53,6 +54,8 @@ def _directory_check(name: str, path: Path) -> Check:
         return Check(name, False, f"unreadable: {path} ({exc})")
     if not stat.S_ISDIR(metadata.st_mode):
         return Check(name, False, f"not a directory: {path}")
+    if not os.access(path, os.W_OK):
+        return Check(name, False, f"not writable: {path}")
     return Check(name, True, str(path))
 
 
