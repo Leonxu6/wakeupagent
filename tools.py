@@ -31,6 +31,8 @@ def _error(exc: ValueError) -> str:
 
 def _bounded_detail(value: object, *, limit: int = 500) -> str:
     """Keep driver/subprocess failures compact and single-line for agent context."""
+    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+        raise ValueError("limit must be a positive integer")
     try:
         rendered = str(value)
     except Exception:  # noqa: BLE001
