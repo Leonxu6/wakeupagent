@@ -1,6 +1,7 @@
 """Fast, side-effect-free diagnostics for WakeUpAgent installations."""
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import platform
@@ -9,7 +10,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-import config
 from safety import require_http_url
 from settings import env_bool
 
@@ -111,6 +111,15 @@ def _diagnostic_root(base_dir: object) -> Path:
     return Path(base_dir).expanduser()
 
 
+def _runtime_config() -> tuple[object | None, Check]:
+    """Load validated runtime settings without letting bad local env abort diagnostics."""
+    try:
+        module = importlib.import_module("config")
+    except Exception as exc:  # noqa: BLE001
+        return None, Check("configuration", False, _single_line(exc) or exc.__class__.__name__)
+    return module, Check("configuration", True, "validated")
+
+
 def collect_checks(base_dir: Path | str | None = None) -> list[Check]:
     root = _diagnostic_root(base_dir)
     checks = [
@@ -119,11 +128,20 @@ def collect_checks(base_dir: Path | str | None = None) -> list[Check]:
         _model_check("pose-model", root / "pose_landmarker_lite.task"),
         _model_check("gesture-model", root / "gesture_recognizer.task"),
     ]
-    checks.append(_persistence_parent_check("checkpoint-dir", config.CHECKPOINT_DB_PATH))
-    checks.append(_persistence_parent_check("report-dir", config.DAILY_REPORT_PATH))
-    checks.append(_http_url_check("ollama-url", config.OLLAMA_HOST))
-    checks.append(_http_url_check("deepseek-url", config.DEEPSEEK_BASE_URL))
-    checks.append(Check("deepseek-key", bool(config.DEEPSEEK_API_KEY), "configured" if config.DEEPSEEK_API_KEY else "not configured"))
+    runtime_config, config_check = _runtime_config()
+    checks.append(config_check)
+    if runtime_config is not None:
+        checks.append(_persistence_parent_check("checkpoint-dir", runtime_config.CHECKPOINT_DB_PATH))
+        checks.append(_persistence_parent_check("report-dir", runtime_config.DAILY_REPORT_PATH))
+        checks.append(_http_url_check("ollama-url", runtime_config.OLLAMA_HOST))
+        checks.append(_http_url_check("deepseek-url", runtime_config.DEEPSEEK_BASE_URL))
+        checks.append(
+            Check(
+                "deepseek-key",
+                bool(runtime_config.DEEPSEEK_API_KEY),
+                "configured" if runtime_config.DEEPSEEK_API_KEY else "not configured",
+            )
+        )
     checks.append(_feature_flag_check("tts", "WAKEUP_ALLOW_TTS"))
     checks.append(_feature_flag_check("browser-control", "WAKEUP_ALLOW_BROWSER_CONTROL"))
     checks.append(_feature_flag_check("external-messaging", "WAKEUP_ALLOW_EXTERNAL_MESSAGING"))
@@ -140,7 +158,6 @@ def format_checks(checks: list[Check]) -> str:
 
 
 def checks_payload(checks: list[Check]) -> list[dict[str, object]]:
-    """Return a stable JSON-safe representation without leaking multiline details."""
     return [
         {"name": _single_line(check.name), "ok": bool(check.ok), "detail": _single_line(check.detail)}
         for check in checks
@@ -148,10 +165,9 @@ def checks_payload(checks: list[Check]) -> list[dict[str, object]]:
 
 
 def format_checks_json(checks: list[Check]) -> str:
-    """Render diagnostics for CI and installation tooling."""
     return json.dumps(checks_payload(checks), ensure_ascii=False, sort_keys=True)
 
 
 def diagnostics_exit_code(checks: list[Check]) -> int:
-    critical = {"python", "pose-model", "gesture-model"}
+    critical = {"python", "pose-model", "gesture-model", "configuration"}
     return 1 if any(not c.ok and c.name in critical for c in checks) else 0
