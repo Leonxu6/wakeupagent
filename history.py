@@ -46,6 +46,11 @@ class ContextHistory:
         """Drop the synthesized summary without disturbing recent raw context."""
         self._summary = ""
 
+    def clear(self) -> None:
+        """Reset summary and recent entries while preserving configured limits."""
+        self._summary = ""
+        self._items.clear()
+
     def _append_unique(self, entry: str) -> None:
         if self._items and self._items[-1] == entry:
             return
