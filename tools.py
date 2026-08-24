@@ -100,7 +100,7 @@ def send_wechat_shame_message(target: str, message: str) -> str:
     from config import WECHAT_CONTACTS
     contact = WECHAT_CONTACTS.get(target)
     if not contact:
-        return f"Error: 不支持的 target '{target}'，只能用: {list(WECHAT_CONTACTS.keys())}"
+        return f"Error: 不支持的 target '{target}'"
     try:
         contact = require_text(contact, field="contact", max_length=100)
     except ValueError as exc:
