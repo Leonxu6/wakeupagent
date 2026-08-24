@@ -38,6 +38,8 @@ class UrlValidationTests(unittest.TestCase):
             "https:///missing-host",
             "https://user:pass@example.com/private",
             "https://example.com:not-a-port",
+            "https://example.com:",
+            "https://example.com:0/private",
             "https://exa mple.com/private",
             "https://example.com/a b",
             "https://example.com\\@evil.test/path",
