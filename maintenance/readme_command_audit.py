@@ -1,4 +1,4 @@
-"""Ensure README setup and diagnostics commands match supported entry points."""
+"""Ensure contributor-facing setup and diagnostics commands match supported entry points."""
 from __future__ import annotations
 
 import argparse
@@ -15,11 +15,19 @@ _REQUIRED = (
 
 def audit(root: Path) -> list[str]:
     root = require_root(root)
-    try:
-        text = (root / "README.md").read_text(encoding="utf-8")
-    except (OSError, UnicodeError) as exc:
-        return [f"README.md: could not read setup documentation ({exc})"]
-    return [f"README.md: missing supported command `{command}`" for command in _REQUIRED if command not in text]
+    documents = (root / "README.md", root / "docs" / "diagnostics.md")
+    chunks: list[str] = []
+    for path in documents:
+        if not path.exists():
+            continue
+        try:
+            chunks.append(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError) as exc:
+            return [f"{path.relative_to(root)}: could not read command documentation ({exc})"]
+    if not chunks:
+        return ["README.md: contributor command documentation is missing"]
+    text = "\n".join(chunks)
+    return [f"documentation: missing supported command `{command}`" for command in _REQUIRED if command not in text]
 
 
 def main(argv: list[str] | None = None) -> int:
