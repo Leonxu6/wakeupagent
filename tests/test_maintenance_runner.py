@@ -1,4 +1,6 @@
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
@@ -24,6 +26,16 @@ def test_maintenance_runner_reports_failed_audit_output(tmp_path: Path):
     (maintenance / "bad.py").write_text('print("broken contract")\nraise SystemExit(1)\n', encoding="utf-8")
     failures = runner.run_audits(tmp_path, scripts=("bad.py",))
     assert failures == ["bad.py: broken contract"]
+
+
+def test_maintenance_runner_preserves_stdout_and_stderr(tmp_path: Path):
+    maintenance = tmp_path / "maintenance"
+    maintenance.mkdir()
+    (maintenance / "bad.py").write_text("# fixture\n", encoding="utf-8")
+    result = SimpleNamespace(returncode=1, stdout="audit context\n", stderr="traceback detail\n")
+    with patch.object(runner.subprocess, "run", return_value=result):
+        failures = runner.run_audits(tmp_path, scripts=("bad.py",))
+    assert failures == ["bad.py: audit context traceback detail"]
 
 
 @pytest.mark.parametrize(
