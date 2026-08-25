@@ -38,6 +38,17 @@ def test_maintenance_runner_preserves_stdout_and_stderr(tmp_path: Path):
     assert failures == ["bad.py: audit context traceback detail"]
 
 
+def test_maintenance_runner_decodes_output_with_replacement(tmp_path: Path):
+    maintenance = tmp_path / "maintenance"
+    maintenance.mkdir()
+    (maintenance / "ok.py").write_text("# fixture\n", encoding="utf-8")
+    result = SimpleNamespace(returncode=0, stdout="", stderr="")
+    with patch.object(runner.subprocess, "run", return_value=result) as run:
+        runner.run_audits(tmp_path, scripts=("ok.py",))
+    assert run.call_args.kwargs["encoding"] == "utf-8"
+    assert run.call_args.kwargs["errors"] == "replace"
+
+
 @pytest.mark.parametrize(
     "scripts",
     [
