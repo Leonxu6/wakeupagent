@@ -28,8 +28,6 @@ jobs:
       - name: Compile source
         run: uv run python -m compileall -q config.py diagnostics.py graph.py history.py main.py perception.py safety.py settings.py tools.py maintenance
       - name: Run repository maintenance audits
-        run: |
-          uv run python maintenance/run_all.py
-          uv run python maintenance/safety_docs_audit.py
+        run: uv run python maintenance/run_all.py
       - name: Run tests
         run: uv run --with pytest pytest -q
