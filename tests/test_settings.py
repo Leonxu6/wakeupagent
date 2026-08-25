@@ -150,7 +150,7 @@ class EnvironmentParserTests(unittest.TestCase):
 
     def test_http_url_parser_requires_clean_service_base_url(self):
         with patch.dict(os.environ, {"URL": "https://example.com/api/"}, clear=True):
-            self.assertEqual(env_http_url("URL", "http://localhost") == "https://example.com/api", True)
+            self.assertEqual(env_http_url("URL", "http://localhost"), "https://example.com/api")
         invalid = (
             "file:///tmp/x",
             "https:///missing",
