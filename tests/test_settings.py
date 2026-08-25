@@ -97,11 +97,15 @@ class EnvironmentParserTests(unittest.TestCase):
                     env_bool("FLAG", default)  # type: ignore[arg-type]
 
     def test_text_rejects_padding_empty_control_and_oversize_values(self):
-        invalid = (" padded", "padded ", "", "bad\x00value", "bad\tvalue", "bad\x7fvalue", "123456")
+        invalid = (" padded", "padded ", "", "bad\tvalue", "bad\x7fvalue", "123456")
         for value in invalid:
             with self.subTest(value=value), patch.dict(os.environ, {"VALUE": value}, clear=True):
                 with self.assertRaises(ValueError):
                     env_text("VALUE", "ok", max_length=5)
+        # NUL cannot exist in an OS environment value, so exercise the same
+        # validation through the default path instead of failing in os.environ.
+        with patch.dict(os.environ, {}, clear=True), self.assertRaises(ValueError):
+            env_text("VALUE", "bad\x00value", max_length=20)
 
     def test_secret_parser_allows_empty_but_rejects_unsafe_header_values(self):
         for value in ("", "token-123", "abc.def_456"):
@@ -146,7 +150,7 @@ class EnvironmentParserTests(unittest.TestCase):
 
     def test_http_url_parser_requires_clean_service_base_url(self):
         with patch.dict(os.environ, {"URL": "https://example.com/api/"}, clear=True):
-            self.assertEqual(env_http_url("URL", "http://localhost"), "https://example.com/api")
+            self.assertEqual(env_http_url("URL", "http://localhost") == "https://example.com/api", True)
         invalid = (
             "file:///tmp/x",
             "https:///missing",
