@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import diagnostics
@@ -94,23 +95,31 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertFalse(invalid.ok)
         self.assertIn("must be one of", invalid.detail)
 
+    def _runtime_config(self, root: Path):
+        return SimpleNamespace(
+            CHECKPOINT_DB_PATH=str(root / "state.db"),
+            DAILY_REPORT_PATH=str(root / "reports.md"),
+            OLLAMA_HOST="http://localhost:11434",
+            DEEPSEEK_BASE_URL="https://api.deepseek.com",
+            DEEPSEEK_API_KEY="",
+        )
+
     def test_collect_checks_is_side_effect_free_and_reports_configuration(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "pose_landmarker_lite.task").write_bytes(b"pose")
             (root / "gesture_recognizer.task").write_bytes(b"gesture")
-            with patch.dict(os.environ, {}, clear=True), \
-                 patch.object(diagnostics.config, "CHECKPOINT_DB_PATH", str(root / "state.db")), \
-                 patch.object(diagnostics.config, "DAILY_REPORT_PATH", str(root / "reports.md")), \
-                 patch.object(diagnostics.config, "OLLAMA_HOST", "http://localhost:11434"), \
-                 patch.object(diagnostics.config, "DEEPSEEK_BASE_URL", "https://api.deepseek.com"), \
-                 patch.object(diagnostics.config, "DEEPSEEK_API_KEY", ""):
+            runtime = self._runtime_config(root)
+            with patch.dict(os.environ, {}, clear=True), patch.object(
+                diagnostics, "_runtime_config", return_value=(runtime, diagnostics.Check("configuration", True, "validated"))
+            ):
                 checks = diagnostics.collect_checks(root)
 
         by_name = {check.name: check for check in checks}
         self.assertTrue(by_name["python"].ok)
         self.assertTrue(by_name["pose-model"].ok)
         self.assertTrue(by_name["gesture-model"].ok)
+        self.assertTrue(by_name["configuration"].ok)
         self.assertTrue(by_name["checkpoint-dir"].ok)
         self.assertTrue(by_name["ollama-url"].ok)
         self.assertTrue(by_name["deepseek-url"].ok)
@@ -129,12 +138,10 @@ class DiagnosticsTests(unittest.TestCase):
             root = Path(tmp)
             (root / "pose_landmarker_lite.task").write_bytes(b"pose")
             (root / "gesture_recognizer.task").write_bytes(b"gesture")
-            with patch.dict(os.environ, flags, clear=True), \
-                 patch.object(diagnostics.config, "CHECKPOINT_DB_PATH", str(root / "state.db")), \
-                 patch.object(diagnostics.config, "DAILY_REPORT_PATH", str(root / "reports.md")), \
-                 patch.object(diagnostics.config, "OLLAMA_HOST", "http://localhost:11434"), \
-                 patch.object(diagnostics.config, "DEEPSEEK_BASE_URL", "https://api.deepseek.com"), \
-                 patch.object(diagnostics.config, "DEEPSEEK_API_KEY", ""):
+            runtime = self._runtime_config(root)
+            with patch.dict(os.environ, flags, clear=True), patch.object(
+                diagnostics, "_runtime_config", return_value=(runtime, diagnostics.Check("configuration", True, "validated"))
+            ):
                 checks = diagnostics.collect_checks(root)
         by_name = {c.name: c for c in checks}
         self.assertEqual(by_name["tts"].detail, "enabled")
