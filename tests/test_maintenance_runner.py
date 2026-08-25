@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 import maintenance.run_all as runner
 
 
@@ -22,3 +24,20 @@ def test_maintenance_runner_reports_failed_audit_output(tmp_path: Path):
     (maintenance / "bad.py").write_text('print("broken contract")\nraise SystemExit(1)\n', encoding="utf-8")
     failures = runner.run_audits(tmp_path, scripts=("bad.py",))
     assert failures == ["bad.py: broken contract"]
+
+
+@pytest.mark.parametrize(
+    "scripts",
+    [
+        ("../outside.py",),
+        ("nested/audit.py",),
+        ("nested\\audit.py",),
+        (" padded.py",),
+        ("audit.txt",),
+        ("same.py", "same.py"),
+    ],
+)
+def test_maintenance_runner_rejects_unsafe_or_duplicate_selectors(tmp_path: Path, scripts: tuple[str, ...]):
+    (tmp_path / "maintenance").mkdir()
+    with pytest.raises(ValueError, match="audit script names"):
+        runner.run_audits(tmp_path, scripts=scripts)
