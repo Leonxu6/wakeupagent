@@ -30,6 +30,7 @@ _CRITICAL_CHECKS = {
     "report-dir",
     "deepseek-key",
 }
+_DETAIL_LIMIT = 1000
 
 
 def _version_pair(version: object) -> tuple[int, int]:
@@ -106,12 +107,15 @@ def _feature_flag_check(name: str, env_name: str) -> Check:
     return Check(name, True, "enabled" if enabled else "disabled")
 
 
-def _single_line(value: object) -> str:
+def _single_line(value: object, *, limit: int = _DETAIL_LIMIT) -> str:
+    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+        raise ValueError("diagnostic detail limit must be a positive integer")
     try:
         rendered = str(value)
     except Exception:  # noqa: BLE001
         rendered = value.__class__.__name__
-    return " ".join(rendered.split())
+    rendered = "".join(ch if ord(ch) >= 32 and ord(ch) != 127 else " " for ch in rendered)
+    return " ".join(rendered.split())[:limit]
 
 
 def _validated_checks(checks: object) -> list[Check]:
