@@ -218,8 +218,13 @@ def env_json_string_map(name: str, default: dict[str, str], *, max_entries: int 
     if len(value) > max_entries:
         raise ValueError(f"{name} must contain at most {max_entries} entries")
     normalized: dict[str, str] = {}
+    aliases: set[str] = set()
     for key, item in value.items():
         clean_key = _validate_text(key, field=f"{name} key", max_length=80)
         clean_value = _validate_text(item, field=f"{name} value", max_length=200)
+        alias = clean_key.casefold()
+        if alias in aliases:
+            raise ValueError(f"{name} must not contain case-insensitive duplicate keys")
+        aliases.add(alias)
         normalized[clean_key] = clean_value
     return normalized
