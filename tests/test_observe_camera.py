@@ -23,12 +23,13 @@ class ObserveCameraTests(unittest.TestCase):
         )
 
     @patch("tools.console.print")
-    def test_normalizes_multiline_camera_descriptions_before_logging(self, console_print):
+    def test_rejects_multiline_camera_descriptions_before_logging(self, console_print):
         fake = self._perception("person\n  reading   notes")
         with patch.dict(sys.modules, {"perception": fake}):
             result = observe_camera.invoke({})
-        self.assertEqual(result, "person reading notes")
-        self.assertIn("person reading notes", console_print.call_args.args[0])
+        self.assertEqual(result, "Error: camera description contains control characters")
+        rendered = " ".join(str(call.args[0]) for call in console_print.call_args_list if call.args)
+        self.assertNotIn("reading notes", rendered)
 
     @patch("tools.console.print")
     def test_rejects_non_text_or_empty_camera_descriptions(self, console_print):
@@ -50,7 +51,8 @@ class ObserveCameraTests(unittest.TestCase):
         )
         with patch.dict(sys.modules, {"perception": fake}):
             result = observe_camera.invoke({})
-        self.assertEqual(result, "Error: camera description failed: model backend failed")
+        self.assertEqual(result, "Error: camera description failed")
+        self.assertNotIn("model backend", result)
 
     @patch("tools.console.print")
     def test_reports_camera_frame_failures_without_calling_model(self, console_print):
@@ -66,7 +68,8 @@ class ObserveCameraTests(unittest.TestCase):
         )
         with patch.dict(sys.modules, {"perception": fake}):
             result = observe_camera.invoke({})
-        self.assertEqual(result, "Error: camera frame unavailable: camera backend failed")
+        self.assertEqual(result, "Error: camera frame unavailable")
+        self.assertNotIn("camera backend", result)
         self.assertEqual(calls, [])
 
 
