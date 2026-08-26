@@ -15,7 +15,8 @@ def _bounded_text(value: object, *, limit: int) -> str:
     """Normalize model/user text into one bounded context line."""
     if not isinstance(value, str):
         return ""
-    normalized = " ".join(value.split())
+    without_controls = "".join(ch if ord(ch) >= 32 and ord(ch) != 127 else " " for ch in value)
+    normalized = " ".join(without_controls.split())
     return normalized[:limit]
 
 
