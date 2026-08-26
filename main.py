@@ -22,20 +22,38 @@ _MESSAGE_TEXT_LIMIT = 2000
 _MESSAGE_BLOCK_LIMIT = 20
 _AI_MESSAGE_LIMIT = 20
 _ERROR_TEXT_LIMIT = 500
+_TIMESTAMP_TEXT_LIMIT = 80
+
+
+def _single_line_text(value: object, *, limit: int) -> str:
+    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+        raise ValueError("limit must be a positive integer")
+    if not isinstance(value, str):
+        return ""
+    without_controls = "".join(ch if ord(ch) >= 32 and ord(ch) != 127 else " " for ch in value)
+    return " ".join(without_controls.split())[:limit]
 
 
 def _observation_state(text: str, ts: str, is_healthy: bool, should_escalate: bool) -> dict:
+    if not isinstance(is_healthy, bool) or not isinstance(should_escalate, bool):
+        raise ValueError("observation health flags must be boolean")
+    normalized_text = _single_line_text(text, limit=_MESSAGE_TEXT_LIMIT)
+    normalized_ts = _single_line_text(ts, limit=_TIMESTAMP_TEXT_LIMIT)
+    if not normalized_text:
+        raise ValueError("observation text must be non-empty text")
+    if not normalized_ts:
+        raise ValueError("observation timestamp must be non-empty text")
     return {
-        "current_vision_text": text,
+        "current_vision_text": normalized_text,
         "healthy": is_healthy,
         "should_escalate": should_escalate,
-        "timestamp": ts,
+        "timestamp": normalized_ts,
     }
 
 
 def _message_text(content: object) -> str:
     if isinstance(content, str):
-        return " ".join(content.split())[:_MESSAGE_TEXT_LIMIT]
+        return _single_line_text(content, limit=_MESSAGE_TEXT_LIMIT)
     if not isinstance(content, (list, tuple)):
         return ""
     parts: list[str] = []
@@ -46,10 +64,10 @@ def _message_text(content: object) -> str:
             text = block["text"]
         else:
             continue
-        normalized = " ".join(text.split())
+        normalized = _single_line_text(text, limit=_MESSAGE_TEXT_LIMIT)
         if normalized:
             parts.append(normalized)
-    return " ".join(parts)[:_MESSAGE_TEXT_LIMIT]
+    return _single_line_text(" ".join(parts), limit=_MESSAGE_TEXT_LIMIT)
 
 
 def _ai_message_texts(node_output: object) -> list[str]:
@@ -73,7 +91,7 @@ def _log_error(exc: object) -> str:
         rendered = str(exc)
     except Exception:  # noqa: BLE001
         rendered = exc.__class__.__name__
-    text = " ".join(rendered.split())[:_ERROR_TEXT_LIMIT] or "unknown error"
+    text = _single_line_text(rendered, limit=_ERROR_TEXT_LIMIT) or "unknown error"
     return escape(text)
 
 
@@ -109,8 +127,9 @@ def run_perception_mode():
             console.print(f"[red]stream error: {_log_error(exc)}[/red]")
 
     def on_vision(text: str, ts: str, is_healthy: bool, should_escalate: bool):
-        history.add_observation(text)
-        _stream_graph(_observation_state(text, ts, is_healthy, should_escalate))
+        state = _observation_state(text, ts, is_healthy, should_escalate)
+        history.add_observation(state["current_vision_text"])
+        _stream_graph(state)
 
     def get_context() -> str:
         return history.render(recent=10)
