@@ -18,7 +18,7 @@ class ExternalMessagingTests(unittest.TestCase):
         with patch.dict(os.environ, {"WAKEUP_ALLOW_EXTERNAL_MESSAGING": "true"}, clear=True), \
              patch("config.WECHAT_CONTACTS", {"mentor": "Private Real Contact", "family": "Another Contact"}):
             result = send_wechat_shame_message.invoke({"target": "unknown", "message": "Status update"})
-        self.assertIn("不支持", result)
+        self.assertIn("unsupported", result)
         self.assertNotIn("mentor", result)
         self.assertNotIn("family", result)
         self.assertNotIn("Private Real Contact", result)
@@ -34,18 +34,18 @@ class ExternalMessagingTests(unittest.TestCase):
 
     @patch("tools.console.print")
     @patch("tools.subprocess.run")
-    def test_opted_in_message_redacts_body_and_resolved_contact_from_result_and_log(self, run, console_print):
+    def test_opted_in_message_redacts_body_alias_and_resolved_contact(self, run, console_print):
         run.return_value.returncode = 0
         run.return_value.stderr = ""
         with patch.dict(os.environ, {"WAKEUP_ALLOW_EXTERNAL_MESSAGING": "true"}, clear=True), \
              patch("config.WECHAT_CONTACTS", {"mentor": "Private Real Contact"}):
             result = send_wechat_shame_message.invoke({"target": "mentor", "message": "Please check in"})
-        self.assertIn("发送消息", result)
-        self.assertIn("mentor", result)
+        self.assertEqual(result, "消息发送完成")
+        self.assertNotIn("mentor", result)
         self.assertNotIn("Please check in", result)
         self.assertNotIn("Private Real Contact", result)
         rendered_log = console_print.call_args.args[0]
-        self.assertIn("mentor", rendered_log)
+        self.assertNotIn("mentor", rendered_log)
         self.assertNotIn("Private Real Contact", rendered_log)
         self.assertNotIn("Please check in", rendered_log)
         run.assert_called_once()
