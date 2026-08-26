@@ -30,21 +30,22 @@ def _error(exc: ValueError) -> str:
 
 
 def _bounded_detail(value: object, *, limit: int = 500) -> str:
-    """Keep driver/subprocess failures compact and single-line for agent context."""
+    """Keep driver/subprocess failures compact and single-line for local logs."""
     if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
         raise ValueError("limit must be a positive integer")
     try:
         rendered = str(value)
     except Exception:  # noqa: BLE001
         rendered = value.__class__.__name__
+    rendered = "".join(ch if ord(ch) >= 32 and ord(ch) != 127 else " " for ch in rendered)
     text = " ".join(rendered.split())
     return text[:limit] if text else "unknown error"
 
 
 def _safe_url_label(url: str) -> str:
-    """Return a browser URL label without query or fragment data."""
+    """Return a browser URL label without path/query/fragment secrets."""
     parsed = urlsplit(url)
-    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
+    return urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
 
 
 def _observation_text(value: object, *, limit: int = 1000) -> str:
@@ -53,6 +54,8 @@ def _observation_text(value: object, *, limit: int = 1000) -> str:
         raise ValueError("observation limit must be a positive integer")
     if not isinstance(value, str):
         raise ValueError("camera description must be text")
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+        raise ValueError("camera description contains control characters")
     text = " ".join(value.split())
     if not text:
         raise ValueError("camera description must not be empty")
@@ -104,13 +107,13 @@ def send_wechat_shame_message(target: str, message: str) -> str:
     from config import WECHAT_CONTACTS
     contact = WECHAT_CONTACTS.get(target)
     if not contact:
-        return f"Error: 不支持的 target '{target}'"
+        return "Error: unsupported messaging target"
     try:
         contact = require_text(contact, field="contact", max_length=100)
     except ValueError as exc:
         return _error(exc)
 
-    console.print(f"[bold yellow]🦾 [WeChat] → alias {escape(target)}[/bold yellow]")
+    console.print("[bold yellow]🦾 [WeChat] sending approved message[/bold yellow]")
     script = f'''
 do shell script "open -a WeChat"
 delay 2.0
@@ -135,7 +138,7 @@ end tell
         result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
             return "Error: 微信自动化执行失败"
-        return f"已向别名 {target} 发送消息"
+        return "消息发送完成"
     except subprocess.TimeoutExpired:
         return "Error: 微信操作超时"
     except Exception:  # noqa: BLE001
@@ -180,10 +183,12 @@ def force_close_app(app_name: str) -> str:
             timeout=10,
         )
     except Exception as exc:  # noqa: BLE001
-        return f"Error: 无法请求 {app_name} 退出：{_bounded_detail(exc)}"
+        console.print(f"[red][process] quit request failed: {escape(_bounded_detail(exc))}[/red]")
+        return f"Error: 无法请求 {app_name} 退出"
     if result.returncode == 0:
         return f"已请求 {app_name} 正常退出"
-    return f"Error: 无法请求 {app_name} 退出：{_bounded_detail(result.stderr or 'application did not quit')}"
+    console.print(f"[red][process] quit request failed: {escape(_bounded_detail(result.stderr or 'application did not quit'))}[/red]")
+    return f"Error: 无法请求 {app_name} 退出"
 
 
 @tool
@@ -203,7 +208,8 @@ def observe_camera() -> str:
     try:
         frame = get_latest_frame()
     except Exception as exc:  # noqa: BLE001
-        return f"Error: camera frame unavailable: {_bounded_detail(exc)}"
+        console.print(f"[red][observe] camera frame unavailable: {escape(_bounded_detail(exc))}[/red]")
+        return "Error: camera frame unavailable"
     if frame is None:
         return "camera not available"
     try:
@@ -211,7 +217,8 @@ def observe_camera() -> str:
     except ValueError as exc:
         return _error(exc)
     except Exception as exc:  # noqa: BLE001
-        return f"Error: camera description failed: {_bounded_detail(exc)}"
+        console.print(f"[red][observe] camera description failed: {escape(_bounded_detail(exc))}[/red]")
+        return "Error: camera description failed"
     console.print(f"[bold cyan]👁️  [observe] {escape(description)}[/bold cyan]")
     return description
 
