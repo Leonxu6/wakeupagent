@@ -34,13 +34,13 @@ class ProcessControlTests(unittest.TestCase):
         self.assertIn('tell application "Safari" to quit', command[2])
 
     @patch("tools.subprocess.run")
-    def test_failed_graceful_quit_never_falls_back_to_killall(self, run):
+    def test_failed_graceful_quit_never_falls_back_to_killall_or_leaks_stderr(self, run):
         run.return_value.returncode = 1
-        run.return_value.stderr = "not running"
+        run.return_value.stderr = "not running: private backend detail"
         with patch.dict(os.environ, {"WAKEUP_ALLOW_PROCESS_CONTROL": "true"}, clear=True):
             result = force_close_app.invoke({"app_name": "Safari"})
-        self.assertIn("Error", result)
-        self.assertIn("not running", result)
+        self.assertEqual(result, "Error: 无法请求 Safari 退出")
+        self.assertNotIn("private backend detail", result)
         self.assertEqual(run.call_count, 1)
         self.assertEqual(run.call_args.args[0][:2], ["osascript", "-e"])
 

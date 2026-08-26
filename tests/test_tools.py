@@ -32,26 +32,29 @@ class OpenWebpageTests(unittest.TestCase):
 
     @patch("tools.console.print")
     @patch("tools.webbrowser.open", return_value=True)
-    def test_escapes_rich_markup_in_browser_logs(self, browser_open, console_print):
+    def test_browser_path_markup_is_not_copied_into_logs_or_results(self, browser_open, console_print):
         url = "https://example.com/[red]study[/red]"
         with patch.dict(os.environ, {"WAKEUP_ALLOW_BROWSER_CONTROL": "true"}, clear=True):
             result = open_webpage.invoke({"url": url})
-        self.assertIn(url, result)
+        self.assertIn("https://example.com", result)
+        self.assertNotIn("[red]study[/red]", result)
         browser_open.assert_called_once_with(url)
         rendered = console_print.call_args.args[0]
-        self.assertIn(r"\[red]study\[/red]", rendered)
+        self.assertNotIn("[red]study[/red]", rendered)
 
     @patch("tools.console.print")
     @patch("tools.webbrowser.open", return_value=True)
-    def test_query_and_fragment_are_not_copied_into_logs_or_results(self, browser_open, console_print):
+    def test_path_query_and_fragment_are_not_copied_into_logs_or_results(self, browser_open, console_print):
         url = "https://example.com/study?token=private#focus"
         with patch.dict(os.environ, {"WAKEUP_ALLOW_BROWSER_CONTROL": "true"}, clear=True):
             result = open_webpage.invoke({"url": url})
         browser_open.assert_called_once_with(url)
-        self.assertIn("https://example.com/study", result)
+        self.assertEqual(result, "已在浏览器中打开：https://example.com")
+        self.assertNotIn("study", result)
         self.assertNotIn("token=private", result)
         self.assertNotIn("focus", result)
         rendered = console_print.call_args.args[0]
+        self.assertNotIn("study", rendered)
         self.assertNotIn("token=private", rendered)
         self.assertNotIn("#focus", rendered)
 
@@ -81,13 +84,14 @@ class OpenWebpageTests(unittest.TestCase):
         browser_open.assert_called_once_with("https://example.com")
 
     @patch("tools.webbrowser.open", side_effect=RuntimeError("private token=https://secret.example"))
-    def test_browser_exceptions_do_not_leak_backend_details(self, browser_open):
+    def test_browser_exceptions_do_not_leak_backend_or_path_details(self, browser_open):
         with patch.dict(os.environ, {"WAKEUP_ALLOW_BROWSER_CONTROL": "true"}, clear=True):
             result = open_webpage.invoke({"url": "https://example.com/study?token=private"})
 
-        self.assertEqual(result, "Error: 浏览器打开失败：https://example.com/study")
+        self.assertEqual(result, "Error: 浏览器打开失败：https://example.com")
         self.assertNotIn("private", result)
         self.assertNotIn("secret.example", result)
+        self.assertNotIn("study", result)
         browser_open.assert_called_once_with("https://example.com/study?token=private")
 
 
