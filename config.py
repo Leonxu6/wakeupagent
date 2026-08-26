@@ -48,19 +48,16 @@ REACT_MAX_ITERATIONS = env_int("WAKEUP_REACT_MAX_ITERATIONS", 5, minimum=1, maxi
 
 # ── WeChat Contacts ───────────────────────────────────────────
 # Aliases are used by the model; values must exactly match WeChat search names.
-# Override without editing source, for example:
+# Keep the repository default empty so private contact names are always supplied
+# explicitly by the local operator, for example:
 # WAKEUP_WECHAT_CONTACTS_JSON='{"family":"Mom","mentor":"Dr Xu"}'
 WECHAT_CONTACTS = env_json_string_map(
     "WAKEUP_WECHAT_CONTACTS_JSON",
-    {
-        "老妈": "妈妈",
-        "导师": "导师",
-        "班级群": "班级群",
-    },
+    {},
     max_entries=50,
 )
 
-# ── Console Log Prefixes (Rich markup) ───────────────────────
+# ── Console Log Prefixes (Rich markup) ────────────────────────
 LOG_A = "[cyan][A][/cyan]"      # Perception node
 LOG_B = "[yellow][B][/yellow]"  # Decision node
 LOG_C = "[red][C][/red]"        # Execution node
