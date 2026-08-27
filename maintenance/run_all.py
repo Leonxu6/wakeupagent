@@ -52,6 +52,13 @@ _AUDITS = (
     "subprocess_timeout_audit.py",
     "async_blocking_sleep_audit.py",
     "async_subprocess_audit.py",
+    "runtime_assert_audit.py",
+    "baseexception_handler_audit.py",
+    "sys_path_mutation_audit.py",
+    "interactive_input_audit.py",
+    "unverified_ssl_context_audit.py",
+    "uuid1_audit.py",
+    "socket_timeout_audit.py",
 )
 
 

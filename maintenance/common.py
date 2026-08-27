@@ -12,6 +12,7 @@ IGNORED_PARTS = {
     ".git", ".venv", "venv", "__pycache__", ".pytest_cache",
     ".ruff_cache", ".mypy_cache", "build", "dist",
 }
+NON_RUNTIME_ROOTS = {"tests", "maintenance"}
 
 
 def require_root(root: object) -> Path:
@@ -57,7 +58,20 @@ def tracked_files(root: Path) -> list[Path]:
         decoded = result.stdout.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise ValueError("tracked file list is not valid UTF-8") from exc
-    return [Path(item) for item in decoded.split("\0") if item]
+    paths = [Path(item) for item in decoded.split("\0") if item]
+    if any(path.is_absolute() or ".." in path.parts for path in paths):
+        raise ValueError("tracked file list contained a path outside repository")
+    return paths
+
+
+def production_python_files(root: Path) -> list[Path]:
+    """Return tracked runtime Python files, excluding tests and maintenance tooling."""
+    root = require_root(root)
+    return [
+        rel
+        for rel in tracked_files(root)
+        if rel.suffix == ".py" and rel.parts and rel.parts[0] not in NON_RUNTIME_ROOTS
+    ]
 
 
 def print_failures(failures: list[str]) -> int:
