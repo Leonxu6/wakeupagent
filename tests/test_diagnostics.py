@@ -71,7 +71,13 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertIn("home loop", check.detail)
 
     def test_http_url_check_matches_runtime_url_boundaries(self):
-        for value in ("ftp://example.com", "https://user:secret@example.com", "https://example.com:bad"):
+        for value in (
+            "ftp://example.com",
+            "https://user:secret@example.com",
+            "https://example.com:bad",
+            "https://example.com/api?token=secret",
+            "https://example.com/api#fragment",
+        ):
             with self.subTest(value=value):
                 self.assertFalse(diagnostics._http_url_check("service", value).ok)
 
