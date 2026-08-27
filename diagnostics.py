@@ -28,7 +28,6 @@ _CRITICAL_CHECKS = {
     "configuration",
     "checkpoint-dir",
     "report-dir",
-    "deepseek-key",
 }
 _DETAIL_LIMIT = 1000
 
@@ -169,7 +168,8 @@ def collect_checks(base_dir: Path | str | None = None) -> list[Check]:
         checks.append(_persistence_parent_check("report-dir", runtime_config.DAILY_REPORT_PATH))
         checks.append(_http_url_check("ollama-url", runtime_config.OLLAMA_HOST))
         checks.append(_http_url_check("deepseek-url", runtime_config.DEEPSEEK_BASE_URL))
-        checks.append(Check("deepseek-key", bool(runtime_config.DEEPSEEK_API_KEY), "configured" if runtime_config.DEEPSEEK_API_KEY else "not configured"))
+        key_configured = bool(runtime_config.DEEPSEEK_API_KEY)
+        checks.append(Check("deepseek-key", True, "configured" if key_configured else "not configured (optional)"))
     checks.append(_feature_flag_check("tts", "WAKEUP_ALLOW_TTS"))
     checks.append(_feature_flag_check("browser-control", "WAKEUP_ALLOW_BROWSER_CONTROL"))
     checks.append(_feature_flag_check("external-messaging", "WAKEUP_ALLOW_EXTERNAL_MESSAGING"))
