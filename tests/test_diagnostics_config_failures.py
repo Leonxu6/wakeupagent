@@ -26,8 +26,8 @@ def test_persistence_failures_are_critical_diagnostics():
     assert diagnostics_exit_code([Check("report-dir", False, "missing")]) == 1
 
 
-def test_missing_deepseek_key_is_a_critical_diagnostic():
-    assert diagnostics_exit_code([Check("deepseek-key", False, "not configured")]) == 1
+def test_missing_deepseek_key_is_noncritical_for_local_mode():
+    assert diagnostics_exit_code([Check("deepseek-key", False, "not configured")]) == 0
 
 
 def test_configured_deepseek_key_does_not_fail_exit_code():
