@@ -9,6 +9,7 @@ import stat
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 from safety import require_http_url
 from settings import env_bool
@@ -93,6 +94,9 @@ def _persistence_parent_check(name: str, value: object) -> Check:
 def _http_url_check(name: str, value: object) -> Check:
     try:
         normalized = require_http_url(value)
+        parsed = urlparse(normalized)
+        if parsed.query or parsed.fragment:
+            raise ValueError("service URL must not contain a query string or fragment")
     except ValueError as exc:
         return Check(name, False, str(exc))
     return Check(name, True, normalized)
