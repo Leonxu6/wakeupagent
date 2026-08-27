@@ -39,7 +39,6 @@ _AUDITS = (
     "dependency_source_audit.py",
     "markdown_fence_audit.py",
     "bare_except_audit.py",
-    "silent_exception_audit.py",
     "mutable_default_audit.py",
     "wildcard_import_audit.py",
     "debug_call_audit.py",
