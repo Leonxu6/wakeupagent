@@ -123,7 +123,8 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertTrue(by_name["checkpoint-dir"].ok)
         self.assertTrue(by_name["ollama-url"].ok)
         self.assertTrue(by_name["deepseek-url"].ok)
-        self.assertFalse(by_name["deepseek-key"].ok)
+        self.assertTrue(by_name["deepseek-key"].ok)
+        self.assertEqual(by_name["deepseek-key"].detail, "not configured (optional)")
         self.assertEqual(by_name["tts"].detail, "disabled")
         self.assertEqual(by_name["browser-control"].detail, "disabled")
         self.assertEqual(by_name["external-messaging"].detail, "disabled")
@@ -156,10 +157,12 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertEqual(len(text.splitlines()), 2)
 
     def test_exit_code_fails_for_required_runtime_dependencies(self):
-        self.assertEqual(diagnostics.diagnostics_exit_code([diagnostics.Check("deepseek-key", False, "missing")]), 1)
         self.assertEqual(diagnostics.diagnostics_exit_code([diagnostics.Check("python", False, "3.11")]), 1)
         self.assertEqual(diagnostics.diagnostics_exit_code([diagnostics.Check("pose-model", False, "missing")]), 1)
         self.assertEqual(diagnostics.diagnostics_exit_code([diagnostics.Check("gesture-model", False, "missing")]), 1)
+
+    def test_exit_code_allows_missing_optional_cloud_credentials(self):
+        self.assertEqual(diagnostics.diagnostics_exit_code([diagnostics.Check("deepseek-key", False, "missing")]), 0)
 
 
 if __name__ == "__main__":
