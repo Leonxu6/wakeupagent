@@ -21,7 +21,6 @@ def test_security_and_syntax_audits_are_registered():
 def test_reliability_and_async_audits_are_registered():
     expected = {
         "bare_except_audit.py",
-        "silent_exception_audit.py",
         "mutable_default_audit.py",
         "wildcard_import_audit.py",
         "debug_call_audit.py",
@@ -37,3 +36,7 @@ def test_reliability_and_async_audits_are_registered():
         "async_subprocess_audit.py",
     }
     assert expected.issubset(set(_AUDITS))
+
+
+def test_silent_exception_audit_remains_advisory():
+    assert "silent_exception_audit.py" not in _AUDITS
