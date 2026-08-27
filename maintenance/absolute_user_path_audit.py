@@ -1,4 +1,4 @@
-"""Detect machine-specific absolute user-home literals in tracked Python code."""
+"""Detect machine-specific absolute user-home literals in runtime Python code."""
 from __future__ import annotations
 
 import argparse
@@ -9,6 +9,7 @@ from pathlib import Path
 from maintenance.common import print_failures, require_root, tracked_files
 
 _WINDOWS_USER = re.compile(r"^[A-Za-z]:[\\/]Users[\\/]")
+_IGNORED_TOP_LEVEL = {"maintenance", "tests"}
 
 
 def audit_source(source: str) -> list[str]:
@@ -30,7 +31,7 @@ def audit(root: Path) -> list[str]:
     root = require_root(root)
     failures: list[str] = []
     for rel in tracked_files(root):
-        if rel.suffix != ".py":
+        if rel.suffix != ".py" or (rel.parts and rel.parts[0] in _IGNORED_TOP_LEVEL):
             continue
         try:
             source = (root / rel).read_text(encoding="utf-8")
