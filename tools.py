@@ -135,7 +135,13 @@ tell application "System Events"
 end tell
 '''
     try:
-        result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=30)
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
         if result.returncode != 0:
             return "Error: 微信自动化执行失败"
         return "消息发送完成"
@@ -181,6 +187,7 @@ def force_close_app(app_name: str) -> str:
             capture_output=True,
             text=True,
             timeout=10,
+            check=False,
         )
     except Exception as exc:  # noqa: BLE001
         console.print(f"[red][process] quit request failed: {escape(_bounded_detail(exc))}[/red]")
