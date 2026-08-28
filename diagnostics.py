@@ -197,7 +197,7 @@ def checks_payload(checks: list[Check]) -> list[dict[str, object]]:
 
 
 def format_checks_json(checks: list[Check]) -> str:
-    return json.dumps(checks_payload(checks), ensure_ascii=False, sort_keys=True)
+    return json.dumps(checks_payload(checks), ensure_ascii=False, sort_keys=True, allow_nan=False)
 
 
 def diagnostics_exit_code(checks: list[Check]) -> int:
