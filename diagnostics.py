@@ -30,6 +30,13 @@ _CRITICAL_CHECKS = {
     "checkpoint-dir",
     "report-dir",
 }
+_REQUIRED_CONFIG_FIELDS = (
+    "CHECKPOINT_DB_PATH",
+    "DAILY_REPORT_PATH",
+    "OLLAMA_HOST",
+    "DEEPSEEK_BASE_URL",
+    "DEEPSEEK_API_KEY",
+)
 _DETAIL_LIMIT = 1000
 
 
@@ -158,6 +165,9 @@ def _runtime_config() -> tuple[object | None, Check]:
         module = importlib.import_module("config")
     except Exception as exc:  # noqa: BLE001
         return None, Check("configuration", False, _single_line(exc) or exc.__class__.__name__)
+    missing = [field for field in _REQUIRED_CONFIG_FIELDS if not hasattr(module, field)]
+    if missing:
+        return None, Check("configuration", False, "missing fields: " + ", ".join(missing))
     return module, Check("configuration", True, "validated")
 
 
