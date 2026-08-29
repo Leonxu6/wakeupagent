@@ -1,10 +1,12 @@
 """Typed environment-variable parsing for WakeUpAgent configuration."""
 from __future__ import annotations
 
+import ipaddress
 import json
 import math
 import os
 import re
+import unicodedata
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -81,6 +83,24 @@ def _validate_text(value: object, *, field: str, max_length: int, allow_empty: b
     if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
         raise ValueError(f"{field} contains control characters")
     return value
+
+
+def _valid_hostname(hostname: str) -> bool:
+    try:
+        ipaddress.ip_address(hostname.split("%", 1)[0])
+        return True
+    except ValueError:
+        pass
+    if hostname == "localhost":
+        return True
+    if hostname.startswith(".") or hostname.endswith(".") or ".." in hostname:
+        return False
+    for label in hostname.split("."):
+        if not label or len(label) > 63 or label.startswith("-") or label.endswith("-"):
+            return False
+        if not all(ch.isalnum() or ch in {"-", "_"} for ch in label):
+            return False
+    return True
 
 
 def env_text(name: str, default: str, *, max_length: int = 500) -> str:
@@ -182,6 +202,8 @@ def env_http_url(name: str, default: str) -> str:
     hostname = parsed.hostname
     if parsed.scheme.lower() not in {"http", "https"} or not hostname:
         raise ValueError(f"{name} must be an http(s) URL with a hostname")
+    if not _valid_hostname(hostname):
+        raise ValueError(f"{name} hostname is malformed")
     if parsed.username is not None or parsed.password is not None:
         raise ValueError(f"{name} must not contain credentials")
     if parsed.query or parsed.fragment:
@@ -233,9 +255,9 @@ def env_json_string_map(name: str, default: dict[str, str], *, max_entries: int 
     for key, item in value.items():
         clean_key = _validate_text(key, field=f"{name} key", max_length=80)
         clean_value = _validate_text(item, field=f"{name} value", max_length=200)
-        alias = clean_key.casefold()
+        alias = unicodedata.normalize("NFKC", clean_key).casefold()
         if alias in aliases:
-            raise ValueError(f"{name} must not contain case-insensitive duplicate keys")
+            raise ValueError(f"{name} must not contain normalization-equivalent duplicate keys")
         aliases.add(alias)
         normalized[clean_key] = clean_value
     return normalized
