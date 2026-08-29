@@ -96,6 +96,9 @@ class ContextHistory:
         """Restore a snapshot while re-validating every external value and bound."""
         if not isinstance(snapshot, dict) or snapshot.get("version") != 1:
             raise ValueError("history snapshot must be a version 1 object")
+        allowed_fields = {"version", "limits", "summary", "items"}
+        if set(snapshot) != allowed_fields:
+            raise ValueError("history snapshot is incomplete or contains unknown fields")
         limits = snapshot.get("limits")
         if not isinstance(limits, dict):
             raise ValueError("history snapshot limits must be an object")
@@ -104,7 +107,7 @@ class ContextHistory:
             raise ValueError("history snapshot limits are incomplete or contain unknown fields")
         history = cls(**{name: limits[name] for name in allowed_limits})
 
-        summary = snapshot.get("summary", "")
+        summary = snapshot["summary"]
         if not isinstance(summary, str):
             raise ValueError("history snapshot summary must be text")
         normalized_summary = _bounded_text(summary, limit=history.summary_limit)
@@ -112,11 +115,12 @@ class ContextHistory:
             raise ValueError("history snapshot summary is not normalized or exceeds its limit")
         history._summary = summary
 
-        items = snapshot.get("items")
+        items = snapshot["items"]
         if not isinstance(items, list):
             raise ValueError("history snapshot items must be a list")
         if len(items) > history.max_items:
             raise ValueError("history snapshot exceeds max_items")
+        previous: str | None = None
         for item in items:
             if not isinstance(item, str):
                 raise ValueError("history snapshot items must be text")
@@ -127,7 +131,10 @@ class ContextHistory:
             payload = item[len(prefix):]
             if not payload or _bounded_text(payload, limit=limit) != payload:
                 raise ValueError("history snapshot item is not normalized or exceeds its limit")
+            if item == previous:
+                raise ValueError("history snapshot contains consecutive duplicate items")
             history._items.append(item)
+            previous = item
         return history
 
     def __len__(self) -> int:
