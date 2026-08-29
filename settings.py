@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 _TRUE = {"1", "true", "yes", "on"}
 _FALSE = {"0", "false", "no", "off"}
 _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_MAX_NUMERIC_TEXT = 128
 
 
 def _env_name(name: object) -> str:
@@ -30,6 +31,13 @@ def _raw(name: str) -> str | None:
         raise ValueError(f"{name} must not have leading or trailing whitespace")
     if not value:
         raise ValueError(f"{name} must not be empty")
+    return value
+
+
+def _numeric_raw(name: str) -> str | None:
+    value = _raw(name)
+    if value is not None and len(value) > _MAX_NUMERIC_TEXT:
+        raise ValueError(f"{name} numeric text must be at most {_MAX_NUMERIC_TEXT} characters")
     return value
 
 
@@ -98,7 +106,7 @@ def env_int(name: str, default: int, *, minimum: int | None = None, maximum: int
     maximum = _integer_bound(maximum, field="maximum")
     if minimum is not None and maximum is not None and minimum > maximum:
         raise ValueError("minimum must not exceed maximum")
-    value = _raw(name)
+    value = _numeric_raw(name)
     if value is None:
         if isinstance(default, bool) or not isinstance(default, int):
             raise ValueError(f"{name} default must be an integer")
@@ -107,7 +115,10 @@ def env_int(name: str, default: int, *, minimum: int | None = None, maximum: int
         digits = value[1:] if value.startswith("-") else value
         if value.startswith("+") or not digits or not digits.isascii() or not digits.isdigit():
             raise ValueError(f"{name} must be an integer")
-        result = int(value)
+        try:
+            result = int(value)
+        except ValueError as exc:
+            raise ValueError(f"{name} must be an integer") from exc
     if minimum is not None and result < minimum:
         raise ValueError(f"{name} must be at least {minimum}")
     if maximum is not None and result > maximum:
@@ -120,7 +131,7 @@ def env_float(name: str, default: float, *, minimum: float | None = None, maximu
     maximum = _float_bound(maximum, field="maximum")
     if minimum is not None and maximum is not None and minimum > maximum:
         raise ValueError("minimum must not exceed maximum")
-    value = _raw(name)
+    value = _numeric_raw(name)
     if value is None:
         if isinstance(default, bool) or not isinstance(default, (int, float)):
             raise ValueError(f"{name} default must be a number")
