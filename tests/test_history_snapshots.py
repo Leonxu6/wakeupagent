@@ -36,11 +36,22 @@ def test_restore_rejects_unknown_versions_and_limit_shapes():
         ContextHistory.from_snapshot(bad)
 
 
+def test_restore_rejects_unknown_or_missing_top_level_fields():
+    snapshot = ContextHistory().snapshot()
+    extra = copy.deepcopy(snapshot)
+    extra["unexpected"] = True
+    missing = copy.deepcopy(snapshot)
+    del missing["summary"]
+    for bad in (extra, missing):
+        with pytest.raises(ValueError, match="unknown fields|incomplete"):
+            ContextHistory.from_snapshot(bad)
+
+
 def test_restore_rejects_untrusted_or_unbounded_entries():
-    snapshot = ContextHistory(max_items=1, observation_limit=5).snapshot()
+    snapshot = ContextHistory(max_items=2, observation_limit=5).snapshot()
     cases = []
     too_many = copy.deepcopy(snapshot)
-    too_many["items"] = ["[Obs] one", "[Obs] two"]
+    too_many["items"] = ["[Obs] one", "[Obs] two", "[Obs] tri"]
     cases.append(too_many)
     bad_prefix = copy.deepcopy(snapshot)
     bad_prefix["items"] = ["[Tool] hidden"]
@@ -51,6 +62,9 @@ def test_restore_rejects_untrusted_or_unbounded_entries():
     control = copy.deepcopy(snapshot)
     control["items"] = ["[Obs] a\tb"]
     cases.append(control)
+    duplicates = copy.deepcopy(snapshot)
+    duplicates["items"] = ["[Obs] one", "[Obs] one"]
+    cases.append(duplicates)
     for bad in cases:
         with pytest.raises(ValueError):
             ContextHistory.from_snapshot(bad)
