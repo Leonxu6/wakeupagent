@@ -60,7 +60,7 @@ def _observation_text(value: object, *, limit: int = 1000) -> str:
     text = " ".join(value.split())
     if not text:
         raise ValueError("camera description must not be empty")
-    return text[:limit]
+    return text[:limit].rstrip()
 
 
 def _escape_applescript(value: str) -> str:
