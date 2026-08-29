@@ -3,15 +3,22 @@ import pytest
 from diagnostics import Check, checks_payload, diagnostics_exit_code, format_checks
 
 
-def test_diagnostic_check_names_reject_padding_controls_and_oversize():
-    for name in ("", " python", "python ", "python\n", "x" * 81):
+def test_diagnostic_check_names_reject_padding_and_oversize():
+    for name in ("", " python", "python ", "x" * 81):
         with pytest.raises(ValueError):
             format_checks([Check(name, True, "ok")])
 
 
-def test_diagnostic_check_names_still_reject_casefold_collisions():
+def test_diagnostic_check_names_sanitize_controls_without_forging_lines():
+    payload = checks_payload([Check("model\nname", False, "failed")])
+    assert payload == [{"name": "model name", "ok": False, "detail": "failed"}]
+    text = format_checks([Check("b\nspoof", False, "missing\n[OK] forged: yes")])
+    assert text == "[WARN] b spoof: missing [OK] forged: yes"
+
+
+def test_diagnostic_check_names_still_reject_normalized_collisions():
     with pytest.raises(ValueError, match="duplicate"):
-        checks_payload([Check("Python", True, "ok"), Check("python", True, "ok")])
+        checks_payload([Check("Model\nName", True, "ok"), Check("model name", True, "ok")])
 
 
 def test_critical_exit_code_uses_validated_exact_identifier():
