@@ -7,6 +7,7 @@ import os
 import platform
 import stat
 import sys
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
@@ -156,7 +157,7 @@ def _validated_checks(checks: object) -> list[tuple[Check, str]]:
         name = _check_name(check.name)
         if not isinstance(check.ok, bool):
             raise ValueError("check status must be boolean")
-        identity = name.casefold()
+        identity = unicodedata.normalize("NFKC", name).casefold()
         if identity in seen:
             raise ValueError(f"duplicate diagnostic check name: {name} conflicts with {seen[identity]}")
         seen[identity] = name
