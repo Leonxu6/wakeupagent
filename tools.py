@@ -86,6 +86,39 @@ def _resolve_contact_alias(target: str, contacts: object) -> str | None:
     return matches[0]
 
 
+def _wechat_script(contact: str, message: str) -> str:
+    """Build the local automation script while restoring the user's clipboard on every exit path."""
+    contact = _escape_applescript(contact)
+    message = _escape_applescript(message)
+    return f'''
+set oldClipboard to the clipboard
+try
+    do shell script "open -a WeChat"
+    delay 2.0
+    tell application "System Events"
+        tell process "WeChat"
+            keystroke "f" using {{command down}}
+            delay 1.0
+            keystroke "a" using {{command down}}
+            set the clipboard to "{contact}"
+            keystroke "v" using {{command down}}
+            delay 2.0
+            keystroke return
+            delay 1.0
+            set the clipboard to "{message}"
+            keystroke "v" using {{command down}}
+            delay 0.5
+            keystroke return
+        end tell
+    end tell
+on error errMessage number errNumber
+    set the clipboard to oldClipboard
+    error errMessage number errNumber
+end try
+set the clipboard to oldClipboard
+'''
+
+
 @tool
 def play_tts_punishment(text: str) -> str:
     """Speak one short local reminder when local TTS has been explicitly enabled."""
@@ -134,26 +167,7 @@ def send_wechat_shame_message(target: str, message: str) -> str:
         return _error(exc)
 
     console.print("[bold yellow]🦾 [WeChat] sending approved message[/bold yellow]")
-    script = f'''
-do shell script "open -a WeChat"
-delay 2.0
-tell application "System Events"
-    tell process "WeChat"
-        keystroke "f" using {{command down}}
-        delay 1.0
-        keystroke "a" using {{command down}}
-        set the clipboard to "{_escape_applescript(contact)}"
-        keystroke "v" using {{command down}}
-        delay 2.0
-        keystroke return
-        delay 1.0
-        set the clipboard to "{_escape_applescript(message)}"
-        keystroke "v" using {{command down}}
-        delay 0.5
-        keystroke return
-    end tell
-end tell
-'''
+    script = _wechat_script(contact, message)
     try:
         result = subprocess.run(
             ["osascript", "-e", script],
