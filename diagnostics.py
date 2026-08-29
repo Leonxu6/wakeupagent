@@ -91,8 +91,14 @@ def _directory_check(name: str, path: Path) -> Check:
 def _persistence_parent_check(name: str, value: object) -> Check:
     if not isinstance(value, (str, Path)):
         return Check(name, False, "configured path must be text or Path")
+    if isinstance(value, str):
+        if not value or value != value.strip() or any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+            return Check(name, False, "configured path must be non-empty unpadded text without controls")
     try:
-        parent = Path(value).expanduser().resolve().parent
+        path = Path(value).expanduser()
+        if not path.name:
+            return Check(name, False, "configured path must name a persistence file")
+        parent = path.resolve().parent
     except (OSError, RuntimeError, ValueError) as exc:
         return Check(name, False, f"invalid path: {value} ({exc})")
     return _directory_check(name, parent)
