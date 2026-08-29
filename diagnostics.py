@@ -139,16 +139,17 @@ def _check_name(value: object) -> str:
         raise ValueError("check names must be non-empty unpadded text")
     if len(value) > 80:
         raise ValueError("check names must be at most 80 characters")
-    if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
-        raise ValueError("check names must not contain control characters")
-    return value
+    normalized = _single_line(value, limit=80)
+    if not normalized:
+        raise ValueError("check names must contain visible text")
+    return normalized
 
 
-def _validated_checks(checks: object) -> list[Check]:
+def _validated_checks(checks: object) -> list[tuple[Check, str]]:
     if not isinstance(checks, (list, tuple)):
         raise ValueError("checks must be a list or tuple")
     seen: dict[str, str] = {}
-    validated: list[Check] = []
+    validated: list[tuple[Check, str]] = []
     for check in checks:
         if not isinstance(check, Check):
             raise ValueError("checks must contain Check values")
@@ -159,7 +160,7 @@ def _validated_checks(checks: object) -> list[Check]:
         if identity in seen:
             raise ValueError(f"duplicate diagnostic check name: {name} conflicts with {seen[identity]}")
         seen[identity] = name
-        validated.append(check)
+        validated.append((check, name))
     return validated
 
 
@@ -211,16 +212,16 @@ def collect_checks(base_dir: Path | str | None = None) -> list[Check]:
 
 def format_checks(checks: list[Check]) -> str:
     lines = []
-    for check in _validated_checks(checks):
+    for check, name in _validated_checks(checks):
         marker = "OK" if check.ok else "WARN"
-        lines.append(f"[{marker}] {check.name}: {_single_line(check.detail)}")
+        lines.append(f"[{marker}] {name}: {_single_line(check.detail)}")
     return "\n".join(lines)
 
 
 def checks_payload(checks: list[Check]) -> list[dict[str, object]]:
     return [
-        {"name": check.name, "ok": check.ok, "detail": _single_line(check.detail)}
-        for check in _validated_checks(checks)
+        {"name": name, "ok": check.ok, "detail": _single_line(check.detail)}
+        for check, name in _validated_checks(checks)
     ]
 
 
@@ -229,4 +230,4 @@ def format_checks_json(checks: list[Check]) -> str:
 
 
 def diagnostics_exit_code(checks: list[Check]) -> int:
-    return 1 if any(not c.ok and c.name in _CRITICAL_CHECKS for c in _validated_checks(checks)) else 0
+    return 1 if any(not check.ok and name in _CRITICAL_CHECKS for check, name in _validated_checks(checks)) else 0
