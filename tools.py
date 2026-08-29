@@ -252,7 +252,7 @@ def observe_camera() -> str:
     except Exception as exc:  # noqa: BLE001
         console.print(f"[red][observe] camera description failed: {escape(_bounded_detail(exc))}[/red]")
         return "Error: camera description failed"
-    console.print(f"[bold cyan]👁️  [observe] {escape(description)}[/bold cyan]")
+    console.print(f"[bold cyan]👁️  [observe] description captured ({len(description)} chars)[/bold cyan]")
     return description
 
 
