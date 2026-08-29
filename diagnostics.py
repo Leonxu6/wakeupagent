@@ -124,7 +124,7 @@ def _single_line(value: object, *, limit: int = _DETAIL_LIMIT) -> str:
 def _validated_checks(checks: object) -> list[Check]:
     if not isinstance(checks, (list, tuple)):
         raise ValueError("checks must be a list or tuple")
-    seen: set[str] = set()
+    seen: dict[str, str] = {}
     validated: list[Check] = []
     for check in checks:
         if not isinstance(check, Check):
@@ -134,9 +134,10 @@ def _validated_checks(checks: object) -> list[Check]:
         if not isinstance(check.ok, bool):
             raise ValueError("check status must be boolean")
         normalized_name = _single_line(check.name)
-        if normalized_name in seen:
-            raise ValueError(f"duplicate diagnostic check name: {normalized_name}")
-        seen.add(normalized_name)
+        identity = normalized_name.casefold()
+        if identity in seen:
+            raise ValueError(f"duplicate diagnostic check name: {normalized_name} conflicts with {seen[identity]}")
+        seen[identity] = normalized_name
         validated.append(check)
     return validated
 
@@ -146,7 +147,10 @@ def _diagnostic_root(base_dir: object) -> Path:
         return Path(__file__).resolve().parent
     if not isinstance(base_dir, (str, Path)):
         raise ValueError("base_dir must be a path string or Path")
-    return Path(base_dir).expanduser()
+    try:
+        return Path(base_dir).expanduser().resolve()
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise ValueError(f"base_dir could not be resolved: {exc}") from exc
 
 
 def _runtime_config() -> tuple[object | None, Check]:
