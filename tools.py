@@ -66,6 +66,17 @@ def _escape_applescript(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
+def _resolve_contact_alias(target: str, contacts: object) -> str | None:
+    """Resolve a configured alias case-insensitively without exposing contact values."""
+    if not isinstance(contacts, dict):
+        return None
+    folded = target.casefold()
+    matches = [value for alias, value in contacts.items() if isinstance(alias, str) and alias.casefold() == folded]
+    if len(matches) != 1:
+        return None
+    return matches[0]
+
+
 @tool
 def play_tts_punishment(text: str) -> str:
     """Speak one short local reminder when local TTS has been explicitly enabled."""
@@ -105,7 +116,7 @@ def send_wechat_shame_message(target: str, message: str) -> str:
         return _error(exc)
 
     from config import WECHAT_CONTACTS
-    contact = WECHAT_CONTACTS.get(target)
+    contact = _resolve_contact_alias(target, WECHAT_CONTACTS)
     if not contact:
         return "Error: unsupported messaging target"
     try:
@@ -145,6 +156,8 @@ end tell
         if result.returncode != 0:
             return "Error: 微信自动化执行失败"
         return "消息发送完成"
+    except FileNotFoundError:
+        return "Error: osascript 命令不存在（仅支持 macOS）"
     except subprocess.TimeoutExpired:
         return "Error: 微信操作超时"
     except Exception:  # noqa: BLE001
@@ -189,6 +202,10 @@ def force_close_app(app_name: str) -> str:
             timeout=10,
             check=False,
         )
+    except FileNotFoundError:
+        return "Error: osascript 命令不存在（仅支持 macOS）"
+    except subprocess.TimeoutExpired:
+        return f"Error: 请求 {app_name} 退出超时"
     except Exception as exc:  # noqa: BLE001
         console.print(f"[red][process] quit request failed: {escape(_bounded_detail(exc))}[/red]")
         return f"Error: 无法请求 {app_name} 退出"
