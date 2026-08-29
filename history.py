@@ -94,7 +94,11 @@ class ContextHistory:
     @classmethod
     def from_snapshot(cls, snapshot: object) -> "ContextHistory":
         """Restore a snapshot while re-validating every external value and bound."""
-        if not isinstance(snapshot, dict) or snapshot.get("version") != 1:
+        if (
+            not isinstance(snapshot, dict)
+            or isinstance(snapshot.get("version"), bool)
+            or snapshot.get("version") != 1
+        ):
             raise ValueError("history snapshot must be a version 1 object")
         allowed_fields = {"version", "limits", "summary", "items"}
         if set(snapshot) != allowed_fields:
