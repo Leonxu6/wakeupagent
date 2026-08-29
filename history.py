@@ -77,5 +77,58 @@ class ContextHistory:
             parts.append("Recent history:\n" + "\n".join(items))
         return "\n\n".join(parts)
 
+    def snapshot(self) -> dict[str, object]:
+        """Return a JSON-friendly copy suitable for diagnostics or controlled persistence."""
+        return {
+            "version": 1,
+            "limits": {
+                "max_items": self.max_items,
+                "summary_limit": self.summary_limit,
+                "observation_limit": self.observation_limit,
+                "decision_limit": self.decision_limit,
+            },
+            "summary": self._summary,
+            "items": list(self._items),
+        }
+
+    @classmethod
+    def from_snapshot(cls, snapshot: object) -> "ContextHistory":
+        """Restore a snapshot while re-validating every external value and bound."""
+        if not isinstance(snapshot, dict) or snapshot.get("version") != 1:
+            raise ValueError("history snapshot must be a version 1 object")
+        limits = snapshot.get("limits")
+        if not isinstance(limits, dict):
+            raise ValueError("history snapshot limits must be an object")
+        allowed_limits = {"max_items", "summary_limit", "observation_limit", "decision_limit"}
+        if set(limits) != allowed_limits:
+            raise ValueError("history snapshot limits are incomplete or contain unknown fields")
+        history = cls(**{name: limits[name] for name in allowed_limits})
+
+        summary = snapshot.get("summary", "")
+        if not isinstance(summary, str):
+            raise ValueError("history snapshot summary must be text")
+        normalized_summary = _bounded_text(summary, limit=history.summary_limit)
+        if normalized_summary != summary:
+            raise ValueError("history snapshot summary is not normalized or exceeds its limit")
+        history._summary = summary
+
+        items = snapshot.get("items")
+        if not isinstance(items, list):
+            raise ValueError("history snapshot items must be a list")
+        if len(items) > history.max_items:
+            raise ValueError("history snapshot exceeds max_items")
+        for item in items:
+            if not isinstance(item, str):
+                raise ValueError("history snapshot items must be text")
+            if not (item.startswith("[Obs] ") or item.startswith("[Brain] ")):
+                raise ValueError("history snapshot item has an unknown entry type")
+            limit = history.observation_limit if item.startswith("[Obs] ") else history.decision_limit
+            prefix = "[Obs] " if item.startswith("[Obs] ") else "[Brain] "
+            payload = item[len(prefix):]
+            if not payload or _bounded_text(payload, limit=limit) != payload:
+                raise ValueError("history snapshot item is not normalized or exceeds its limit")
+            history._items.append(item)
+        return history
+
     def __len__(self) -> int:
         return len(self._items)
