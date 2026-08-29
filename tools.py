@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import unicodedata
 import webbrowser
 from urllib.parse import urlsplit, urlunsplit
 
@@ -66,12 +67,20 @@ def _escape_applescript(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
+def _alias_identity(value: str) -> str:
+    return unicodedata.normalize("NFKC", value).casefold()
+
+
 def _resolve_contact_alias(target: str, contacts: object) -> str | None:
-    """Resolve a configured alias case-insensitively without exposing contact values."""
+    """Resolve one normalized configured alias without exposing contact values."""
     if not isinstance(contacts, dict):
         return None
-    folded = target.casefold()
-    matches = [value for alias, value in contacts.items() if isinstance(alias, str) and alias.casefold() == folded]
+    folded = _alias_identity(target)
+    matches = [
+        value
+        for alias, value in contacts.items()
+        if isinstance(alias, str) and _alias_identity(alias) == folded
+    ]
     if len(matches) != 1:
         return None
     return matches[0]
