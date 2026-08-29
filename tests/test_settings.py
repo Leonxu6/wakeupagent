@@ -162,6 +162,11 @@ class EnvironmentParserTests(unittest.TestCase):
             "https://example.com\\@evil.test/path",
             "https://example.com:/api",
             "https://example.com:0/api",
+            "https://.",
+            "https://example..com",
+            "https://-example.com",
+            "https://example-.com",
+            "https://example.com.",
         )
         for value in invalid:
             with self.subTest(value=value), patch.dict(os.environ, {"URL": value}, clear=True):
