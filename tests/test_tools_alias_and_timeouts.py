@@ -3,11 +3,13 @@ import subprocess
 import tools
 
 
-def test_contact_alias_resolution_is_case_insensitive_without_ambiguity():
-    contacts = {"mentor": "Dr Xu", "family": "Mom"}
+def test_contact_alias_resolution_is_normalized_without_ambiguity():
+    contacts = {"mentor": "Dr Xu", "family": "Mom", "Ａlice": "Alice Chen"}
     assert tools._resolve_contact_alias("MENTOR", contacts) == "Dr Xu"
+    assert tools._resolve_contact_alias("Alice", contacts) == "Alice Chen"
     assert tools._resolve_contact_alias("unknown", contacts) is None
     assert tools._resolve_contact_alias("mentor", {"mentor": "A", "MENTOR": "B"}) is None
+    assert tools._resolve_contact_alias("Alice", {"Ａlice": "A", "Alice": "B"}) is None
     assert tools._resolve_contact_alias("mentor", []) is None
 
 
