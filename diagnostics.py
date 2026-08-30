@@ -97,7 +97,9 @@ def _persistence_parent_check(name: str, value: object) -> Check:
     if not isinstance(value, (str, Path)):
         return Check(name, False, "configured path must be text or Path")
     if isinstance(value, str):
-        if not value or value != value.strip() or any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+        if not value or value != value.strip() or any(
+            ord(ch) < 32 or ord(ch) == 127 or ch in _BIDI_CONTROLS for ch in value
+        ):
             return Check(name, False, "configured path must be non-empty unpadded text without controls")
     try:
         path = Path(value).expanduser()
@@ -178,9 +180,12 @@ def _diagnostic_root(base_dir: object) -> Path:
     if not isinstance(base_dir, (str, Path)):
         raise ValueError("base_dir must be a path string or Path")
     try:
-        return Path(base_dir).expanduser().resolve()
+        root = Path(base_dir).expanduser().resolve()
     except (OSError, RuntimeError, ValueError) as exc:
         raise ValueError(f"base_dir could not be resolved: {exc}") from exc
+    if not root.is_dir():
+        raise ValueError("base_dir must resolve to an existing directory")
+    return root
 
 
 def _runtime_config() -> tuple[object | None, Check]:
