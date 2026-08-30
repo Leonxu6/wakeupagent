@@ -47,6 +47,21 @@ def test_maintenance_runner_decodes_output_with_replacement(tmp_path: Path):
         runner.run_audits(tmp_path, scripts=("ok.py",))
     assert run.call_args.kwargs["encoding"] == "utf-8"
     assert run.call_args.kwargs["errors"] == "replace"
+    assert run.call_args.kwargs["check"] is False
+
+
+def test_advisory_audit_failures_are_visible_without_blocking(tmp_path: Path):
+    maintenance = tmp_path / "maintenance"
+    maintenance.mkdir()
+    (maintenance / "advisory.py").write_text('print("review me")\nraise SystemExit(1)\n', encoding="utf-8")
+    findings = runner.run_advisory_audits(tmp_path, scripts=("advisory.py",))
+    assert findings == ["advisory.py: review me"]
+
+    with patch.object(runner, "run_audits", return_value=[]), patch.object(
+        runner, "run_advisory_audits", return_value=findings
+    ), patch.object(runner.sys, "stderr") as stderr:
+        assert runner.main([str(tmp_path)]) == 0
+    assert stderr.write.called
 
 
 @pytest.mark.parametrize(
