@@ -7,6 +7,10 @@ import re
 from urllib.parse import urlparse
 
 _APP_NAME = re.compile(r"^[\w .+()\-]{1,80}$", re.UNICODE)
+_BIDI_CONTROLS = {
+    "\u061c", "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",
+    "\u2066", "\u2067", "\u2068", "\u2069",
+}
 
 
 def _has_disallowed_control(value: str, *, allow_newlines: bool) -> bool:
@@ -14,7 +18,7 @@ def _has_disallowed_control(value: str, *, allow_newlines: bool) -> bool:
         code = ord(ch)
         if ch in "\n\r" and allow_newlines:
             continue
-        if code < 32 or code == 127:
+        if code < 32 or code == 127 or ch in _BIDI_CONTROLS:
             return True
     return False
 
