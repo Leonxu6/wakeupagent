@@ -8,16 +8,21 @@ _BIDI_CONTROLS = {
     "\u061c", "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",
     "\u2066", "\u2067", "\u2068", "\u2069",
 }
+_MAX_HISTORY_ITEMS = 500
+_MAX_TEXT_LIMIT = 10_000
 
 
-def _positive_int(value: object, *, field_name: str) -> int:
+def _positive_int(value: object, *, field_name: str, maximum: int | None = None) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise ValueError(f"{field_name} must be a positive integer")
+    if maximum is not None and value > maximum:
+        raise ValueError(f"{field_name} must be at most {maximum}")
     return value
 
 
 def _bounded_text(value: object, *, limit: int) -> str:
     """Normalize model/user text into one bounded context line."""
+    limit = _positive_int(limit, field_name="limit", maximum=_MAX_TEXT_LIMIT)
     if not isinstance(value, str):
         return ""
     without_controls = "".join(
@@ -40,10 +45,10 @@ class ContextHistory:
     _summary: str = field(default="", init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self.max_items = _positive_int(self.max_items, field_name="max_items")
-        self.summary_limit = _positive_int(self.summary_limit, field_name="summary_limit")
-        self.observation_limit = _positive_int(self.observation_limit, field_name="observation_limit")
-        self.decision_limit = _positive_int(self.decision_limit, field_name="decision_limit")
+        self.max_items = _positive_int(self.max_items, field_name="max_items", maximum=_MAX_HISTORY_ITEMS)
+        self.summary_limit = _positive_int(self.summary_limit, field_name="summary_limit", maximum=_MAX_TEXT_LIMIT)
+        self.observation_limit = _positive_int(self.observation_limit, field_name="observation_limit", maximum=_MAX_TEXT_LIMIT)
+        self.decision_limit = _positive_int(self.decision_limit, field_name="decision_limit", maximum=_MAX_TEXT_LIMIT)
         self._items = deque(maxlen=self.max_items)
 
     def set_summary(self, text: object) -> None:
@@ -76,7 +81,7 @@ class ContextHistory:
             self._append_unique(f"[Brain] {normalized}")
 
     def render(self, *, recent: int = 10) -> str:
-        recent = _positive_int(recent, field_name="recent")
+        recent = _positive_int(recent, field_name="recent", maximum=_MAX_HISTORY_ITEMS)
         parts: list[str] = []
         if self._summary:
             parts.append(f"Summary: {self._summary}")
