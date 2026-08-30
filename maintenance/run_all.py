@@ -85,6 +85,10 @@ _AUDITS = (
     "thread_daemon_audit.py",
 )
 
+# Newly introduced repository-wide rules begin here. They remain visible in CI
+# without making legacy findings fatal until their backlog is reviewed.
+_ADVISORY_AUDITS: tuple[str, ...] = ()
+
 
 def _validate_scripts(scripts: tuple[str, ...]) -> tuple[str, ...]:
     if not isinstance(scripts, tuple):
@@ -113,43 +117,59 @@ def _failure_detail(result: object) -> str:
     return detail[:1000]
 
 
-def run_audits(root: Path, *, scripts: tuple[str, ...] = _AUDITS) -> list[str]:
+def _run_audit(root: Path, script: str) -> str | None:
+    path = root / "maintenance" / script
+    if not path.is_file():
+        return "audit script is missing"
+    module = f"maintenance.{Path(script).stem}"
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", module, str(root)],
+            cwd=root,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return "audit timed out"
+    except OSError as exc:
+        return f"audit could not start ({exc})"
+    return _failure_detail(result) if result.returncode else None
+
+
+def _run_selected(root: Path, scripts: tuple[str, ...]) -> list[str]:
     if not isinstance(root, Path) or not root.is_dir():
         raise ValueError("root must be an existing directory")
     scripts = _validate_scripts(scripts)
-    failures: list[str] = []
-    maintenance = root / "maintenance"
+    findings: list[str] = []
     for script in scripts:
-        path = maintenance / script
-        if not path.is_file():
-            failures.append(f"{script}: audit script is missing")
-            continue
-        module = f"maintenance.{Path(script).stem}"
-        try:
-            result = subprocess.run(
-                [sys.executable, "-m", module, str(root)],
-                cwd=root,
-                capture_output=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=30,
-            )
-        except subprocess.TimeoutExpired:
-            failures.append(f"{script}: audit timed out")
-            continue
-        except OSError as exc:
-            failures.append(f"{script}: audit could not start ({exc})")
-            continue
-        if result.returncode:
-            failures.append(f"{script}: {_failure_detail(result)}")
-    return failures
+        detail = _run_audit(root, script)
+        if detail:
+            findings.append(f"{script}: {detail}")
+    return findings
+
+
+def run_audits(root: Path, *, scripts: tuple[str, ...] = _AUDITS) -> list[str]:
+    return _run_selected(root, scripts)
+
+
+def run_advisory_audits(
+    root: Path, *, scripts: tuple[str, ...] = _ADVISORY_AUDITS
+) -> list[str]:
+    return _run_selected(root, scripts)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", nargs="?", default=".")
     args = parser.parse_args(argv)
-    failures = run_audits(Path(args.root))
+    root = Path(args.root)
+    failures = run_audits(root)
+    advisories = run_advisory_audits(root)
+    for finding in advisories:
+        print(f"[advisory] {finding}", file=sys.stderr)
     for failure in failures:
         print(failure)
     return 1 if failures else 0
