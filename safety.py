@@ -72,6 +72,8 @@ def _valid_hostname(hostname: str) -> bool:
         pass
     if hostname == "localhost":
         return True
+    if len(hostname) > 253:
+        return False
     if hostname.startswith(".") or hostname.endswith(".") or ".." in hostname:
         return False
     labels = hostname.split(".")
