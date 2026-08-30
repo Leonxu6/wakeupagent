@@ -24,6 +24,8 @@ class NetworkValidationTests(unittest.TestCase):
             "fe80::1%",
             "fe80::1%bad!zone",
             f"fe80::1%{'a' * 65}",
+            "127.0.0.1%eth0",
+            "192.168.1.5%25en0",
         )
         for host in invalid:
             with self.subTest(host=host):
