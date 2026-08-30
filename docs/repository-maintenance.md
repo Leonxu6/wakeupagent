@@ -7,11 +7,19 @@ WakeUpAgent keeps a small set of offline audits beside the unit tests. They prot
 From the repository root:
 
 ```bash
-uv run python maintenance/run_all.py
+uv run python -m maintenance.run_all
 uv run python maintenance/safety_docs_audit.py
 ```
 
 The commands do not start the camera, contact network services, send messages, open applications, or invoke process-control tools. They inspect tracked source, metadata, documentation, workflow text, model-file metadata, and Git's tracked-file index.
+
+## Blocking and advisory checks
+
+`maintenance.run_all` has two stages. Blocking audits represent repository contracts that are already clean on `main`; a finding makes the command fail. Advisory audits are newer repository-wide rules whose legacy backlog has not yet been fully triaged. Their findings are printed with an `[advisory]` prefix but do not turn an otherwise healthy main branch red.
+
+New broad rules should normally begin as advisories. Review their findings, remove false positives, remediate genuine problems, and add focused regression tests. Promote an advisory into the blocking audit tuple only after the repository is clean for that rule. This keeps CI strict without making a freshly introduced rule hide useful signal behind a wall of known legacy findings.
+
+The current advisory layer covers resource and lifecycle risks such as broad exception suppression, race-prone temporary names, unbounded queues/deques/caches, process-global environment/timezone/numerical state, process limits and timers, missing client timeouts, long-lived HTTP sessions, anonymous asyncio tasks, multiprocessing lifecycle policy, pickle-backed `shelve`, and archive extraction review.
 
 ## What is checked
 
@@ -29,4 +37,6 @@ If an audit depends on Git state, use tracked paths rather than walking ignored 
 
 ## Failure policy
 
-A maintenance audit failure is a repository contract failure, not a reason to skip the check. Fix the underlying source, configuration, documentation, or workflow drift. Do not weaken an audit merely to recover a green CI run unless the contract itself has intentionally changed and that change is documented and tested.
+A blocking maintenance audit failure is a repository contract failure, not a reason to skip the check. Fix the underlying source, configuration, documentation, or workflow drift. Do not weaken a blocking audit merely to recover a green CI run unless the contract itself has intentionally changed and that change is documented and tested.
+
+An advisory finding is different: it is a tracked maintenance backlog item. Do not hide it, but do not convert it into a blocking failure until the repository can satisfy the rule honestly.
