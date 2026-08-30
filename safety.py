@@ -63,13 +63,21 @@ def require_text(value: object, *, field: str, max_length: int, allow_newlines: 
     return value
 
 
-def _valid_hostname(hostname: str) -> bool:
-    """Accept IP literals/localhost/DNS names while rejecting empty or malformed labels."""
+def _valid_ip_literal(hostname: str) -> bool:
+    base, marker, zone = hostname.partition("%")
+    if marker and (not zone or len(zone) > 64 or not all(ch.isalnum() or ch in {".", "_", "-"} for ch in zone)):
+        return False
     try:
-        ipaddress.ip_address(hostname.split("%", 1)[0])
+        ipaddress.ip_address(base)
         return True
     except ValueError:
-        pass
+        return False
+
+
+def _valid_hostname(hostname: str) -> bool:
+    """Accept IP literals/localhost/DNS names while rejecting empty or malformed labels."""
+    if _valid_ip_literal(hostname):
+        return True
     if hostname == "localhost":
         return True
     if len(hostname) > 253:
