@@ -13,12 +13,19 @@ from urllib.parse import urlparse
 _TRUE = {"1", "true", "yes", "on"}
 _FALSE = {"0", "false", "no", "off"}
 _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_MAX_ENV_NAME = 128
 _MAX_NUMERIC_TEXT = 128
+_BIDI_CONTROLS = {
+    "\u061c", "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",
+    "\u2066", "\u2067", "\u2068", "\u2069",
+}
 
 
 def _env_name(name: object) -> str:
     if not isinstance(name, str) or not name or name != name.strip():
         raise ValueError("environment variable name must be clean non-empty text")
+    if len(name) > _MAX_ENV_NAME:
+        raise ValueError(f"environment variable name must be at most {_MAX_ENV_NAME} characters")
     if not _ENV_NAME.fullmatch(name):
         raise ValueError("environment variable name must use shell-safe letters, digits, and underscores")
     return name
@@ -80,7 +87,7 @@ def _validate_text(value: object, *, field: str, max_length: int, allow_empty: b
         raise ValueError(f"{field} must not be empty")
     if len(value) > max_length:
         raise ValueError(f"{field} must be at most {max_length} characters")
-    if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+    if any(ord(ch) < 32 or ord(ch) == 127 or ch in _BIDI_CONTROLS for ch in value):
         raise ValueError(f"{field} contains control characters")
     return value
 
@@ -93,6 +100,8 @@ def _valid_hostname(hostname: str) -> bool:
         pass
     if hostname == "localhost":
         return True
+    if len(hostname) > 253:
+        return False
     if hostname.startswith(".") or hostname.endswith(".") or ".." in hostname:
         return False
     for label in hostname.split("."):
