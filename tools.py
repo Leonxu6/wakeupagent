@@ -17,6 +17,10 @@ from settings import env_bool
 
 console = Console()
 _TTS_VOICE = "Tingting"
+_BIDI_CONTROLS = {
+    "\u061c", "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",
+    "\u2066", "\u2067", "\u2068", "\u2069",
+}
 
 
 def _feature_enabled(name: str) -> bool:
@@ -38,7 +42,10 @@ def _bounded_detail(value: object, *, limit: int = 500) -> str:
         rendered = str(value)
     except Exception:  # noqa: BLE001
         rendered = value.__class__.__name__
-    rendered = "".join(ch if ord(ch) >= 32 and ord(ch) != 127 else " " for ch in rendered)
+    rendered = "".join(
+        ch if ord(ch) >= 32 and ord(ch) != 127 and ch not in _BIDI_CONTROLS else " "
+        for ch in rendered
+    )
     text = " ".join(rendered.split())
     return text[:limit] if text else "unknown error"
 
@@ -55,7 +62,7 @@ def _observation_text(value: object, *, limit: int = 1000) -> str:
         raise ValueError("observation limit must be a positive integer")
     if not isinstance(value, str):
         raise ValueError("camera description must be text")
-    if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+    if any(ord(ch) < 32 or ord(ch) == 127 or ch in _BIDI_CONTROLS for ch in value):
         raise ValueError("camera description contains control characters")
     text = " ".join(value.split())
     if not text:
