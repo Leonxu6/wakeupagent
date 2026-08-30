@@ -53,6 +53,12 @@ class UrlValidationTests(unittest.TestCase):
             with self.subTest(url=url), self.assertRaises(ValueError):
                 require_http_url(url)
 
+    def test_rejects_overlong_dns_hostnames(self):
+        hostname = ".".join(["a" * 63, "b" * 63, "c" * 63, "d" * 62])
+        self.assertGreater(len(hostname), 253)
+        with self.assertRaisesRegex(ValueError, "hostname"):
+            require_http_url(f"https://{hostname}/")
+
 
 class AppNameValidationTests(unittest.TestCase):
     def test_accepts_common_application_names(self):
