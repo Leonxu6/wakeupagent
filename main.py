@@ -23,6 +23,10 @@ _MESSAGE_BLOCK_LIMIT = 20
 _AI_MESSAGE_LIMIT = 20
 _ERROR_TEXT_LIMIT = 500
 _TIMESTAMP_TEXT_LIMIT = 80
+_BIDI_CONTROLS = {
+    "\u061c", "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",
+    "\u2066", "\u2067", "\u2068", "\u2069",
+}
 
 
 def _single_line_text(value: object, *, limit: int) -> str:
@@ -30,7 +34,10 @@ def _single_line_text(value: object, *, limit: int) -> str:
         raise ValueError("limit must be a positive integer")
     if not isinstance(value, str):
         return ""
-    without_controls = "".join(ch if ord(ch) >= 32 and ord(ch) != 127 else " " for ch in value)
+    without_controls = "".join(
+        ch if ord(ch) >= 32 and ord(ch) != 127 and ch not in _BIDI_CONTROLS else " "
+        for ch in value
+    )
     return " ".join(without_controls.split())[:limit]
 
 
