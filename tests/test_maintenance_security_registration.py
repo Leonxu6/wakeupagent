@@ -1,4 +1,4 @@
-from maintenance.run_all import _AUDITS
+from maintenance.run_all import _ADVISORY_AUDITS, _AUDITS
 
 
 def test_security_and_syntax_audits_are_registered():
@@ -66,6 +66,21 @@ def test_portability_and_process_audits_are_registered():
         "thread_daemon_audit.py",
     }
     assert expected.issubset(set(_AUDITS))
+
+
+def test_resilience_audits_are_staged_as_advisories():
+    expected = {
+        "contextlib_suppress_audit.py", "tempfile_mktemp_audit.py",
+        "unbounded_queue_audit.py", "unbounded_deque_audit.py",
+        "unbounded_lru_cache_audit.py", "os_putenv_audit.py", "tzset_audit.py",
+        "numpy_global_state_audit.py", "resource_limits_audit.py", "signal_timers_audit.py",
+        "sqlite_timeout_audit.py", "httpx_timeout_audit.py", "aiohttp_timeout_audit.py",
+        "websocket_timeout_audit.py", "requests_session_audit.py",
+        "asyncio_create_task_audit.py", "multiprocessing_daemon_audit.py",
+        "shelve_usage_audit.py", "zip_extractall_audit.py",
+    }
+    assert expected.issubset(set(_ADVISORY_AUDITS))
+    assert expected.isdisjoint(set(_AUDITS))
 
 
 def test_silent_exception_audit_remains_advisory():
