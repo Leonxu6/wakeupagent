@@ -4,6 +4,11 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, field
 
+_BIDI_CONTROLS = {
+    "\u061c", "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",
+    "\u2066", "\u2067", "\u2068", "\u2069",
+}
+
 
 def _positive_int(value: object, *, field_name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
@@ -15,7 +20,10 @@ def _bounded_text(value: object, *, limit: int) -> str:
     """Normalize model/user text into one bounded context line."""
     if not isinstance(value, str):
         return ""
-    without_controls = "".join(ch if ord(ch) >= 32 and ord(ch) != 127 else " " for ch in value)
+    without_controls = "".join(
+        ch if ord(ch) >= 32 and ord(ch) != 127 and ch not in _BIDI_CONTROLS else " "
+        for ch in value
+    )
     normalized = " ".join(without_controls.split())
     return normalized[:limit].rstrip()
 
