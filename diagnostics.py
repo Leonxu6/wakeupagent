@@ -39,6 +39,10 @@ _REQUIRED_CONFIG_FIELDS = (
     "DEEPSEEK_API_KEY",
 )
 _DETAIL_LIMIT = 1000
+_BIDI_CONTROLS = {
+    "\u061c", "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",
+    "\u2066", "\u2067", "\u2068", "\u2069",
+}
 
 
 def _version_pair(version: object) -> tuple[int, int]:
@@ -131,7 +135,10 @@ def _single_line(value: object, *, limit: int = _DETAIL_LIMIT) -> str:
         rendered = str(value)
     except Exception:  # noqa: BLE001
         rendered = value.__class__.__name__
-    rendered = "".join(ch if ord(ch) >= 32 and ord(ch) != 127 else " " for ch in rendered)
+    rendered = "".join(
+        ch if ord(ch) >= 32 and ord(ch) != 127 and ch not in _BIDI_CONTROLS else " "
+        for ch in rendered
+    )
     return " ".join(rendered.split())[:limit]
 
 
