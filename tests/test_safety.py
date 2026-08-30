@@ -13,6 +13,11 @@ class RequireTextTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 require_text(value, field="message", max_length=20)
 
+    def test_rejects_bidirectional_text_controls(self):
+        for value in ("safe\u202eevil", "safe\u2066evil", "safe\u200fevil", "safe\u061cevil"):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "control"):
+                require_text(value, field="message", max_length=40)
+
     def test_allows_newlines_when_explicitly_requested_but_not_other_controls(self):
         self.assertEqual(
             require_text("line one\nline two", field="message", max_length=30, allow_newlines=True),
