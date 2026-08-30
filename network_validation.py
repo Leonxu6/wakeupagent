@@ -17,10 +17,15 @@ def _valid_ip_literal(hostname: str) -> bool:
     ):
         return False
     try:
-        ipaddress.ip_address(base)
-        return True
+        address = ipaddress.ip_address(base)
     except ValueError:
         return False
+    # Zone identifiers are an IPv6 scope mechanism. Accepting one on an IPv4
+    # literal creates an address spelling that downstream clients interpret
+    # inconsistently, so reject it at the shared URL boundary.
+    if marker and address.version != 6:
+        return False
+    return True
 
 
 def valid_hostname(hostname: object) -> bool:
