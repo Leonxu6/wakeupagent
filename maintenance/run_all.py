@@ -85,9 +85,29 @@ _AUDITS = (
     "thread_daemon_audit.py",
 )
 
-# Newly introduced repository-wide rules begin here. They remain visible in CI
-# without making legacy findings fatal until their backlog is reviewed.
-_ADVISORY_AUDITS: tuple[str, ...] = ()
+# Repository-wide rules start as visible advisories so the project can inspect
+# legacy findings before promoting a clean rule to a blocking CI gate.
+_ADVISORY_AUDITS = (
+    "contextlib_suppress_audit.py",
+    "tempfile_mktemp_audit.py",
+    "unbounded_queue_audit.py",
+    "unbounded_deque_audit.py",
+    "unbounded_lru_cache_audit.py",
+    "os_putenv_audit.py",
+    "tzset_audit.py",
+    "numpy_global_state_audit.py",
+    "resource_limits_audit.py",
+    "signal_timers_audit.py",
+    "sqlite_timeout_audit.py",
+    "httpx_timeout_audit.py",
+    "aiohttp_timeout_audit.py",
+    "websocket_timeout_audit.py",
+    "requests_session_audit.py",
+    "asyncio_create_task_audit.py",
+    "multiprocessing_daemon_audit.py",
+    "shelve_usage_audit.py",
+    "zip_extractall_audit.py",
+)
 
 
 def _validate_scripts(scripts: tuple[str, ...]) -> tuple[str, ...]:
