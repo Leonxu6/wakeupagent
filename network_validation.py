@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import ipaddress
+import string
 
 _MAX_DNS_NAME = 253
 _MAX_DNS_LABEL = 63
 _MAX_ZONE_ID = 64
+_HEX_DIGITS = frozenset(string.hexdigits)
 
 
 def _valid_ip_literal(hostname: str) -> bool:
@@ -31,6 +33,13 @@ def _valid_ip_literal(hostname: str) -> bool:
     return True
 
 
+def _numeric_address_token(label: str) -> bool:
+    if label.isascii() and label.isdigit():
+        return True
+    lower = label.lower()
+    return lower.startswith("0x") and len(lower) > 2 and all(ch in _HEX_DIGITS for ch in lower[2:])
+
+
 def valid_hostname(hostname: object) -> bool:
     """Accept bounded IP literals, localhost, and service/DNS-style hostnames."""
     if not isinstance(hostname, str) or not hostname:
@@ -43,7 +52,13 @@ def valid_hostname(hostname: object) -> bool:
         return False
     if hostname.startswith(".") or hostname.endswith(".") or ".." in hostname:
         return False
-    for label in hostname.split("."):
+    labels = hostname.split(".")
+    # libc resolvers accept historical numeric IPv4 spellings such as 127.1,
+    # 2130706433, and dotted hex tokens. Reject those ambiguous forms unless
+    # ``ipaddress`` already accepted the canonical literal above.
+    if labels and all(_numeric_address_token(label) for label in labels):
+        return False
+    for label in labels:
         if (
             not label
             or len(label) > _MAX_DNS_LABEL
