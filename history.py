@@ -10,6 +10,7 @@ _BIDI_CONTROLS = {
 }
 _MAX_HISTORY_ITEMS = 500
 _MAX_TEXT_LIMIT = 10_000
+_MAX_RENDER_CHARS = 50_000
 
 
 def _positive_int(value: object, *, field_name: str, maximum: int | None = None) -> int:
@@ -88,7 +89,7 @@ class ContextHistory:
         items = list(self._items)[-recent:]
         if items:
             parts.append("Recent history:\n" + "\n".join(items))
-        return "\n\n".join(parts)
+        return "\n\n".join(parts)[:_MAX_RENDER_CHARS].rstrip()
 
     def snapshot(self) -> dict[str, object]:
         """Return a JSON-friendly copy suitable for diagnostics or controlled persistence."""
