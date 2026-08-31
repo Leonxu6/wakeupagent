@@ -48,7 +48,7 @@ def valid_hostname(hostname: object) -> bool:
         return True
     if hostname.lower() == "localhost":
         return True
-    if len(hostname) > _MAX_DNS_NAME:
+    if not hostname.isascii() or len(hostname) > _MAX_DNS_NAME:
         return False
     if hostname.startswith(".") or hostname.endswith(".") or ".." in hostname:
         return False
