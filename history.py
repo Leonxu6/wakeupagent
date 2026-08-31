@@ -101,15 +101,17 @@ class ContextHistory:
             parts.append(f"Summary: {self._summary}")
         items = list(self._items)[-recent:] if recent else []
         if items:
+            prefix = "Recent history:\n"
+            used = len(prefix) + (len(parts[0]) + 2 if parts else 0)
             kept: list[str] = []
             for item in items:
-                section = "Recent history:\n" + "\n".join([*kept, item])
-                candidate = "\n\n".join([*parts, section])
-                if len(candidate) > _MAX_RENDER_CHARS:
+                additional = len(item) + (1 if kept else 0)
+                if used + additional > _MAX_RENDER_CHARS:
                     break
                 kept.append(item)
+                used += additional
             if kept:
-                parts.append("Recent history:\n" + "\n".join(kept))
+                parts.append(prefix + "\n".join(kept))
         return "\n\n".join(parts).rstrip()
 
     def snapshot(self) -> dict[str, object]:
