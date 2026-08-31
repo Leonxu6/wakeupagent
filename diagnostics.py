@@ -39,6 +39,7 @@ _REQUIRED_CONFIG_FIELDS = (
     "DEEPSEEK_API_KEY",
 )
 _DETAIL_LIMIT = 1000
+_MAX_CHECKS = 1000
 _BIDI_CONTROLS = {
     "\u061c", "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",
     "\u2066", "\u2067", "\u2068", "\u2069",
@@ -158,6 +159,8 @@ def _check_name(value: object) -> str:
 def _validated_checks(checks: object) -> list[tuple[Check, str]]:
     if not isinstance(checks, (list, tuple)):
         raise ValueError("checks must be a list or tuple")
+    if len(checks) > _MAX_CHECKS:
+        raise ValueError(f"checks must contain at most {_MAX_CHECKS} values")
     seen: dict[str, str] = {}
     validated: list[tuple[Check, str]] = []
     for check in checks:
