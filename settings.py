@@ -1,7 +1,6 @@
 """Typed environment-variable parsing for WakeUpAgent configuration."""
 from __future__ import annotations
 
-import ipaddress
 import json
 import math
 import os
@@ -9,6 +8,8 @@ import re
 import unicodedata
 from pathlib import Path
 from urllib.parse import urlparse
+
+from network_validation import valid_hostname
 
 _TRUE = {"1", "true", "yes", "on"}
 _FALSE = {"0", "false", "no", "off"}
@@ -90,26 +91,6 @@ def _validate_text(value: object, *, field: str, max_length: int, allow_empty: b
     if any(ord(ch) < 32 or ord(ch) == 127 or ch in _BIDI_CONTROLS for ch in value):
         raise ValueError(f"{field} contains control characters")
     return value
-
-
-def _valid_hostname(hostname: str) -> bool:
-    try:
-        ipaddress.ip_address(hostname.split("%", 1)[0])
-        return True
-    except ValueError:
-        pass
-    if hostname == "localhost":
-        return True
-    if len(hostname) > 253:
-        return False
-    if hostname.startswith(".") or hostname.endswith(".") or ".." in hostname:
-        return False
-    for label in hostname.split("."):
-        if not label or len(label) > 63 or label.startswith("-") or label.endswith("-"):
-            return False
-        if not all(ch.isalnum() or ch in {"-", "_"} for ch in label):
-            return False
-    return True
 
 
 def env_text(name: str, default: str, *, max_length: int = 500) -> str:
@@ -211,7 +192,7 @@ def env_http_url(name: str, default: str) -> str:
     hostname = parsed.hostname
     if parsed.scheme.lower() not in {"http", "https"} or not hostname:
         raise ValueError(f"{name} must be an http(s) URL with a hostname")
-    if not _valid_hostname(hostname):
+    if not valid_hostname(hostname):
         raise ValueError(f"{name} hostname is malformed")
     if parsed.username is not None or parsed.password is not None:
         raise ValueError(f"{name} must not contain credentials")
