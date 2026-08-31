@@ -20,10 +20,13 @@ def _valid_ip_literal(hostname: str) -> bool:
         address = ipaddress.ip_address(base)
     except ValueError:
         return False
-    # Zone identifiers are an IPv6 scope mechanism. Accepting one on an IPv4
-    # literal creates an address spelling that downstream clients interpret
-    # inconsistently, so reject it at the shared URL boundary.
-    if marker and address.version != 6:
+    # Zone identifiers are an IPv6 scope mechanism. Accept them only where a
+    # scope is meaningful; global/loopback addresses with zones are ambiguous
+    # across HTTP clients and operating systems.
+    if marker and (
+        address.version != 6
+        or not (address.is_link_local or address.is_multicast)
+    ):
         return False
     return True
 
