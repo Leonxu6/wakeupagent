@@ -14,6 +14,7 @@ from network_validation import valid_hostname
 _TRUE = {"1", "true", "yes", "on"}
 _FALSE = {"0", "false", "no", "off"}
 _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_FLOAT_TEXT = re.compile(r"^-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$", re.ASCII)
 _MAX_ENV_NAME = 128
 _MAX_NUMERIC_TEXT = 128
 _MAX_MAP_ENTRIES = 1000
@@ -159,6 +160,8 @@ def env_float(name: str, default: float, *, minimum: float | None = None, maximu
         except OverflowError as exc:
             raise ValueError(f"{name} default must be finite") from exc
     else:
+        if not _FLOAT_TEXT.fullmatch(value):
+            raise ValueError(f"{name} must be a number")
         try:
             result = float(value)
         except (OverflowError, ValueError) as exc:
