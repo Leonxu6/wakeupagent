@@ -197,7 +197,7 @@ def _runtime_config() -> tuple[object | None, Check]:
     try:
         module = importlib.import_module("config")
     except Exception as exc:  # noqa: BLE001
-        return None, Check("configuration", False, _single_line(exc) or exc.__class__.__name__)
+        return None, Check("configuration", False, f"configuration import failed ({exc.__class__.__name__})")
     missing = [field for field in _REQUIRED_CONFIG_FIELDS if not hasattr(module, field)]
     if missing:
         return None, Check("configuration", False, "missing fields: " + ", ".join(missing))
