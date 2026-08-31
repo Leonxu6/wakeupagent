@@ -16,6 +16,7 @@ _FALSE = {"0", "false", "no", "off"}
 _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _MAX_ENV_NAME = 128
 _MAX_NUMERIC_TEXT = 128
+_MAX_MAP_ENTRIES = 1000
 _BIDI_CONTROLS = {
     "\u061c", "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",
     "\u2066", "\u2067", "\u2068", "\u2069",
@@ -215,6 +216,8 @@ def env_json_string_map(name: str, default: dict[str, str], *, max_entries: int 
     """Read a small JSON object whose keys and values are clean, bounded strings."""
     name = _env_name(name)
     max_entries = _positive_limit(max_entries, field="max_entries")
+    if max_entries > _MAX_MAP_ENTRIES:
+        raise ValueError(f"max_entries must be at most {_MAX_MAP_ENTRIES}")
     raw = os.getenv(name)
     if raw is None:
         value: object = default
