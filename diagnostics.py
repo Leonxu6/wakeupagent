@@ -150,6 +150,8 @@ def _check_name(value: object) -> str:
         raise ValueError("check names must be non-empty unpadded text")
     if len(value) > 80:
         raise ValueError("check names must be at most 80 characters")
+    if any(ord(ch) < 32 or ord(ch) == 127 or ch in _BIDI_CONTROLS for ch in value):
+        raise ValueError("check names must not contain control characters")
     normalized = _single_line(value, limit=80)
     if not normalized:
         raise ValueError("check names must contain visible text")
