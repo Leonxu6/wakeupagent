@@ -88,8 +88,16 @@ class ContextHistory:
             parts.append(f"Summary: {self._summary}")
         items = list(self._items)[-recent:]
         if items:
-            parts.append("Recent history:\n" + "\n".join(items))
-        return "\n\n".join(parts)[:_MAX_RENDER_CHARS].rstrip()
+            kept: list[str] = []
+            for item in items:
+                section = "Recent history:\n" + "\n".join([*kept, item])
+                candidate = "\n\n".join([*parts, section])
+                if len(candidate) > _MAX_RENDER_CHARS:
+                    break
+                kept.append(item)
+            if kept:
+                parts.append("Recent history:\n" + "\n".join(kept))
+        return "\n\n".join(parts).rstrip()
 
     def snapshot(self) -> dict[str, object]:
         """Return a JSON-friendly copy suitable for diagnostics or controlled persistence."""
