@@ -17,6 +17,7 @@ _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _MAX_ENV_NAME = 128
 _MAX_NUMERIC_TEXT = 128
 _MAX_MAP_ENTRIES = 1000
+_MAX_TEXT_LIMIT = 100_000
 _BIDI_CONTROLS = {
     "\u061c", "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",
     "\u2066", "\u2067", "\u2068", "\u2069",
@@ -58,6 +59,13 @@ def _positive_limit(value: object, *, field: str) -> int:
     return value
 
 
+def _text_limit(value: object, *, field: str = "max_length") -> int:
+    result = _positive_limit(value, field=field)
+    if result > _MAX_TEXT_LIMIT:
+        raise ValueError(f"{field} must be at most {_MAX_TEXT_LIMIT}")
+    return result
+
+
 def _integer_bound(value: object, *, field: str) -> int | None:
     if value is None:
         return None
@@ -95,7 +103,7 @@ def _validate_text(value: object, *, field: str, max_length: int, allow_empty: b
 
 
 def env_text(name: str, default: str, *, max_length: int = 500) -> str:
-    max_length = _positive_limit(max_length, field="max_length")
+    max_length = _text_limit(max_length)
     value = _raw(name)
     if value is None:
         value = default
@@ -105,7 +113,7 @@ def env_text(name: str, default: str, *, max_length: int = 500) -> str:
 def env_secret(name: str, default: str = "", *, max_length: int = 4096) -> str:
     """Read an optional secret while rejecting whitespace and header-breaking controls."""
     name = _env_name(name)
-    max_length = _positive_limit(max_length, field="max_length")
+    max_length = _text_limit(max_length)
     value = os.getenv(name)
     if value is None:
         value = default
