@@ -59,6 +59,11 @@ class UrlValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "hostname"):
             require_http_url(f"https://{hostname}/")
 
+    def test_rejects_ipv4_zone_identifiers_at_browser_boundary(self):
+        for url in ("http://127.0.0.1%25eth0/", "http://192.168.1.5%25en0/"):
+            with self.subTest(url=url), self.assertRaisesRegex(ValueError, "hostname"):
+                require_http_url(url)
+
 
 class AppNameValidationTests(unittest.TestCase):
     def test_accepts_common_application_names(self):
