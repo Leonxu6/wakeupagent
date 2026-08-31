@@ -1,10 +1,11 @@
 """Input validation helpers for side-effecting WakeUpAgent actions."""
 from __future__ import annotations
 
-import ipaddress
 import math
 import re
 from urllib.parse import urlparse
+
+from network_validation import valid_hostname
 
 _APP_NAME = re.compile(r"^[\w .+()\-]{1,80}$", re.UNICODE)
 _BIDI_CONTROLS = {
@@ -63,36 +64,6 @@ def require_text(value: object, *, field: str, max_length: int, allow_newlines: 
     return value
 
 
-def _valid_ip_literal(hostname: str) -> bool:
-    base, marker, zone = hostname.partition("%")
-    if marker and (not zone or len(zone) > 64 or not all(ch.isalnum() or ch in {".", "_", "-"} for ch in zone)):
-        return False
-    try:
-        ipaddress.ip_address(base)
-        return True
-    except ValueError:
-        return False
-
-
-def _valid_hostname(hostname: str) -> bool:
-    """Accept IP literals/localhost/DNS names while rejecting empty or malformed labels."""
-    if _valid_ip_literal(hostname):
-        return True
-    if hostname == "localhost":
-        return True
-    if len(hostname) > 253:
-        return False
-    if hostname.startswith(".") or hostname.endswith(".") or ".." in hostname:
-        return False
-    labels = hostname.split(".")
-    for label in labels:
-        if not label or len(label) > 63 or label.startswith("-") or label.endswith("-"):
-            return False
-        if not all(ch.isalnum() or ch in {"-", "_"} for ch in label):
-            return False
-    return True
-
-
 def require_http_url(value: object, *, max_length: int = 2048) -> str:
     """Validate a browser target without allowing credentials or ambiguous URL syntax."""
     url = require_text(value, field="url", max_length=max_length)
@@ -108,7 +79,7 @@ def require_http_url(value: object, *, max_length: int = 2048) -> str:
     hostname = parsed.hostname
     if parsed.scheme.lower() not in {"http", "https"} or not hostname:
         raise ValueError("url must use http:// or https:// and include a hostname")
-    if not _valid_hostname(hostname):
+    if not valid_hostname(hostname):
         raise ValueError("url hostname is malformed")
     if parsed.username is not None or parsed.password is not None:
         raise ValueError("url must not contain embedded credentials")
