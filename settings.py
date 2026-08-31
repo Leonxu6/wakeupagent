@@ -44,6 +44,8 @@ def _raw(name: str) -> str | None:
         raise ValueError(f"{name} must not have leading or trailing whitespace")
     if not value:
         raise ValueError(f"{name} must not be empty")
+    if any(ord(ch) < 32 or ord(ch) == 127 or ch in _BIDI_CONTROLS for ch in value):
+        raise ValueError(f"{name} must not contain control characters")
     return value
 
 
