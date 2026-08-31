@@ -46,7 +46,7 @@ def valid_hostname(hostname: object) -> bool:
         return False
     if _valid_ip_literal(hostname):
         return True
-    if hostname == "localhost":
+    if hostname.lower() == "localhost":
         return True
     if len(hostname) > _MAX_DNS_NAME:
         return False
