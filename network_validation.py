@@ -14,6 +14,7 @@ def _valid_ip_literal(hostname: str) -> bool:
     base, marker, zone = hostname.partition("%")
     if marker and (
         not zone
+        or zone in {".", ".."}
         or not zone.isascii()
         or len(zone) > _MAX_ZONE_ID
         or not all(ch.isalnum() or ch in {".", "_", "-"} for ch in zone)
