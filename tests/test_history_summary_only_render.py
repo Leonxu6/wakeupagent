@@ -3,17 +3,17 @@ import pytest
 from history import ContextHistory
 
 
-def test_render_zero_recent_items_returns_summary_only():
+def test_render_summary_returns_summary_without_recent_entries():
     history = ContextHistory()
     history.set_summary("standing desk session")
     history.add_observation("looking at editor")
 
-    assert history.render(recent=0) == "Summary: standing desk session"
+    assert history.render_summary() == "Summary: standing desk session"
 
 
-def test_render_rejects_negative_or_boolean_recent_counts():
+def test_render_still_rejects_zero_negative_and_boolean_recent_counts():
     history = ContextHistory()
 
-    for value in (-1, True):
+    for value in (0, -1, True):
         with pytest.raises(ValueError):
             history.render(recent=value)

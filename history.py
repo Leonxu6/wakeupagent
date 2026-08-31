@@ -22,14 +22,6 @@ def _positive_int(value: object, *, field_name: str, maximum: int | None = None)
     return value
 
 
-def _nonnegative_int(value: object, *, field_name: str, maximum: int | None = None) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-        raise ValueError(f"{field_name} must be a non-negative integer")
-    if maximum is not None and value > maximum:
-        raise ValueError(f"{field_name} must be at most {maximum}")
-    return value
-
-
 def _bounded_text(value: object, *, limit: int) -> str:
     """Normalize model/user text into one bounded context line."""
     limit = _positive_int(limit, field_name="limit", maximum=_MAX_TEXT_LIMIT)
@@ -94,12 +86,17 @@ class ContextHistory:
         if normalized:
             self._append_unique(f"[Brain] {normalized}")
 
+    def render_summary(self) -> str:
+        """Render only the synthesized summary without recent raw entries."""
+        return f"Summary: {self._summary}" if self._summary else ""
+
     def render(self, *, recent: int = 10) -> str:
-        recent = _nonnegative_int(recent, field_name="recent", maximum=_MAX_HISTORY_ITEMS)
+        recent = _positive_int(recent, field_name="recent", maximum=_MAX_HISTORY_ITEMS)
         parts: list[str] = []
-        if self._summary:
-            parts.append(f"Summary: {self._summary}")
-        items = list(self._items)[-recent:] if recent else []
+        summary = self.render_summary()
+        if summary:
+            parts.append(summary)
+        items = list(self._items)[-recent:]
         if items:
             prefix = "Recent history:\n"
             used = len(prefix) + (len(parts[0]) + 2 if parts else 0)
