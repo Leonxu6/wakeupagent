@@ -150,8 +150,8 @@ def _check_name(value: object) -> str:
         raise ValueError("check names must be non-empty unpadded text")
     if len(value) > 80:
         raise ValueError("check names must be at most 80 characters")
-    if any(ord(ch) < 32 or ord(ch) == 127 or ch in _BIDI_CONTROLS for ch in value):
-        raise ValueError("check names must not contain control characters")
+    if any(ch in _BIDI_CONTROLS for ch in value):
+        raise ValueError("check names must not contain bidirectional controls")
     normalized = _single_line(value, limit=80)
     if not normalized:
         raise ValueError("check names must contain visible text")
@@ -196,6 +196,8 @@ def _diagnostic_root(base_dir: object) -> Path:
 def _runtime_config() -> tuple[object | None, Check]:
     try:
         module = importlib.import_module("config")
+    except ValueError as exc:
+        return None, Check("configuration", False, _single_line(exc) or "invalid configuration")
     except Exception as exc:  # noqa: BLE001
         return None, Check("configuration", False, f"configuration import failed ({exc.__class__.__name__})")
     missing = [field for field in _REQUIRED_CONFIG_FIELDS if not hasattr(module, field)]
