@@ -11,6 +11,7 @@ _BIDI_CONTROLS = {
 _MAX_HISTORY_ITEMS = 500
 _MAX_TEXT_LIMIT = 10_000
 _MAX_RENDER_CHARS = 50_000
+_MAX_SNAPSHOT_CHARS = 1_000_000
 
 
 def _positive_int(value: object, *, field_name: str, maximum: int | None = None) -> int:
@@ -32,6 +33,10 @@ def _bounded_text(value: object, *, limit: int) -> str:
     )
     normalized = " ".join(without_controls.split())
     return normalized[:limit].rstrip()
+
+
+def _snapshot_chars(summary: str, items: list[str]) -> int:
+    return len(summary) + sum(len(item) for item in items)
 
 
 @dataclass
@@ -101,6 +106,9 @@ class ContextHistory:
 
     def snapshot(self) -> dict[str, object]:
         """Return a JSON-friendly copy suitable for diagnostics or controlled persistence."""
+        items = list(self._items)
+        if _snapshot_chars(self._summary, items) > _MAX_SNAPSHOT_CHARS:
+            raise ValueError(f"history snapshot must be at most {_MAX_SNAPSHOT_CHARS} text characters")
         return {
             "version": 1,
             "limits": {
@@ -110,7 +118,7 @@ class ContextHistory:
                 "decision_limit": self.decision_limit,
             },
             "summary": self._summary,
-            "items": list(self._items),
+            "items": items,
         }
 
     @classmethod
@@ -146,10 +154,12 @@ class ContextHistory:
             raise ValueError("history snapshot items must be a list")
         if len(items) > history.max_items:
             raise ValueError("history snapshot exceeds max_items")
+        if not all(isinstance(item, str) for item in items):
+            raise ValueError("history snapshot items must be text")
+        if _snapshot_chars(summary, items) > _MAX_SNAPSHOT_CHARS:
+            raise ValueError(f"history snapshot must be at most {_MAX_SNAPSHOT_CHARS} text characters")
         previous: str | None = None
         for item in items:
-            if not isinstance(item, str):
-                raise ValueError("history snapshot items must be text")
             if not (item.startswith("[Obs] ") or item.startswith("[Brain] ")):
                 raise ValueError("history snapshot item has an unknown entry type")
             limit = history.observation_limit if item.startswith("[Obs] ") else history.decision_limit
