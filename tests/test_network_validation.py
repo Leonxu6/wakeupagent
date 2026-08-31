@@ -41,6 +41,18 @@ class NetworkValidationTests(unittest.TestCase):
             with self.subTest(host=host):
                 self.assertFalse(valid_hostname(host))
 
+    def test_rejects_noncanonical_numeric_address_spellings(self):
+        for host in (
+            "127.1",
+            "127.0.1",
+            "2130706433",
+            "0177.0.0.1",
+            "0x7f.0x0.0x0.0x1",
+            "0x7f000001",
+        ):
+            with self.subTest(host=host):
+                self.assertFalse(valid_hostname(host))
+
 
 if __name__ == "__main__":
     unittest.main()
