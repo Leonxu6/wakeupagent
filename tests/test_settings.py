@@ -102,8 +102,6 @@ class EnvironmentParserTests(unittest.TestCase):
             with self.subTest(value=value), patch.dict(os.environ, {"VALUE": value}, clear=True):
                 with self.assertRaises(ValueError):
                     env_text("VALUE", "ok", max_length=5)
-        # NUL cannot exist in an OS environment value, so exercise the same
-        # validation through the default path instead of failing in os.environ.
         with patch.dict(os.environ, {}, clear=True), self.assertRaises(ValueError):
             env_text("VALUE", "bad\x00value", max_length=20)
 
@@ -171,6 +169,12 @@ class EnvironmentParserTests(unittest.TestCase):
         for value in invalid:
             with self.subTest(value=value), patch.dict(os.environ, {"URL": value}, clear=True):
                 with self.assertRaises(ValueError):
+                    env_http_url("URL", "http://localhost")
+
+    def test_http_url_parser_rejects_ipv4_zone_identifiers(self):
+        for value in ("http://127.0.0.1%25eth0", "http://192.168.1.5%25en0/api"):
+            with self.subTest(value=value), patch.dict(os.environ, {"URL": value}, clear=True):
+                with self.assertRaisesRegex(ValueError, "hostname"):
                     env_http_url("URL", "http://localhost")
 
     def test_path_parser_expands_home_directory(self):
