@@ -106,7 +106,10 @@ def _persistence_parent_check(name: str, value: object) -> Check:
         path = Path(value).expanduser()
         if not path.name:
             return Check(name, False, "configured path must name a persistence file")
-        parent = path.resolve().parent
+        resolved = path.resolve()
+        if resolved.is_dir():
+            return Check(name, False, "configured path must name a file, not a directory")
+        parent = resolved.parent
     except (OSError, RuntimeError, ValueError) as exc:
         return Check(name, False, f"invalid path: {value} ({exc})")
     return _directory_check(name, parent)
