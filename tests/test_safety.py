@@ -30,6 +30,10 @@ class RequireTextTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "at most 4"):
             require_text("12345", field="message", max_length=4)
 
+    def test_rejects_unbounded_caller_controlled_length_limits(self):
+        with self.assertRaisesRegex(ValueError, "at most 100000"):
+            require_text("focus", field="message", max_length=100_001)
+
 
 class UrlValidationTests(unittest.TestCase):
     def test_accepts_http_and_https_urls(self):
