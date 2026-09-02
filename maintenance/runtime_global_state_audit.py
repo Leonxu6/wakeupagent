@@ -11,6 +11,27 @@ from pathlib import Path
 
 from maintenance.ast_rules import call_name, iter_calls
 from maintenance.common import print_failures, production_python_files, require_root
+from maintenance.as_completed_timeout_audit import audit_source as audit_as_completed_timeout
+from maintenance.asyncio_wait_timeout_audit import audit_source as audit_asyncio_wait_timeout
+from maintenance.cloudpickle_load_audit import audit_source as audit_cloudpickle_load
+from maintenance.concurrent_wait_timeout_audit import audit_source as audit_concurrent_wait_timeout
+from maintenance.dill_load_audit import audit_source as audit_dill_load
+from maintenance.marshal_load_audit import audit_source as audit_marshal_load
+from maintenance.native_library_load_audit import audit_source as audit_native_library_load
+from maintenance.numpy_pickle_load_audit import audit_source as audit_numpy_pickle_load
+from maintenance.os_exec_audit import audit_source as audit_os_exec
+from maintenance.os_fork_audit import audit_source as audit_os_fork
+from maintenance.os_forkpty_audit import audit_source as audit_os_forkpty
+from maintenance.os_spawn_audit import audit_source as audit_os_spawn
+from maintenance.pandas_pickle_load_audit import audit_source as audit_pandas_pickle_load
+from maintenance.pty_spawn_audit import audit_source as audit_pty_spawn
+from maintenance.runpy_execution_audit import audit_source as audit_runpy_execution
+from maintenance.select_timeout_audit import audit_source as audit_select_timeout
+from maintenance.signal_pause_audit import audit_source as audit_signal_pause
+from maintenance.sqlite_load_extension_audit import audit_source as audit_sqlite_load_extension
+from maintenance.subprocess_preexec_fn_audit import audit_source as audit_subprocess_preexec_fn
+from maintenance.torch_pickle_load_audit import audit_source as audit_torch_pickle_load
+from maintenance.webbrowser_open_audit import audit_source as audit_webbrowser_open
 
 _RULE_MESSAGES = {
     "faulthandler.enable": "faulthandler configuration is process-wide",
@@ -44,6 +65,30 @@ _RULE_MESSAGES = {
     "gc.unfreeze": "garbage-collector freeze state affects the entire interpreter",
 }
 
+_EXTRA_SOURCE_AUDITS = (
+    audit_concurrent_wait_timeout,
+    audit_as_completed_timeout,
+    audit_asyncio_wait_timeout,
+    audit_select_timeout,
+    audit_signal_pause,
+    audit_os_fork,
+    audit_os_forkpty,
+    audit_os_exec,
+    audit_os_spawn,
+    audit_pty_spawn,
+    audit_webbrowser_open,
+    audit_native_library_load,
+    audit_runpy_execution,
+    audit_marshal_load,
+    audit_numpy_pickle_load,
+    audit_pandas_pickle_load,
+    audit_torch_pickle_load,
+    audit_dill_load,
+    audit_cloudpickle_load,
+    audit_sqlite_load_extension,
+    audit_subprocess_preexec_fn,
+)
+
 
 def findings_for_source(source: str, *, path: str = "<memory>") -> list[str]:
     """Return deterministic findings for one Python source string."""
@@ -57,6 +102,8 @@ def findings_for_source(source: str, *, path: str = "<memory>") -> list[str]:
         detail = _RULE_MESSAGES.get(name or "")
         if detail:
             findings.append(f"{path}:{call.lineno}: {name}: {detail}")
+    for rule in _EXTRA_SOURCE_AUDITS:
+        findings.extend(f"{path}: {item}" for item in rule(source))
     return findings
 
 
