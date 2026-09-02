@@ -94,6 +94,18 @@ warnings.resetwarnings()
     assert any("warnings.resetwarnings" in item for item in findings)
 
 
+def test_opencv_global_runtime_settings_are_reported():
+    source = """
+import cv2
+cv2.setNumThreads(1)
+cv2.setRNGSeed(7)
+"""
+    findings = audit.findings_for_source(source, path="vision.py")
+    assert len(findings) == 2
+    assert any("cv2.setNumThreads" in item for item in findings)
+    assert any("cv2.setRNGSeed" in item for item in findings)
+
+
 def test_unrelated_local_calls_are_ignored():
     assert audit.findings_for_source("value.append(1)\n") == []
 
