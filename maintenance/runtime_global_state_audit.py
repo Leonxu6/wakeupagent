@@ -1,6 +1,6 @@
 """Detect process-wide runtime mutations that can surprise long-running agents.
 
-The checks in this module are intentionally advisory.  They focus on APIs that
+The checks in this module are intentionally advisory. They focus on APIs that
 change interpreter- or process-global state rather than local object state, so
 a call in one component can silently alter unrelated components later.
 """
@@ -22,6 +22,7 @@ _RULE_MESSAGES = {
     "tracemalloc.clear_traces": "tracemalloc traces are process-wide",
     "os.nice": "process priority changes affect the entire agent process",
     "os.setpriority": "process priority changes affect scheduler behavior",
+    "os.register_at_fork": "fork hooks persist for the process lifetime",
 }
 
 
