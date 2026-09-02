@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from network_validation import valid_hostname
 
 _APP_NAME = re.compile(r"^[\w .+()\-]{1,80}$", re.UNICODE)
+_MAX_TEXT_LENGTH = 100_000
 _BIDI_CONTROLS = {
     "\u061c", "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",
     "\u2066", "\u2067", "\u2068", "\u2069",
@@ -41,6 +42,8 @@ def _validator_options(field: object, max_length: object, allow_newlines: object
         raise ValueError("field must be clean non-empty text")
     if isinstance(max_length, bool) or not isinstance(max_length, int) or max_length < 1:
         raise ValueError("max_length must be a positive integer")
+    if max_length > _MAX_TEXT_LENGTH:
+        raise ValueError(f"max_length must be at most {_MAX_TEXT_LENGTH}")
     if not isinstance(allow_newlines, bool):
         raise ValueError("allow_newlines must be a boolean")
     return field, max_length, allow_newlines
