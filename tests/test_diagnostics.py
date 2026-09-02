@@ -70,6 +70,14 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertIn("invalid path", check.detail)
         self.assertIn("home loop", check.detail)
 
+    def test_persistence_parent_check_rejects_existing_directory_targets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "state.db"
+            target.mkdir()
+            check = diagnostics._persistence_parent_check("state", target)
+        self.assertFalse(check.ok)
+        self.assertIn("not a directory", check.detail)
+
     def test_http_url_check_matches_runtime_url_boundaries(self):
         for value in (
             "ftp://example.com",
