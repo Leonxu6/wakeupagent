@@ -38,6 +38,20 @@ tracemalloc.stop()
     assert any("tracemalloc.stop" in item for item in findings)
 
 
+def test_process_priority_mutations_are_reported():
+    source = """
+import os
+os.nice(5)
+os.setpriority(os.PRIO_PROCESS, 0, 10)
+"""
+
+    findings = audit.findings_for_source(source, path="worker.py")
+
+    assert len(findings) == 2
+    assert any("os.nice" in item for item in findings)
+    assert any("os.setpriority" in item for item in findings)
+
+
 def test_unrelated_local_calls_are_ignored():
     assert audit.findings_for_source("value.append(1)\n") == []
 
