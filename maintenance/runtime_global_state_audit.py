@@ -32,6 +32,10 @@ _RULE_MESSAGES = {
     "warnings.resetwarnings": "resetwarnings replaces process-wide warning filters",
     "cv2.setNumThreads": "OpenCV thread-pool size is global process state",
     "cv2.setRNGSeed": "OpenCV RNG seed changes shared native-library state",
+    "numpy.seterrcall": "NumPy error callbacks are ambient numerical state",
+    "numpy.setbufsize": "NumPy ufunc buffer size is ambient numerical state",
+    "np.seterrcall": "NumPy error callbacks are ambient numerical state",
+    "np.setbufsize": "NumPy ufunc buffer size is ambient numerical state",
 }
 
 
