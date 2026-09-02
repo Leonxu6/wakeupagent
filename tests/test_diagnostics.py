@@ -175,6 +175,12 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertEqual(diagnostics.diagnostics_exit_code([diagnostics.Check("pose-model", False, "missing")]), 1)
         self.assertEqual(diagnostics.diagnostics_exit_code([diagnostics.Check("gesture-model", False, "missing")]), 1)
 
+    def test_exit_code_preserves_critical_identity_after_unicode_normalization(self):
+        self.assertEqual(
+            diagnostics.diagnostics_exit_code([diagnostics.Check("ｐｙｔｈｏｎ", False, "3.11")]),
+            1,
+        )
+
     def test_exit_code_allows_missing_optional_cloud_credentials(self):
         self.assertEqual(diagnostics.diagnostics_exit_code([diagnostics.Check("deepseek-key", False, "missing")]), 0)
 
