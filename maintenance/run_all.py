@@ -133,6 +133,7 @@ _ADVISORY_AUDITS = (
     "logging_capture_warnings_audit.py",
     "numpy_printoptions_audit.py",
     "decimal_default_context_audit.py",
+    "runtime_global_state_audit.py",
 )
 
 
