@@ -221,8 +221,8 @@ def env_path(name: str, default: str) -> str:
     value = env_text(name, default, max_length=4096)
     try:
         return str(Path(value).expanduser())
-    except RuntimeError as exc:
-        raise ValueError(f"{name} could not expand the user home directory") from exc
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise ValueError(f"{name} could not expand the filesystem path") from exc
 
 
 def env_json_string_map(name: str, default: dict[str, str], *, max_entries: int = 100) -> dict[str, str]:
