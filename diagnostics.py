@@ -31,6 +31,9 @@ _CRITICAL_CHECKS = {
     "checkpoint-dir",
     "report-dir",
 }
+_CRITICAL_IDENTITIES = {
+    unicodedata.normalize("NFKC", name).casefold() for name in _CRITICAL_CHECKS
+}
 _REQUIRED_CONFIG_FIELDS = (
     "CHECKPOINT_DB_PATH",
     "DAILY_REPORT_PATH",
@@ -253,4 +256,8 @@ def format_checks_json(checks: list[Check]) -> str:
 
 
 def diagnostics_exit_code(checks: list[Check]) -> int:
-    return 1 if any(not check.ok and name in _CRITICAL_CHECKS for check, name in _validated_checks(checks)) else 0
+    return 1 if any(
+        not check.ok
+        and unicodedata.normalize("NFKC", name).casefold() in _CRITICAL_IDENTITIES
+        for check, name in _validated_checks(checks)
+    ) else 0
