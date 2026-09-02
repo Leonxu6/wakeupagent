@@ -11,9 +11,7 @@ faulthandler.register(12)
 faulthandler.unregister(12)
 faulthandler.disable()
 """
-
     findings = audit.findings_for_source(source, path="agent.py")
-
     assert len(findings) == 4
     assert all(item.startswith("agent.py:") for item in findings)
     assert any("faulthandler.enable" in item for item in findings)
@@ -29,9 +27,7 @@ tracemalloc.start(25)
 tracemalloc.clear_traces()
 tracemalloc.stop()
 """
-
     findings = audit.findings_for_source(source, path="memory.py")
-
     assert len(findings) == 3
     assert any("tracemalloc.start" in item for item in findings)
     assert any("tracemalloc.clear_traces" in item for item in findings)
@@ -44,12 +40,19 @@ import os
 os.nice(5)
 os.setpriority(os.PRIO_PROCESS, 0, 10)
 """
-
     findings = audit.findings_for_source(source, path="worker.py")
-
     assert len(findings) == 2
     assert any("os.nice" in item for item in findings)
     assert any("os.setpriority" in item for item in findings)
+
+
+def test_process_fork_hook_registration_is_reported():
+    findings = audit.findings_for_source(
+        "import os\nos.register_at_fork(after_in_child=lambda: None)\n",
+        path="worker.py",
+    )
+    assert len(findings) == 1
+    assert "os.register_at_fork" in findings[0]
 
 
 def test_unrelated_local_calls_are_ignored():
