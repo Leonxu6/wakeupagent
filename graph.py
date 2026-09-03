@@ -43,34 +43,29 @@ LOG_EXECUTION  = LOG_C
 LOG_RESET      = "[blue][R][/blue]"
 
 console = Console()
+_ERROR_DETAIL_LIMIT = 120
+
+
+def _safe_error_detail(exc: object) -> str:
+    """Return a bounded error class label without backend message contents."""
+    name = exc.__class__.__name__ if isinstance(exc, BaseException) else "Error"
+    return name[:_ERROR_DETAIL_LIMIT]
 
 
 # ── 全局状态定义 ──────────────────────────────────────────────
 class AgentState(TypedDict):
-    # 核心对话历史（add_messages 自动追加，配合 checkpointer 跨轮保留）
     messages: Annotated[list[BaseMessage], add_messages]
-
-    # 感知层（每轮由感知回调注入，非持久字段）
     current_vision_text: NotRequired[str]
     healthy:             NotRequired[bool]
     timestamp:           NotRequired[str]
-
-    # 小脑路由决策
-    should_escalate:     NotRequired[bool]   # 小脑决定是否上报大脑
-
-    # ReAct 循环控制（每轮结束重置为 0）
+    should_escalate:     NotRequired[bool]
     react_iterations:    NotRequired[int]
-
-    # 跨轮统计（checkpointer 持久化）
-    session_date:        NotRequired[str]    # 当天日期，用于每日清空判断
-    unhealthy_count:     NotRequired[int]    # 今日摆烂次数
-    consecutive_healthy: NotRequired[int]    # 连续健康次数
-
-    # 记忆压缩
+    session_date:        NotRequired[str]
+    unhealthy_count:     NotRequired[int]
+    consecutive_healthy: NotRequired[int]
     conversation_summary: NotRequired[str]
 
 
-# ── LLM 单例 ─────────────────────────────────────────────────
 _llm_with_tools = None
 
 def _get_llm():
@@ -81,13 +76,12 @@ def _get_llm():
             api_key=DEEPSEEK_API_KEY,
             base_url=DEEPSEEK_BASE_URL,
             temperature=0.7,
-            timeout=30,      # Prevent a hung API call from blocking the perception loop
+            timeout=30,
             max_retries=1,
         )
-        # parallel_tool_calls=False：强制 LLM 每步只调用一批工具，
-        # 保证 observe_camera 不会与其他工具混发
         _llm_with_tools = llm.bind_tools(ALL_TOOLS, parallel_tool_calls=False)
     return _llm_with_tools
+
 
 def _get_llm_plain():
     """不带工具的 LLM，用于摘要/日报生成"""
@@ -101,17 +95,10 @@ def _get_llm_plain():
     )
 
 
-# ── Node R：每日清空 + 日报归档 ──────────────────────────────
 def daily_reset_node(state: AgentState) -> dict:
-    """
-    检测日期变更 → 生成昨日报告存档 → 清空消息历史 → 重置计数器。
-    每轮图执行的入口，无日期变更时 0 开销直接透传。
-    """
+    """检测日期变更并生成昨日摘要，随后重置每日计数。"""
     today = date.today().isoformat()
     session_date = state.get("session_date", "")
-
-    # First run has no previous day to summarize. Initialize the durable
-    # counters without creating an empty report entry.
     if not session_date:
         return {
             "session_date": today,
@@ -119,30 +106,22 @@ def daily_reset_node(state: AgentState) -> dict:
             "consecutive_healthy": 0,
             "react_iterations": 0,
         }
-
     if session_date == today:
-        return {}  # 同一天，无操作
+        return {}
 
     messages = state.get("messages", [])
     console.print(f"{LOG_RESET} new day detected ({session_date} → {today}), generating report...")
-
-    # 生成昨日日报
     report_text = _generate_daily_report(messages, session_date, state)
-
-    # 归档到文件
     _save_daily_report(report_text, session_date)
     console.print(f"{LOG_RESET} report saved → {DAILY_REPORT_PATH}")
-
-    # 清空所有旧消息
     delete_ops = [RemoveMessage(id=m.id) for m in messages if hasattr(m, 'id') and m.id]
-
     return {
         "messages": delete_ops,
         "session_date": today,
         "unhealthy_count": 0,
         "consecutive_healthy": 0,
-        "react_iterations": 0,              # Reset so a crash-restart never inherits mid-loop state
-        "conversation_summary": report_text, # 日报作为新一天的初始摘要
+        "react_iterations": 0,
+        "conversation_summary": report_text,
     }
 
 
@@ -151,18 +130,18 @@ def _generate_daily_report(messages: list, date_str: str, state: AgentState) -> 
         return ""
     unhealthy = state.get("unhealthy_count", 0)
     summary_prompt = (
-        f"请用50字以内总结 {date_str} 的自律监督情况。"
-        f"今日共摆烂 {unhealthy} 次。"
-        f"给出整体评价和明日建议。"
+        f"请用50字以内总结 {date_str} 的专注情况。"
+        f"今日共检测到 {unhealthy} 次需要重新聚焦的时刻。"
+        f"给出中性、具体、可执行的明日建议。"
     )
     try:
         llm = _get_llm_plain()
         context = messages[-10:] if len(messages) > 10 else messages
         response = llm.invoke(context + [HumanMessage(content=summary_prompt)])
         return response.content
-    except Exception as e:
-        console.print(f"{LOG_RESET} report generation failed: {e}")
-        return f"{date_str}: 摆烂 {unhealthy} 次，报告生成失败。"
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"{LOG_RESET} report generation failed ({_safe_error_detail(exc)})")
+        return f"{date_str}: 检测到 {unhealthy} 次需要重新聚焦的时刻，报告生成失败。"
 
 
 def _save_daily_report(report: str, date_str: str):
@@ -172,126 +151,89 @@ def _save_daily_report(report: str, date_str: str):
         f.write(f"\n## {date_str}\n{report}\n")
 
 
-# ── Node A：感知层包装器 ──────────────────────────────────────
 def perception_node(state: AgentState) -> dict:
     vision_text = state.get("current_vision_text", "")
     timestamp = state.get("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     should_escalate = state.get("should_escalate", False)
-
     console.print(f"{LOG_PERCEPTION} t={timestamp} vision=\"{vision_text[:80]}\"")
     route = "escalate -> [B]" if should_escalate else "pass -> END"
     console.print(f"{LOG_PERCEPTION} cerebellum decision: {route}")
-
     parts = [
         f"[系统时间: {timestamp}]",
         f"【摄像头报告】{vision_text}",
-        "根据宿主当前行为判断是否需要惩罚。",
+        "根据宿主当前行为判断是否需要温和提醒或经用户明确启用的辅助动作。",
     ]
-
-    return {
-        "timestamp": timestamp,
-        "messages": [HumanMessage(content="\n".join(parts))],
-    }
+    return {"timestamp": timestamp, "messages": [HumanMessage(content="\n".join(parts))]}
 
 
-# ── Node B：决策层（DeepSeek + parallel function calling） ────
-_SYSTEM_PROMPT = """你是一个极其暴躁、满嘴脏话的真人监工。所有"AI助手"、"礼貌"、"排版"的设定全他妈删了。
+_SYSTEM_PROMPT = """你是一个简短、明确的专注监督助手。目标是帮助用户重新聚焦，而不是羞辱、威胁或制造破坏。
 
-## 你的多轮行动能力
-你可以连续行动多次。每次行动后你会收到工具的执行结果，根据结果决定下一步。
-善用这个能力做【渐进式惩罚】，而不是一上来就把所有工具全打出去。
+## 多轮行动原则
+你可以连续行动多次，但优先使用最小干预。每次工具执行后根据结果决定是否还需要下一步。
 
-## 工具调用规则（严格遵守）
-- **惩罚工具**（play_tts_punishment / send_wechat_shame_message / open_webpage / force_close_app / chaos_terminal_punishment）：可以在同一步骤里同时调用多个。
-- **observe_camera**：必须单独调用，绝对不能和其他任何工具同时调用。它需要等待宿主响应，混用会导致观察无效。
+## 工具调用规则
+- play_tts_punishment 可以用于简短的语音提醒，但内容应直接、克制、不辱骂用户。
+- send_wechat_shame_message、open_webpage、force_close_app 都属于明显副作用能力。只有工具本身已通过本地配置显式启用时才可能执行；不要尝试绕过工具返回的 disabled/error 状态。
+- observe_camera 必须单独调用，不能与其他工具同时调用。
+- legacy chaos mode 已移除且不得请求、描述或模拟。不要尝试通过其他工具组合复现其效果。
 
-## 标准惩罚流程（按顺序执行）
-1. **初次发现摆烂** → 单独调用 play_tts_punishment 发出语音警告，骂得狠一点。
-2. **警告后** → 单独调用 observe_camera，等待宿主反应。
-3. **还在摆烂** → 同时调用多个惩罚工具升级打击（play_tts_punishment + send_wechat_shame_message + open_webpage 三连，或其他组合）。open_webpage 根据宿主在干什么来选 URL：玩游戏就打开 leetcode，看视频就打开论文页面，总之越烦越好。force_close_app 可直接关掉摸鱼软件。
-4. **屡教不改** → chaos_terminal_punishment 终极惩罚，50 个终端 + 5 路 TTS 直接摧毁环境。
-5. **已经收手** → 冷嘲热讽一句就结束，不再调用工具。
+## 推荐流程
+1. 初次发现偏离计划：给出一句具体提醒，必要时单独调用语音提醒。
+2. 需要确认状态：单独调用 observe_camera，再根据新观察判断。
+3. 若用户已明确启用某个副作用能力，可在必要时选择一个最小影响的动作；不要一次堆叠多个干扰动作。
+4. 一旦用户回到计划中的活动，停止工具调用。
 
 ## 内容风格
-- 极度口语化，像微信骂人，短平快，绝不超过两三句（50字以内）。
-- 必须攻击用户，用你能想到最能骂人的语言，但是不要说特别攻击性的脏话，别说色情的，攻击的越有梗越好。
-- 禁止条列式排版，禁止共情。
-- **每次调用工具时必须在 content 里同步说一句话**，不能只发工具请求不开口。
-- **看到工具返回结果后要先点评**，再决定下一步，不要沉默地进入下一轮。
+- 口语化、简短，通常不超过两三句。
+- 聚焦当前行为和下一步动作，不进行人身攻击、羞辱、威胁或贬低。
+- 每次调用工具时在 content 中说明为什么需要该动作。
+- 工具失败或被禁用时接受该结果，不重复强行调用。
 
 ## 自律行为处理
-如果一开始就在自律（学习/工作/锻炼/睡觉），冷嘲一句收手，不调用任何工具。"""
-
+如果一开始就在学习、工作、锻炼、休息或其他用户计划中的活动，简短确认后结束，不调用任何工具。"""
 
 
 def _reorder_and_repair(messages: list[BaseMessage]) -> tuple[list[BaseMessage], list[ToolMessage]]:
-    """
-    重建消息序列，确保每条 AIMessage(tool_calls) 后紧跟对应的 ToolMessage。
-    处理两种情况：
-      1. ToolMessage 存在但顺序错误（在后续消息中）→ 取出后内联插入
-      2. ToolMessage 完全缺失（孤悬 tool_call）      → 生成占位 ToolMessage
-
-    返回 (repaired_sequence, new_repairs)：
-      repaired_sequence — 顺序正确、可直接发给 LLM 的消息列表
-      new_repairs       — 本次新生成的占位 ToolMessage（需持久化到 checkpoint）
-    使用确定性 ID（repair_{tc_id}）保证幂等，同一孤悬不会重复修复。
-    """
-    # 建立 tool_call_id → ToolMessage 的查找表
     tool_response_map: dict[str, ToolMessage] = {
         m.tool_call_id: m
         for m in messages
         if isinstance(m, ToolMessage) and hasattr(m, "tool_call_id")
     }
-
     result: list[BaseMessage] = []
     new_repairs: list[ToolMessage] = []
     placed_ids: set[str] = set()
-
     for msg in messages:
         if isinstance(msg, ToolMessage):
-            continue  # 统一在 AIMessage 之后内联放置，跳过原位
-
+            continue
         result.append(msg)
-
         if not (isinstance(msg, AIMessage) and getattr(msg, "tool_calls", None)):
             continue
-
-        # 紧跟 AIMessage 放置每个 tool_call 的响应
         for tc in msg.tool_calls:
             tc_id = tc.get("id") or tc.get("tool_call_id")
             if not tc_id or tc_id in placed_ids:
                 continue
-
             if tc_id in tool_response_map:
-                result.append(tool_response_map[tc_id])          # 已有，内联
+                result.append(tool_response_map[tc_id])
             else:
                 repair = ToolMessage(
                     content="[aborted: interrupted by max_iterations limit]",
                     tool_call_id=tc_id,
-                    id=f"repair_{tc_id}",  # 确定性 ID，幂等
+                    id=f"repair_{tc_id}",
                 )
                 result.append(repair)
                 new_repairs.append(repair)
                 console.print(f"{LOG_DECISION} repair orphaned tool_call id={tc_id[:12]}...")
-
             placed_ids.add(tc_id)
-
     return result, new_repairs
 
 
 def decision_node(state: AgentState) -> dict:
     iteration = state.get("react_iterations", 0)
-
-    # ── 提前拦截 max_iterations ────────────────────────────────
     if iteration >= REACT_MAX_ITERATIONS:
         console.print(f"{LOG_DECISION} max iterations ({REACT_MAX_ITERATIONS}) reached, ending gracefully")
         return {"react_iterations": 0}
-
     console.print(f"{LOG_DECISION} calling DeepSeek... [react iter={iteration}]")
-
     raw_messages = state.get("messages", [])
-
-    # trim_messages：只保留最近 N 条历史，防止 context 爆炸
     trimmed = trim_messages(
         raw_messages,
         strategy="last",
@@ -301,37 +243,28 @@ def decision_node(state: AgentState) -> dict:
         end_on=("human", "tool"),
         include_system=False,
     )
-
-    # ── 重建序列：修复顺序 + 补全缺失的 ToolMessage ───────────
     trimmed, new_repairs = _reorder_and_repair(trimmed)
-
     summary = state.get("conversation_summary", "")
     system_content = _SYSTEM_PROMPT
     if summary:
         system_content += f"\n\n[历史摘要] {summary}"
-
     messages = [SystemMessage(content=system_content)] + trimmed
-
     llm = _get_llm()
     try:
         response = llm.invoke(messages)
-    except Exception as e:
-        console.print(f"{LOG_DECISION} LLM error: {e}")
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"{LOG_DECISION} LLM error ({_safe_error_detail(exc)})")
         return {"react_iterations": 0}
-
-    # new_repairs 持久化到 checkpoint，再追加 LLM response
     updates: dict = {"messages": new_repairs + [response]}
-
     if response.tool_calls:
         tool_names = [tc["name"] for tc in response.tool_calls]
         console.print(f"{LOG_DECISION} tools={tool_names} -> [C] (iter {iteration+1})")
-        # 有随行旁白时也 TTS（但不重复播放 play_tts_punishment 的内容）
         if response.content and "play_tts_punishment" not in tool_names:
             console.print(f"{LOG_DECISION} ▶ {response.content[:100]}")
             from tools import play_tts_punishment
             try:
                 play_tts_punishment.invoke({"text": response.content})
-            except Exception:
+            except Exception:  # noqa: BLE001
                 pass
         updates["react_iterations"] = iteration + 1
         if iteration == 0:
@@ -344,19 +277,15 @@ def decision_node(state: AgentState) -> dict:
             from tools import play_tts_punishment
             try:
                 play_tts_punishment.invoke({"text": response.content})
-            except Exception:
+            except Exception:  # noqa: BLE001
                 pass
-
         updates["react_iterations"] = 0
         if iteration == 0:
             updates["consecutive_healthy"] = state.get("consecutive_healthy", 0) + 1
-
-    # 触发摘要压缩：只在 iter=0 执行
     if len(raw_messages) >= SUMMARIZE_THRESHOLD and iteration == 0:
         summarize_result = _summarize_messages(raw_messages, state)
         updates["messages"] = updates.get("messages", []) + summarize_result.pop("messages", [])
         updates.update(summarize_result)
-
     return updates
 
 
@@ -368,27 +297,21 @@ def _summarize_messages(messages: list, state: AgentState) -> dict:
     try:
         llm = _get_llm_plain()
         response = llm.invoke(
-            messages[-20:] + [HumanMessage(content=prefix + "（50字以内，记录关键违规与惩罚）")]
+            messages[-20:] + [HumanMessage(content=prefix + "（50字以内，记录关键偏离与重新聚焦动作）")]
         )
         new_summary = response.content
-    except Exception:
+    except Exception:  # noqa: BLE001
         new_summary = summary_so_far
-
-    # 删除旧消息，保留最新5条
     to_delete = messages[:-5]
     delete_ops = [RemoveMessage(id=m.id) for m in to_delete if hasattr(m, 'id') and m.id]
     return {"conversation_summary": new_summary, "messages": delete_ops}
 
 
-# ── 路由逻辑 ─────────────────────────────────────────────────
 def route_after_perception(state: AgentState) -> str:
     return "decision" if state.get("should_escalate", False) else END
 
 
 def route_after_decision(state: AgentState) -> str:
-    # 只看最后一条消息是否带 tool_calls：
-    #   - 有 → 去 execution（始终执行，避免孤悬 tool_call 污染 checkpoint）
-    #   - 无 → END（decision_node 已在内部处理 max_iterations 早返回）
     messages = state.get("messages", [])
     last = messages[-1] if messages else None
     if last and isinstance(last, AIMessage) and getattr(last, "tool_calls", None):
@@ -396,15 +319,12 @@ def route_after_decision(state: AgentState) -> str:
     return END
 
 
-# ── 构建图 ───────────────────────────────────────────────────
 def build_graph():
     builder = StateGraph(AgentState)
-
     builder.add_node("daily_reset", daily_reset_node)
     builder.add_node("perception",  perception_node)
     builder.add_node("decision",    decision_node)
-    builder.add_node("execution",   ToolNode(ALL_TOOLS))  # 原生并行执行
-
+    builder.add_node("execution",   ToolNode(ALL_TOOLS))
     builder.add_edge(START,         "daily_reset")
     builder.add_edge("daily_reset", "perception")
     builder.add_conditional_edges(
@@ -415,8 +335,7 @@ def build_graph():
         "decision", route_after_decision,
         {"execution": "execution", END: END},
     )
-    builder.add_edge("execution", "decision")  # ReAct 循环
-
+    builder.add_edge("execution", "decision")
     conn = sqlite3.connect(CHECKPOINT_DB_PATH, check_same_thread=False)
     checkpointer = SqliteSaver(conn=conn)
     return builder.compile(checkpointer=checkpointer)
