@@ -48,29 +48,53 @@ console = Console()
 
 _POSE_MODEL  = Path(__file__).parent / "pose_landmarker_lite.task"
 _GESTURE_MODEL = Path(__file__).parent / "gesture_recognizer.task"
+_MAX_DESCRIPTION_CHARS = 1000
+_MAX_CONTEXT_CHARS = 2000
+_BIDI_CONTROLS = {chr(code) for code in (0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x2066, 0x2067, 0x2068, 0x2069)}
 
 _ollama_client = ollama.Client(host=OLLAMA_HOST)
 
-# 最新干净帧（供 observe_camera 工具实时调用）
 _latest_raw_frame: np.ndarray | None = None
-_stop_event = threading.Event()  # 程序退出时 set，让 observe_camera 的 sleep 提前返回
+_stop_event = threading.Event()
+
+
+def _clean_text(value: object, *, field: str, limit: int) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be text")
+    text = " ".join(value.split())
+    text = "".join(ch for ch in text if ch not in _BIDI_CONTROLS and ord(ch) >= 32 and ord(ch) != 127).strip()
+    if not text:
+        raise ValueError(f"{field} must not be empty")
+    if len(text) > limit:
+        text = text[:limit].rstrip()
+    return text
+
+
+def _validate_frame(frame: object) -> np.ndarray:
+    if not isinstance(frame, np.ndarray):
+        raise ValueError("camera frame must be a numpy array")
+    if frame.size == 0 or frame.ndim not in (2, 3):
+        raise ValueError("camera frame has invalid dimensions")
+    if frame.ndim == 3 and frame.shape[2] not in (1, 3, 4):
+        raise ValueError("camera frame has unsupported channel count")
+    return frame
 
 
 def get_latest_frame() -> np.ndarray | None:
-    """返回感知循环最近捕获的原始帧，供 ReAct observe_camera 工具使用。"""
-    return _latest_raw_frame
+    """Return an isolated copy of the latest clean frame for observe_camera."""
+    frame = _latest_raw_frame
+    return None if frame is None else frame.copy()
 
-# 手部骨架连线（21 个关键点之间的父子关系）
+
 _HAND_CONNECTIONS = [
-    (0,1),(1,2),(2,3),(3,4),        # thumb
-    (0,5),(5,6),(6,7),(7,8),        # index
-    (0,9),(9,10),(10,11),(11,12),   # middle
-    (0,13),(13,14),(14,15),(15,16), # ring
-    (0,17),(17,18),(18,19),(19,20), # pinky
-    (5,9),(9,13),(13,17),           # palm knuckle arch
+    (0,1),(1,2),(2,3),(3,4),
+    (0,5),(5,6),(6,7),(7,8),
+    (0,9),(9,10),(10,11),(11,12),
+    (0,13),(13,14),(14,15),(15,16),
+    (0,17),(17,18),(18,19),(19,20),
+    (5,9),(9,13),(13,17),
 ]
 
-# MediaPipe 手势名称 -> 可读标签
 _GESTURE_LABEL = {
     "None":         "",
     "Closed_Fist":  "FIST",
@@ -83,10 +107,7 @@ _GESTURE_LABEL = {
 }
 
 
-# ── 置信度计算 ────────────────────────────────────────────────
-
 def _pose_confidence(landmarks: list) -> float:
-    """用鼻子/双肩/双髋这5个关键点的平均 visibility 作为检测置信度"""
     key_ids = {0, 11, 12, 23, 24}
     vals = [lm.visibility for i, lm in enumerate(landmarks) if i in key_ids]
     return sum(vals) / len(vals) if vals else 0.0
@@ -105,8 +126,6 @@ def _get_person_bbox(
     y2 = min(frame_h, int(max(ys)) + PERSON_BOX_PADDING)
     return x1, y1, x2, y2
 
-
-# ── 绘制工具 ──────────────────────────────────────────────────
 
 def _wrap_text(text: str, max_chars: int) -> list[str]:
     words = text.split()
@@ -145,25 +164,17 @@ def _draw_label(frame: np.ndarray, text: str, x: int, y: int, max_width: int = 3
 
 
 def _draw_hand(frame: np.ndarray, hand_landmarks: list, gesture: str, handedness: str) -> None:
-    """绘制 21 个手部关键点 + 骨架连线 + 手势标签"""
     fh, fw = frame.shape[:2]
     pts = [(int(lm.x * fw), int(lm.y * fh)) for lm in hand_landmarks]
-
-    # 连线
     for a, b in _HAND_CONNECTIONS:
         if 0 <= pts[a][0] < fw and 0 <= pts[a][1] < fh and \
            0 <= pts[b][0] < fw and 0 <= pts[b][1] < fh:
             cv2.line(frame, pts[a], pts[b], HAND_LINE_COLOR, 1, cv2.LINE_AA)
-
-    # 关键点
     for i, (px, py) in enumerate(pts):
         if 0 <= px < fw and 0 <= py < fh:
-            # 指尖（4/8/12/16/20）画稍大的实心圆
             r = HAND_DOT_RADIUS + 2 if i in (4, 8, 12, 16, 20) else HAND_DOT_RADIUS
             cv2.circle(frame, (px, py), r, HAND_DOT_COLOR, -1, cv2.LINE_AA)
-            cv2.circle(frame, (px, py), r, (0, 0, 0), 1, cv2.LINE_AA)  # 黑边
-
-    # 手势标签（腕关节上方）
+            cv2.circle(frame, (px, py), r, (0, 0, 0), 1, cv2.LINE_AA)
     label = _GESTURE_LABEL.get(gesture, gesture)
     if label:
         wx, wy = pts[0]
@@ -200,36 +211,32 @@ def _draw_hud(frame: np.ndarray, now: float, last_t: float,
                     font, 0.42, c, 1, cv2.LINE_AA)
 
 
-# ── Moondream2 推理 ───────────────────────────────────────────
-
 def query_moondream(frame_bgr: np.ndarray) -> str:
+    frame_bgr = _validate_frame(frame_bgr)
     resized = cv2.resize(frame_bgr, (640, 480))
     fd, tmp_path = tempfile.mkstemp(suffix=".jpg")
     os.close(fd)
-    cv2.imwrite(tmp_path, resized, [cv2.IMWRITE_JPEG_QUALITY, 90])
     try:
-        r = _ollama_client.generate(model=MOONDREAM_MODEL, prompt=MOONDREAM_PROMPT,
-                                    images=[tmp_path])
-        text = r.response.strip()
-        if not text:
+        if not cv2.imwrite(tmp_path, resized, [cv2.IMWRITE_JPEG_QUALITY, 90]):
+            raise RuntimeError("camera frame encoding failed")
+        response = _ollama_client.generate(
+            model=MOONDREAM_MODEL,
+            prompt=MOONDREAM_PROMPT,
+            images=[tmp_path],
+        )
+        raw = getattr(response, "response", "")
+        if not isinstance(raw, str) or not raw.strip():
             return "no activity"
-        return text.split("\n")[0].strip()
-    except Exception as e:
-        console.print(f"{LOG_A} moondream error: {e}")
+        return _clean_text(raw, field="camera description", limit=_MAX_DESCRIPTION_CHARS)
+    except ValueError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"{LOG_A} moondream unavailable ({exc.__class__.__name__})")
         return "moondream unavailable"
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
 
-# ── 本地行为分类（qwen2.5:1.5b 小脑） ────────────────────────
-# 职责拆分：
-#   qwen  → 只判断行为是否健康（最简单的分类任务）
-#   Python → 时间豁免规则（可靠，零成本）
-#   合并   → 得出 should_escalate
-
-# qwen 采用 yes/no 关键词检测，疑罪从无，默认 healthy
-# 只有描述中明确出现以下娱乐关键词才判 unhealthy
-# {context_section} 由 _qwen_health_check 动态填入（有上下文时注入，无则空字符串）
 _CLASSIFIER_PROMPT = """Does this description contain any of these activities?
 - scrolling phone / social media / TikTok / Instagram
 - taking selfie / posing in mirror / phone camera
@@ -243,7 +250,6 @@ If any of the above are clearly present, answer yes.
 Description: {text}
 Answer (yes or no):"""
 
-# Python 层关键词预过滤（超明显情况直接截断，不走 LLM）
 _UNHEALTHY_KEYWORDS = [
     'scrolling', 'scroll', 'social media', 'tiktok', 'instagram',
     'selfie', 'taking a selfie',
@@ -253,11 +259,10 @@ _UNHEALTHY_KEYWORDS = [
     'lying in bed', 'lying on bed',
 ]
 
+
 def classify_behavior(vision_text: str, context: str = "") -> tuple[bool, bool]:
-    """返回 (is_healthy, should_escalate)，全天候无豁免。"""
     is_healthy = _qwen_health_check(vision_text, context)
     should_escalate = not is_healthy
-
     console.print(
         f"{LOG_A} cerebellum → healthy={'yes' if is_healthy else 'no'} "
         f"escalate={'yes' if should_escalate else 'no'}"
@@ -266,25 +271,22 @@ def classify_behavior(vision_text: str, context: str = "") -> tuple[bool, bool]:
 
 
 def _qwen_health_check(vision_text: str, context: str = "") -> bool:
-    """qwen2.5:1.5b 结合近期上下文做行为健康判断，返回 True=healthy。
-    策略：疑罪从无 — 只有明确出现摆烂关键词才判 unhealthy。
-    """
+    vision_text = _clean_text(vision_text, field="vision text", limit=_MAX_DESCRIPTION_CHARS)
+    if context:
+        context = _clean_text(context, field="classifier context", limit=_MAX_CONTEXT_CHARS)
     text_lower = vision_text.lower()
-
-    # Python 预过滤：超明显关键词直接短路，不走 LLM
     if any(kw in text_lower for kw in _UNHEALTHY_KEYWORDS):
         console.print(f"{LOG_A} qwen → keyword match → unhealthy")
         return False
-
     try:
         context_section = (
             f"Recent context (use this to adjust your judgment):\n{context}\n\n"
             if context else ""
         )
         prompt = _CLASSIFIER_PROMPT.format(context_section=context_section, text=vision_text)
-        r = _ollama_client.generate(model=LOCAL_CLASSIFIER_MODEL, prompt=prompt)
-        raw = r.response.strip().lower() if r.response.strip() else "no"
-        # 在响应中找第一个 yes 或 no
+        response = _ollama_client.generate(model=LOCAL_CLASSIFIER_MODEL, prompt=prompt)
+        value = getattr(response, "response", "")
+        raw = value.strip().lower() if isinstance(value, str) and value.strip() else "no"
         for word in raw.split():
             word = word.rstrip('.,:')
             if word == 'yes':
@@ -293,15 +295,12 @@ def _qwen_health_check(vision_text: str, context: str = "") -> bool:
             if word == 'no':
                 console.print(f"{LOG_A} qwen → no → healthy")
                 return True
-        # 没找到 yes/no：默认 healthy（疑罪从无）
-        console.print(f"{LOG_A} qwen → unclear(\"{raw[:20]}\") → healthy (default)")
+        console.print(f"{LOG_A} qwen → unclear response → healthy (default)")
         return True
-    except Exception as e:
-        console.print(f"{LOG_A} qwen error: {e}")
-        return True  # 出错也默认 healthy，避免误报
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"{LOG_A} qwen unavailable ({exc.__class__.__name__})")
+        return True
 
-
-# ── 主感知循环 ────────────────────────────────────────────────
 
 def run_perception_loop(state_callback=None, get_context=None):
     for p, name in [(_POSE_MODEL, "pose_landmarker_lite.task"),
@@ -311,7 +310,6 @@ def run_perception_loop(state_callback=None, get_context=None):
             return
 
     console.print(f"{LOG_A} cam={CAMERA_INDEX} interval={CAPTURE_INTERVAL_SEC}s  q/ESC to quit")
-
     cap = cv2.VideoCapture(CAMERA_INDEX)
     if not cap.isOpened():
         console.print(f"{LOG_A} cannot open camera")
@@ -319,12 +317,10 @@ def run_perception_loop(state_callback=None, get_context=None):
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
-    # Single-element lists used as mutable containers so the _analyze thread
-    # can write back values visible to the main loop (Python closure limitation).
-    last_t      = [0.0]                  # Timestamp of last capture dispatch
-    behavior    = ["waiting for scan..."] # Latest Moondream behavior description
+    last_t      = [0.0]
+    behavior    = ["waiting for scan..."]
     lock        = threading.Lock()
-    busy        = [False]                # True while _analyze thread is running
+    busy        = [False]
     frame_count = [0]
     fps_t       = [time.time()]
     fps_val     = [0.0]
@@ -340,14 +336,14 @@ def run_perception_loop(state_callback=None, get_context=None):
             ts = datetime.now().strftime("%H:%M:%S")
             with lock:
                 behavior[0] = text
-            console.print(f"{LOG_A} [{ts}] moondream={moondream_elapsed:.1f}s -> \"{text}\"")
+            console.print(f"{LOG_A} [{ts}] moondream={moondream_elapsed:.1f}s -> description ready")
             if state_callback:
                 state_callback(text, ts, is_healthy, should_escalate)
-        except Exception as e:
-            console.print(f"{LOG_A} analyze error: {e}")
+        except Exception as exc:  # noqa: BLE001
+            console.print(f"{LOG_A} analyze failed ({exc.__class__.__name__})")
         finally:
             with lock:
-                busy[0] = False  # Always reset so the main loop never gets stuck waiting
+                busy[0] = False
 
     pose_opts = PoseLandmarkerOptions(
         base_options=mp_python.BaseOptions(model_asset_path=str(_POSE_MODEL)),
@@ -368,25 +364,21 @@ def run_perception_loop(state_callback=None, get_context=None):
 
     with PoseLandmarker.create_from_options(pose_opts) as pose_det, \
          GestureRecognizer.create_from_options(gest_opts) as gest_det:
-
         console.print(f"{LOG_A} mediapipe ready  (pose + gesture)")
         start_ms = int(time.time() * 1000)
-        _gest_ok = True  # 手势识别器出错后禁用，防止崩溃
+        _gest_ok = True
 
         while True:
             ret, frame = cap.read()
             if not ret:
                 console.print(f"{LOG_A} camera read failed")
                 break
-
-            raw_frame = frame.copy()   # 干净帧，发给 moondream / observe_camera
+            raw_frame = frame.copy()
             global _latest_raw_frame
             _latest_raw_frame = raw_frame
             fh, fw    = frame.shape[:2]
             now       = time.time()
             ts_ms     = int(now * 1000) - start_ms
-
-            # fps
             frame_count[0] += 1
             dt = now - fps_t[0]
             if dt >= 1.0:
@@ -396,11 +388,8 @@ def run_perception_loop(state_callback=None, get_context=None):
 
             mp_img = mp.Image(image_format=mp.ImageFormat.SRGB,
                               data=np.ascontiguousarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
-
-            # ── Pose 检测 ─────────────────────────────────
             pose_res = pose_det.detect_for_video(mp_img, ts_ms)
             person_detected = False
-
             for pose_lms in pose_res.pose_landmarks:
                 bbox = _get_person_bbox(pose_lms, fh, fw)
                 if not bbox:
@@ -408,46 +397,35 @@ def run_perception_loop(state_callback=None, get_context=None):
                 x1, y1, x2, y2 = bbox
                 conf = _pose_confidence(pose_lms)
                 person_detected = True
-
                 cv2.rectangle(frame, (x1, y1), (x2, y2), GREEN_BOX_COLOR, GREEN_BOX_THICKNESS)
-
-                # "PERSON 94%" 标签
                 header = f"PERSON  {conf*100:.0f}%"
                 cv2.putText(frame, header, (x1, max(14, y1 - 6)),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.48,
                             GREEN_BOX_COLOR, 1, cv2.LINE_AA)
-
-                # 行为描述（绿框右侧）
                 with lock:
                     beh = behavior[0]
                 avail = max(100, fw - min(x2+10, fw-10) - 8)
                 _draw_label(frame, beh, min(x2+10, fw-10), y1+22, max_width=avail)
 
-            # ── 手势检测 ──────────────────────────────────
             if _gest_ok:
                 try:
                     gest_res = gest_det.recognize_for_video(mp_img, ts_ms)
-                except RuntimeError as e:
-                    console.print(f"{LOG_A} gesture error (disabled): {e}")
+                except RuntimeError as exc:
+                    console.print(f"{LOG_A} gesture unavailable ({exc.__class__.__name__})")
                     _gest_ok = False
                     gest_res = None
             else:
                 gest_res = None
 
             for hi, hand_lms in enumerate(gest_res.hand_landmarks if gest_res else []):
-                # 手势名称
                 gesture_name = "None"
                 if hi < len(gest_res.gestures) and gest_res.gestures[hi]:
                     gesture_name = gest_res.gestures[hi][0].category_name
-
-                # 手的左右
                 handedness = "Right"
                 if hi < len(gest_res.handedness) and gest_res.handedness[hi]:
                     handedness = gest_res.handedness[hi][0].category_name
-
                 _draw_hand(frame, hand_lms, gesture_name, handedness)
 
-            # ── 定时触发 moondream ────────────────────────
             if now - last_t[0] >= CAPTURE_INTERVAL_SEC and not busy[0]:
                 with lock:
                     busy[0] = True
@@ -456,10 +434,9 @@ def run_perception_loop(state_callback=None, get_context=None):
 
             _draw_hud(frame, now, last_t[0], person_detected, busy[0], fps_val[0])
             cv2.imshow("Cyber-Superego", frame)
-
             if cv2.waitKey(1) & 0xFF in (ord("q"), ord("Q"), 27):
                 console.print(f"{LOG_A} quit")
-                _stop_event.set()  # 通知 observe_camera 的 sleep 提前退出
+                _stop_event.set()
                 break
 
     cap.release()
