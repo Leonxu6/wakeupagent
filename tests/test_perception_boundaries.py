@@ -21,7 +21,8 @@ def test_validate_frame_rejects_invalid_shapes(frame):
 
 def test_clean_text_normalizes_controls_and_bounds_output():
     text = perception._clean_text("  person\nreading\u202etext  ", field="camera description", limit=12)
-    assert text == "person readin"
+    assert text == "person readi"
+    assert len(text) == 12
     assert "\n" not in text
     assert "\u202e" not in text
 
