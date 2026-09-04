@@ -47,12 +47,44 @@ console = Console()
 _ERROR_DETAIL_LIMIT = 120
 _REPORT_TEXT_LIMIT = 1000
 _SUMMARY_TEXT_LIMIT = 2000
+_RESPONSE_TEXT_LIMIT = 2000
+_MAX_TOOL_CALLS = 20
+_MAX_TOOL_NAME = 80
+_MAX_TOOL_CALL_ID = 200
+_MAX_STATE_COUNTER = 10_000
 
 
 def _safe_error_detail(exc: object) -> str:
     """Return a bounded error class label without backend message contents."""
     name = exc.__class__.__name__ if isinstance(exc, BaseException) else "Error"
     return name[:_ERROR_DETAIL_LIMIT]
+
+
+def _state_counter(state: object, field: str, *, maximum: int = _MAX_STATE_COUNTER) -> int:
+    """Read one persisted non-negative counter, resetting malformed state to zero."""
+    if not isinstance(state, dict):
+        return 0
+    value = state.get(field, 0)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0 or value > maximum:
+        return 0
+    return value
+
+
+def _tool_call_names(tool_calls: object) -> list[str]:
+    """Validate the bounded tool-call envelope returned by the model."""
+    if not isinstance(tool_calls, (list, tuple)):
+        raise ValueError("tool calls must be a list or tuple")
+    if len(tool_calls) > _MAX_TOOL_CALLS:
+        raise ValueError(f"tool calls must contain at most {_MAX_TOOL_CALLS} values")
+    names: list[str] = []
+    for call in tool_calls:
+        if not isinstance(call, dict):
+            raise ValueError("tool calls must contain objects")
+        name = single_line_text(call.get("name"), limit=_MAX_TOOL_NAME)
+        if not name or name != call.get("name"):
+            raise ValueError("tool call names must be normalized text")
+        names.append(name)
+    return names
 
 
 # ── 全局状态定义 ──────────────────────────────────────────────
@@ -131,7 +163,7 @@ def daily_reset_node(state: AgentState) -> dict:
 def _generate_daily_report(messages: list, date_str: str, state: AgentState) -> str:
     if not messages and not date_str:
         return ""
-    unhealthy = state.get("unhealthy_count", 0)
+    unhealthy = _state_counter(state, "unhealthy_count")
     summary_prompt = (
         f"请用50字以内总结 {date_str} 的专注情况。"
         f"今日共检测到 {unhealthy} 次需要重新聚焦的时刻。"
@@ -203,7 +235,7 @@ def _reorder_and_repair(messages: list[BaseMessage]) -> tuple[list[BaseMessage],
     tool_response_map: dict[str, ToolMessage] = {
         m.tool_call_id: m
         for m in messages
-        if isinstance(m, ToolMessage) and hasattr(m, "tool_call_id")
+        if isinstance(m, ToolMessage) and isinstance(getattr(m, "tool_call_id", None), str)
     }
     result: list[BaseMessage] = []
     new_repairs: list[ToolMessage] = []
@@ -212,10 +244,16 @@ def _reorder_and_repair(messages: list[BaseMessage]) -> tuple[list[BaseMessage],
         if isinstance(msg, ToolMessage):
             continue
         result.append(msg)
-        if not (isinstance(msg, AIMessage) and getattr(msg, "tool_calls", None)):
+        tool_calls = getattr(msg, "tool_calls", None)
+        if not isinstance(msg, AIMessage) or not isinstance(tool_calls, (list, tuple)):
             continue
-        for tc in msg.tool_calls:
+        for tc in tool_calls[:_MAX_TOOL_CALLS]:
+            if not isinstance(tc, dict):
+                continue
             tc_id = tc.get("id") or tc.get("tool_call_id")
+            if not isinstance(tc_id, str):
+                continue
+            tc_id = single_line_text(tc_id, limit=_MAX_TOOL_CALL_ID)
             if not tc_id or tc_id in placed_ids:
                 continue
             if tc_id in tool_response_map:
@@ -234,7 +272,7 @@ def _reorder_and_repair(messages: list[BaseMessage]) -> tuple[list[BaseMessage],
 
 
 def decision_node(state: AgentState) -> dict:
-    iteration = state.get("react_iterations", 0)
+    iteration = _state_counter(state, "react_iterations", maximum=REACT_MAX_ITERATIONS)
     if iteration >= REACT_MAX_ITERATIONS:
         console.print(f"{LOG_DECISION} max iterations ({REACT_MAX_ITERATIONS}) reached, ending gracefully")
         return {"react_iterations": 0}
@@ -250,7 +288,7 @@ def decision_node(state: AgentState) -> dict:
         include_system=False,
     )
     trimmed, new_repairs = _reorder_and_repair(trimmed)
-    summary = state.get("conversation_summary", "")
+    summary = single_line_text(state.get("conversation_summary", ""), limit=_SUMMARY_TEXT_LIMIT)
     system_content = _SYSTEM_PROMPT
     if summary:
         system_content += f"\n\n[历史摘要] {summary}"
@@ -261,33 +299,38 @@ def decision_node(state: AgentState) -> dict:
     except Exception as exc:  # noqa: BLE001
         console.print(f"{LOG_DECISION} LLM error ({_safe_error_detail(exc)})")
         return {"react_iterations": 0}
+    response_text = model_text(response.content, limit=_RESPONSE_TEXT_LIMIT, block_limit=20)
+    try:
+        tool_names = _tool_call_names(response.tool_calls) if response.tool_calls else []
+    except ValueError as exc:
+        console.print(f"{LOG_DECISION} rejected malformed tool calls ({_safe_error_detail(exc)})")
+        return {"react_iterations": 0}
     updates: dict = {"messages": new_repairs + [response]}
-    if response.tool_calls:
-        tool_names = [tc["name"] for tc in response.tool_calls]
+    if tool_names:
         console.print(f"{LOG_DECISION} tools={tool_names} -> [C] (iter {iteration+1})")
-        if response.content and "play_tts_punishment" not in tool_names:
-            console.print(f"{LOG_DECISION} ▶ {response.content[:100]}")
+        if response_text and "play_tts_punishment" not in tool_names:
+            console.print(f"{LOG_DECISION} ▶ {response_text[:100]}")
             from tools import play_tts_punishment
             try:
-                play_tts_punishment.invoke({"text": response.content})
+                play_tts_punishment.invoke({"text": response_text})
             except Exception:  # noqa: BLE001
                 pass
         updates["react_iterations"] = iteration + 1
         if iteration == 0:
-            updates["unhealthy_count"] = state.get("unhealthy_count", 0) + 1
+            updates["unhealthy_count"] = _state_counter(state, "unhealthy_count") + 1
             updates["consecutive_healthy"] = 0
     else:
         console.print(f"{LOG_DECISION} verdict=done -> END (total iters={iteration})")
-        if response.content:
-            console.print(f"{LOG_DECISION} {response.content[:100]}")
+        if response_text:
+            console.print(f"{LOG_DECISION} {response_text[:100]}")
             from tools import play_tts_punishment
             try:
-                play_tts_punishment.invoke({"text": response.content})
+                play_tts_punishment.invoke({"text": response_text})
             except Exception:  # noqa: BLE001
                 pass
         updates["react_iterations"] = 0
         if iteration == 0:
-            updates["consecutive_healthy"] = state.get("consecutive_healthy", 0) + 1
+            updates["consecutive_healthy"] = _state_counter(state, "consecutive_healthy") + 1
     if len(raw_messages) >= SUMMARIZE_THRESHOLD and iteration == 0:
         summarize_result = _summarize_messages(raw_messages, state)
         updates["messages"] = updates.get("messages", []) + summarize_result.pop("messages", [])
@@ -332,11 +375,11 @@ def build_graph():
     builder.add_node("decision",    decision_node)
     builder.add_node("execution",   ToolNode(ALL_TOOLS))
     builder.add_edge(START,         "daily_reset")
-    builder.add_edge("daily_reset", "perception")
     builder.add_conditional_edges(
         "perception", route_after_perception,
         {"decision": "decision", END: END},
     )
+    builder.add_edge("daily_reset", "perception")
     builder.add_conditional_edges(
         "decision", route_after_decision,
         {"execution": "execution", END: END},
