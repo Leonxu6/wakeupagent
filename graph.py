@@ -35,6 +35,7 @@ from config import (
     CHECKPOINT_DB_PATH, DAILY_REPORT_PATH,
     CONTEXT_MAX_MESSAGES, SUMMARIZE_THRESHOLD, REACT_MAX_ITERATIONS,
 )
+from text_safety import model_text, single_line_text
 from tools import ALL_TOOLS
 
 LOG_PERCEPTION = LOG_A
@@ -44,6 +45,8 @@ LOG_RESET      = "[blue][R][/blue]"
 
 console = Console()
 _ERROR_DETAIL_LIMIT = 120
+_REPORT_TEXT_LIMIT = 1000
+_SUMMARY_TEXT_LIMIT = 2000
 
 
 def _safe_error_detail(exc: object) -> str:
@@ -138,7 +141,10 @@ def _generate_daily_report(messages: list, date_str: str, state: AgentState) -> 
         llm = _get_llm_plain()
         context = messages[-10:] if len(messages) > 10 else messages
         response = llm.invoke(context + [HumanMessage(content=summary_prompt)])
-        return response.content
+        report = model_text(response.content, limit=_REPORT_TEXT_LIMIT, block_limit=20)
+        if report:
+            return report
+        raise ValueError("daily report model response contained no usable text")
     except Exception as exc:  # noqa: BLE001
         console.print(f"{LOG_RESET} report generation failed ({_safe_error_detail(exc)})")
         return f"{date_str}: 检测到 {unhealthy} 次需要重新聚焦的时刻，报告生成失败。"
@@ -292,14 +298,14 @@ def decision_node(state: AgentState) -> dict:
 def _summarize_messages(messages: list, state: AgentState) -> dict:
     """将历史消息压缩为摘要，删除旧消息，保留最新5条上下文。"""
     console.print(f"{LOG_DECISION} summarizing {len(messages)} messages...")
-    summary_so_far = state.get("conversation_summary", "")
+    summary_so_far = single_line_text(state.get("conversation_summary", ""), limit=_SUMMARY_TEXT_LIMIT)
     prefix = f"已有摘要：{summary_so_far}\n\n请在此基础上更新：" if summary_so_far else "请总结以下对话："
     try:
         llm = _get_llm_plain()
         response = llm.invoke(
             messages[-20:] + [HumanMessage(content=prefix + "（50字以内，记录关键偏离与重新聚焦动作）")]
         )
-        new_summary = response.content
+        new_summary = model_text(response.content, limit=_SUMMARY_TEXT_LIMIT, block_limit=20) or summary_so_far
     except Exception:  # noqa: BLE001
         new_summary = summary_so_far
     to_delete = messages[:-5]
