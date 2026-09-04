@@ -14,6 +14,7 @@ from rich.console import Console
 from rich.markup import escape
 
 from history import ContextHistory
+from text_safety import model_text, single_line_text
 
 console = Console()
 
@@ -23,22 +24,11 @@ _MESSAGE_BLOCK_LIMIT = 20
 _AI_MESSAGE_LIMIT = 20
 _ERROR_TEXT_LIMIT = 500
 _TIMESTAMP_TEXT_LIMIT = 80
-_BIDI_CONTROLS = {
-    "\u061c", "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",
-    "\u2066", "\u2067", "\u2068", "\u2069",
-}
 
 
 def _single_line_text(value: object, *, limit: int) -> str:
-    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
-        raise ValueError("limit must be a positive integer")
-    if not isinstance(value, str):
-        return ""
-    without_controls = "".join(
-        ch if ord(ch) >= 32 and ord(ch) != 127 and ch not in _BIDI_CONTROLS else " "
-        for ch in value
-    )
-    return " ".join(without_controls.split())[:limit]
+    """Compatibility wrapper around the shared text boundary helper."""
+    return single_line_text(value, limit=limit)
 
 
 def _observation_state(text: str, ts: str, is_healthy: bool, should_escalate: bool) -> dict:
@@ -59,22 +49,7 @@ def _observation_state(text: str, ts: str, is_healthy: bool, should_escalate: bo
 
 
 def _message_text(content: object) -> str:
-    if isinstance(content, str):
-        return _single_line_text(content, limit=_MESSAGE_TEXT_LIMIT)
-    if not isinstance(content, (list, tuple)):
-        return ""
-    parts: list[str] = []
-    for block in content[:_MESSAGE_BLOCK_LIMIT]:
-        if isinstance(block, str):
-            text = block
-        elif isinstance(block, dict) and isinstance(block.get("text"), str):
-            text = block["text"]
-        else:
-            continue
-        normalized = _single_line_text(text, limit=_MESSAGE_TEXT_LIMIT)
-        if normalized:
-            parts.append(normalized)
-    return _single_line_text(" ".join(parts), limit=_MESSAGE_TEXT_LIMIT)
+    return model_text(content, limit=_MESSAGE_TEXT_LIMIT, block_limit=_MESSAGE_BLOCK_LIMIT)
 
 
 def _ai_message_texts(node_output: object) -> list[str]:
