@@ -6,6 +6,12 @@ WakeUpAgent intentionally exposes narrow capabilities instead of general system 
 
 Treat model output, environment variables, URLs, application names, message text, structured response objects, and external command errors as untrusted. Validate their shape and size before they cross into network, browser, subprocess, or persistence APIs.
 
+## Model text boundary
+
+Model and orchestration text should pass through the shared `text_safety` helpers before it is logged, persisted, summarized, or reused as context. The boundary removes control, bidirectional, and selected invisible formatting characters, replaces surrogate code points that cannot be safely encoded, and applies explicit character budgets.
+
+Structured model responses are not generic dictionaries. Only recognized text block types (`text`, `input_text`, `output_text`, plus legacy blocks without a type) may contribute text. Image, tool-result, and other non-text blocks must not be folded into prompts or persistent summaries merely because they happen to contain a `text` field.
+
 ## Explicit opt-ins
 
 External messaging and process control are disabled unless explicitly enabled. A new side-effecting tool should follow the same pattern. Do not infer consent from the model response or from another feature flag.
