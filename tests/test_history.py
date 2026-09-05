@@ -1,5 +1,7 @@
 import unittest
+from unittest.mock import patch
 
+import history as history_module
 from history import ContextHistory
 
 
@@ -78,6 +80,20 @@ class ContextHistoryTests(unittest.TestCase):
         self.assertEqual(len(history), 2)
         history.add_observation("same scene")
         self.assertEqual(len(history), 3)
+
+    def test_render_budget_prefers_newest_entries(self):
+        history = ContextHistory(max_items=4, observation_limit=20)
+        history.add_observation("oldest-1111")
+        history.add_observation("older-22222")
+        history.add_observation("newer-33333")
+        history.add_observation("newest-4444")
+        with patch.object(history_module, "_MAX_RENDER_CHARS", 48):
+            rendered = history.render(recent=4)
+        self.assertNotIn("oldest-1111", rendered)
+        self.assertNotIn("older-22222", rendered)
+        self.assertIn("newer-33333", rendered)
+        self.assertIn("newest-4444", rendered)
+        self.assertLess(rendered.index("newer-33333"), rendered.index("newest-4444"))
 
     def test_invalid_limits_are_rejected(self):
         fields = ("max_items", "summary_limit", "observation_limit", "decision_limit")
