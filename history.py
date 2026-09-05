@@ -91,15 +91,15 @@ class ContextHistory:
         if items:
             prefix = "Recent history:\n"
             used = len(prefix) + (len(parts[0]) + 2 if parts else 0)
-            kept: list[str] = []
-            for item in items:
-                additional = len(item) + (1 if kept else 0)
+            kept_reversed: list[str] = []
+            for item in reversed(items):
+                additional = len(item) + (1 if kept_reversed else 0)
                 if used + additional > _MAX_RENDER_CHARS:
                     break
-                kept.append(item)
+                kept_reversed.append(item)
                 used += additional
-            if kept:
-                parts.append(prefix + "\n".join(kept))
+            if kept_reversed:
+                parts.append(prefix + "\n".join(reversed(kept_reversed)))
         return "\n\n".join(parts).rstrip()
 
     def snapshot(self) -> dict[str, object]:
