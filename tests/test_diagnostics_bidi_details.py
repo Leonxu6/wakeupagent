@@ -15,6 +15,16 @@ class DiagnosticBidiDetailTests(unittest.TestCase):
         self.assertNotIn("\u2066", payload[0]["detail"])
         self.assertEqual(payload[0]["detail"], "left right")
 
+    def test_reports_strip_hidden_and_c1_controls_through_shared_boundary(self):
+        rendered = format_checks([Check("service", False, "a\u0085b\u200bc\u2060d\ufeffe")])
+        self.assertIn("a b c d e", rendered)
+        self.assertNotIn("\u200b", rendered)
+        self.assertNotIn("\u2060", rendered)
+
+    def test_json_reports_survive_unencodable_surrogates(self):
+        payload = json.loads(format_checks_json([Check("service", True, "a" + chr(0xD800) + "b")]))
+        self.assertEqual(payload[0]["detail"], "a b")
+
 
 if __name__ == "__main__":
     unittest.main()
