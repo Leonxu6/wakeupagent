@@ -8,6 +8,7 @@ _BIDI_CONTROLS = {
     "\u2066", "\u2067", "\u2068", "\u2069",
 }
 _HIDDEN_FORMATS = _BIDI_CONTROLS | {"\u00ad", "\u200b", "\u2060", "\ufeff"}
+_TEXT_BLOCK_TYPES = {None, "text", "input_text", "output_text"}
 _MAX_TEXT_LIMIT = 100_000
 _MAX_BLOCKS = 100
 
@@ -49,7 +50,11 @@ def model_text(content: object, *, limit: int = 2000, block_limit: int = 20) -> 
     for block in content[:block_limit]:
         if isinstance(block, str):
             raw = block
-        elif isinstance(block, dict) and isinstance(block.get("text"), str):
+        elif (
+            isinstance(block, dict)
+            and block.get("type") in _TEXT_BLOCK_TYPES
+            and isinstance(block.get("text"), str)
+        ):
             raw = block["text"]
         else:
             continue
