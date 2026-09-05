@@ -7,6 +7,15 @@ def test_single_line_text_removes_controls_and_bidi_markers():
     assert single_line_text("  hello\n\u202eworld\t  ", limit=50) == "hello world"
 
 
+def test_single_line_text_removes_hidden_format_and_c1_controls():
+    value = "a\u0085b\u200bc\u2060d\ufeffe"
+    assert single_line_text(value, limit=50) == "a b c d e"
+
+
+def test_single_line_text_replaces_unencodable_surrogates():
+    assert single_line_text("a" + chr(0xD800) + "b", limit=50) == "a b"
+
+
 def test_single_line_text_rejects_invalid_limits():
     for value in (0, -1, True, 100_001):
         with pytest.raises(ValueError):
