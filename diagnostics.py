@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 
 from safety import require_http_url
 from settings import env_bool
+from text_safety import single_line_text
 
 
 @dataclass(frozen=True)
@@ -144,11 +145,7 @@ def _single_line(value: object, *, limit: int = _DETAIL_LIMIT) -> str:
         rendered = str(value)
     except Exception:  # noqa: BLE001
         rendered = value.__class__.__name__
-    rendered = "".join(
-        ch if ord(ch) >= 32 and ord(ch) != 127 and ch not in _BIDI_CONTROLS else " "
-        for ch in rendered
-    )
-    return " ".join(rendered.split())[:limit]
+    return single_line_text(rendered, limit=limit)
 
 
 def _check_name(value: object) -> str:
