@@ -2,8 +2,8 @@ import history
 from history import ContextHistory
 
 
-def test_render_budget_preserves_whole_entries_with_summary(monkeypatch):
-    monkeypatch.setattr(history, "_MAX_RENDER_CHARS", 49)
+def test_render_budget_preserves_newest_whole_entry_with_summary(monkeypatch):
+    monkeypatch.setattr(history, "_MAX_RENDER_CHARS", 50)
     context = ContextHistory(observation_limit=40)
     context.set_summary("focus")
     context.add_observation("first entry")
@@ -11,5 +11,5 @@ def test_render_budget_preserves_whole_entries_with_summary(monkeypatch):
 
     rendered = context.render(recent=2)
 
-    assert rendered == "Summary: focus\n\nRecent history:\n[Obs] first entry"
-    assert len(rendered) <= 49
+    assert rendered == "Summary: focus\n\nRecent history:\n[Obs] second entry"
+    assert len(rendered) <= 50
