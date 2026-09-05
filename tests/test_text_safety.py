@@ -27,6 +27,16 @@ def test_model_text_preserves_structured_text_blocks():
     assert model_text(content, limit=50, block_limit=10) == "one two lines"
 
 
+def test_model_text_ignores_non_text_blocks_even_when_they_have_text_fields():
+    content = [
+        {"type": "image", "text": "image metadata must not leak"},
+        {"type": "tool_result", "text": "tool payload must not leak"},
+        {"type": "output_text", "text": "safe answer"},
+        {"text": "legacy text"},
+    ]
+    assert model_text(content, limit=100, block_limit=10) == "safe answer legacy text"
+
+
 def test_model_text_stops_at_character_budget_without_overconsuming_blocks():
     class GuardedList(list):
         def __getitem__(self, item):
