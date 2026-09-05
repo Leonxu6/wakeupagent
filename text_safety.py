@@ -1,10 +1,13 @@
 """Shared text normalization for model, diagnostic, and orchestration boundaries."""
 from __future__ import annotations
 
+import unicodedata
+
 _BIDI_CONTROLS = {
     "\u061c", "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",
     "\u2066", "\u2067", "\u2068", "\u2069",
 }
+_HIDDEN_FORMATS = _BIDI_CONTROLS | {"\u00ad", "\u200b", "\u2060", "\ufeff"}
 _MAX_TEXT_LIMIT = 100_000
 _MAX_BLOCKS = 100
 
@@ -17,15 +20,19 @@ def _positive_int(value: object, *, field: str, maximum: int) -> int:
     return value
 
 
+def _safe_visible_char(ch: str) -> str:
+    """Replace control/surrogate and selected invisible formatting characters with spaces."""
+    if unicodedata.category(ch) in {"Cc", "Cs"} or ch in _HIDDEN_FORMATS:
+        return " "
+    return ch
+
+
 def single_line_text(value: object, *, limit: int) -> str:
     """Return bounded visible single-line text, or an empty string for non-text values."""
     limit = _positive_int(limit, field="limit", maximum=_MAX_TEXT_LIMIT)
     if not isinstance(value, str):
         return ""
-    clean = "".join(
-        ch if ord(ch) >= 32 and ord(ch) != 127 and ch not in _BIDI_CONTROLS else " "
-        for ch in value
-    )
+    clean = "".join(_safe_visible_char(ch) for ch in value)
     return " ".join(clean.split())[:limit].rstrip()
 
 
