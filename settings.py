@@ -25,6 +25,10 @@ _BIDI_CONTROLS = {
 }
 
 
+def _contains_unsafe_control(value: str) -> bool:
+    return any(unicodedata.category(ch) in {"Cc", "Cf", "Cs"} for ch in value)
+
+
 def _env_name(name: object) -> str:
     if not isinstance(name, str) or not name or name != name.strip():
         raise ValueError("environment variable name must be clean non-empty text")
@@ -44,7 +48,7 @@ def _raw(name: str) -> str | None:
         raise ValueError(f"{name} must not have leading or trailing whitespace")
     if not value:
         raise ValueError(f"{name} must not be empty")
-    if any(ord(ch) < 32 or ord(ch) == 127 or ch in _BIDI_CONTROLS for ch in value):
+    if _contains_unsafe_control(value):
         raise ValueError(f"{name} must not contain control characters")
     return value
 
@@ -100,7 +104,7 @@ def _validate_text(value: object, *, field: str, max_length: int, allow_empty: b
         raise ValueError(f"{field} must not be empty")
     if len(value) > max_length:
         raise ValueError(f"{field} must be at most {max_length} characters")
-    if any(ord(ch) < 32 or ord(ch) == 127 or ch in _BIDI_CONTROLS for ch in value):
+    if _contains_unsafe_control(value):
         raise ValueError(f"{field} contains control characters")
     return value
 
