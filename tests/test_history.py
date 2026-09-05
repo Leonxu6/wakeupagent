@@ -87,7 +87,7 @@ class ContextHistoryTests(unittest.TestCase):
         history.add_observation("older-22222")
         history.add_observation("newer-33333")
         history.add_observation("newest-4444")
-        with patch.object(history_module, "_MAX_RENDER_CHARS", 48):
+        with patch.object(history_module, "_MAX_RENDER_CHARS", 51):
             rendered = history.render(recent=4)
         self.assertNotIn("oldest-1111", rendered)
         self.assertNotIn("older-22222", rendered)
