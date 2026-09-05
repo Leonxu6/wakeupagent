@@ -12,6 +12,11 @@ def test_single_line_text_removes_hidden_format_and_c1_controls():
     assert single_line_text(value, limit=50) == "a b c d e"
 
 
+def test_single_line_text_removes_generic_unicode_format_controls():
+    value = "a\u200cb\u200dc\u206ad\u206fe"
+    assert single_line_text(value, limit=50) == "a b c d e"
+
+
 def test_single_line_text_replaces_unencodable_surrogates():
     assert single_line_text("a" + chr(0xD800) + "b", limit=50) == "a b"
 
