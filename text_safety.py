@@ -22,8 +22,8 @@ def _positive_int(value: object, *, field: str, maximum: int) -> int:
 
 
 def _safe_visible_char(ch: str) -> str:
-    """Replace control/surrogate and selected invisible formatting characters with spaces."""
-    if unicodedata.category(ch) in {"Cc", "Cs"} or ch in _HIDDEN_FORMATS:
+    """Replace controls, surrogates, and invisible format characters with spaces."""
+    if unicodedata.category(ch) in {"Cc", "Cf", "Cs"} or ch in _HIDDEN_FORMATS:
         return " "
     return ch
 
