@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 import diagnostics
 
@@ -17,6 +18,19 @@ class DiagnosticPersistenceBidiTests(unittest.TestCase):
                 check = diagnostics._persistence_parent_check("state", value)
                 self.assertFalse(check.ok)
                 self.assertIn("controls", check.detail)
+
+    def test_path_objects_share_the_same_control_boundary(self):
+        for value in (Path("memory\u200c/state.db"), Path("memory/report\u206a.md")):
+            with self.subTest(value=value):
+                check = diagnostics._persistence_parent_check("state", value)
+                self.assertFalse(check.ok)
+                self.assertIn("controls", check.detail)
+
+    def test_diagnostic_roots_reject_hidden_controls_before_resolution(self):
+        for value in ("root\u200c", Path("root\u206a")):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "controls"):
+                    diagnostics._diagnostic_root(value)
 
 
 if __name__ == "__main__":
