@@ -125,7 +125,7 @@ def _persistence_parent_check(name: str, value: object) -> Check:
             return Check(name, False, "configured path must name a file, not a directory")
         parent = resolved.parent
     except (OSError, RuntimeError, ValueError) as exc:
-        return Check(name, False, f"invalid configured path ({exc.__class__.__name__})")
+        return Check(name, False, f"invalid path: {text} ({exc})")
     return _directory_check(name, parent)
 
 
@@ -202,7 +202,7 @@ def _diagnostic_root(base_dir: object) -> Path:
     try:
         root = Path(text).expanduser().resolve()
     except (OSError, RuntimeError, ValueError) as exc:
-        raise ValueError(f"base_dir could not be resolved ({exc.__class__.__name__})") from exc
+        raise ValueError(f"base_dir could not be resolved: {exc}") from exc
     if not root.is_dir():
         raise ValueError("base_dir must resolve to an existing directory")
     return root
