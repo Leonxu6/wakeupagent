@@ -102,14 +102,22 @@ def _has_unsafe_path_controls(value: str) -> bool:
     return any(unicodedata.category(ch) in {"Cc", "Cf", "Cs"} for ch in value)
 
 
-def _persistence_parent_check(name: str, value: object) -> Check:
+def _configured_path_text(value: object, *, field: str) -> str:
     if not isinstance(value, (str, Path)):
-        return Check(name, False, "configured path must be text or Path")
-    if isinstance(value, str):
-        if not value or value != value.strip() or _has_unsafe_path_controls(value):
-            return Check(name, False, "configured path must be non-empty unpadded text without controls")
+        raise ValueError(f"{field} must be text or Path")
+    text = os.fspath(value)
+    if not text or text != text.strip() or _has_unsafe_path_controls(text):
+        raise ValueError(f"{field} must be non-empty unpadded text without controls")
+    return text
+
+
+def _persistence_parent_check(name: str, value: object) -> Check:
     try:
-        path = Path(value).expanduser()
+        text = _configured_path_text(value, field="configured path")
+    except ValueError as exc:
+        return Check(name, False, str(exc))
+    try:
+        path = Path(text).expanduser()
         if not path.name:
             return Check(name, False, "configured path must name a persistence file")
         resolved = path.resolve()
@@ -117,7 +125,7 @@ def _persistence_parent_check(name: str, value: object) -> Check:
             return Check(name, False, "configured path must name a file, not a directory")
         parent = resolved.parent
     except (OSError, RuntimeError, ValueError) as exc:
-        return Check(name, False, f"invalid path: {value} ({exc})")
+        return Check(name, False, f"invalid configured path ({exc.__class__.__name__})")
     return _directory_check(name, parent)
 
 
@@ -187,12 +195,14 @@ def _validated_checks(checks: object) -> list[tuple[Check, str]]:
 def _diagnostic_root(base_dir: object) -> Path:
     if base_dir is None:
         return Path(__file__).resolve().parent
-    if not isinstance(base_dir, (str, Path)):
-        raise ValueError("base_dir must be a path string or Path")
     try:
-        root = Path(base_dir).expanduser().resolve()
+        text = _configured_path_text(base_dir, field="base_dir")
+    except ValueError as exc:
+        raise ValueError(str(exc)) from exc
+    try:
+        root = Path(text).expanduser().resolve()
     except (OSError, RuntimeError, ValueError) as exc:
-        raise ValueError(f"base_dir could not be resolved: {exc}") from exc
+        raise ValueError(f"base_dir could not be resolved ({exc.__class__.__name__})") from exc
     if not root.is_dir():
         raise ValueError("base_dir must resolve to an existing directory")
     return root
