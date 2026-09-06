@@ -10,6 +10,7 @@ _BIDI_CONTROLS = {
 _HIDDEN_FORMATS = _BIDI_CONTROLS | {"\u00ad", "\u200b", "\u2060", "\ufeff"}
 _TEXT_BLOCK_TYPES = {None, "text", "input_text", "output_text"}
 _MAX_TEXT_LIMIT = 100_000
+_MAX_RAW_TEXT_CHARS = 200_000
 _MAX_BLOCKS = 100
 
 
@@ -29,11 +30,16 @@ def _safe_visible_char(ch: str) -> str:
 
 
 def single_line_text(value: object, *, limit: int) -> str:
-    """Return bounded visible single-line text, or an empty string for non-text values."""
+    """Return bounded visible single-line text, or an empty string for non-text values.
+
+    Raw input inspection is capped as well as output size so a tiny requested result cannot
+    force normalization to walk an arbitrarily large model or environment string.
+    """
     limit = _positive_int(limit, field="limit", maximum=_MAX_TEXT_LIMIT)
     if not isinstance(value, str):
         return ""
-    clean = "".join(_safe_visible_char(ch) for ch in value)
+    raw = value[:_MAX_RAW_TEXT_CHARS]
+    clean = "".join(_safe_visible_char(ch) for ch in raw)
     return " ".join(clean.split())[:limit].rstrip()
 
 
@@ -47,7 +53,9 @@ def model_text(content: object, *, limit: int = 2000, block_limit: int = 20) -> 
         return ""
     parts: list[str] = []
     used = 0
-    for block in content[:block_limit]:
+    for index, block in enumerate(content):
+        if index >= block_limit:
+            break
         if isinstance(block, str):
             raw = block
         elif (
