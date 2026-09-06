@@ -98,13 +98,15 @@ def _directory_check(name: str, path: Path) -> Check:
     return Check(name, True, str(path))
 
 
+def _has_unsafe_path_controls(value: str) -> bool:
+    return any(unicodedata.category(ch) in {"Cc", "Cf", "Cs"} for ch in value)
+
+
 def _persistence_parent_check(name: str, value: object) -> Check:
     if not isinstance(value, (str, Path)):
         return Check(name, False, "configured path must be text or Path")
     if isinstance(value, str):
-        if not value or value != value.strip() or any(
-            ord(ch) < 32 or ord(ch) == 127 or ch in _BIDI_CONTROLS for ch in value
-        ):
+        if not value or value != value.strip() or _has_unsafe_path_controls(value):
             return Check(name, False, "configured path must be non-empty unpadded text without controls")
     try:
         path = Path(value).expanduser()
