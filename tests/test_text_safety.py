@@ -1,6 +1,6 @@
 import pytest
 
-from text_safety import model_text, single_line_text
+from text_safety import _MAX_RAW_TEXT_CHARS, model_text, single_line_text
 
 
 def test_single_line_text_removes_controls_and_bidi_markers():
@@ -27,6 +27,11 @@ def test_single_line_text_rejects_invalid_limits():
             single_line_text("x", limit=value)
 
 
+def test_single_line_text_caps_raw_input_scanning():
+    value = " " * _MAX_RAW_TEXT_CHARS + "tail-must-not-be-scanned"
+    assert single_line_text(value, limit=50) == ""
+
+
 def test_model_text_preserves_structured_text_blocks():
     content = ["one", {"type": "text", "text": "two\nlines"}, {"type": "image", "url": "ignored"}]
     assert model_text(content, limit=50, block_limit=10) == "one two lines"
@@ -42,14 +47,14 @@ def test_model_text_ignores_non_text_blocks_even_when_they_have_text_fields():
     assert model_text(content, limit=100, block_limit=10) == "safe answer legacy text"
 
 
-def test_model_text_stops_at_character_budget_without_overconsuming_blocks():
-    class GuardedList(list):
+def test_model_text_stops_at_character_budget_without_slicing_input():
+    class NoSliceList(list):
         def __getitem__(self, item):
             if isinstance(item, slice):
-                return super().__getitem__(item)
+                raise AssertionError("model_text should not copy structured content by slicing")
             return super().__getitem__(item)
 
-    content = GuardedList([{"text": "a" * 8}, {"text": "b" * 8}, {"text": "c" * 8}])
+    content = NoSliceList([{"text": "a" * 8}, {"text": "b" * 8}, {"text": "c" * 8}])
     assert model_text(content, limit=12, block_limit=3) == "aaaaaaaa bbb"
 
 
