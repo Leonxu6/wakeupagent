@@ -66,6 +66,7 @@ def valid_hostname(hostname: object) -> bool:
             or len(label) > _MAX_DNS_LABEL
             or label.startswith("-")
             or label.endswith("-")
+            or not any(ch.isalnum() for ch in label)
         ):
             return False
         if not all(ch.isalnum() or ch in {"-", "_"} for ch in label):
