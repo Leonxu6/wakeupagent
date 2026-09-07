@@ -18,6 +18,11 @@ class RequireTextTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaisesRegex(ValueError, "control"):
                 require_text(value, field="message", max_length=40)
 
+    def test_rejects_generic_unicode_controls_and_surrogates(self):
+        for value in ("safe\u200devent", "safe\u206aevent", "safe" + chr(0xD800) + "event"):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "control"):
+                require_text(value, field="message", max_length=40)
+
     def test_allows_newlines_when_explicitly_requested_but_not_other_controls(self):
         self.assertEqual(
             require_text("line one\nline two", field="message", max_length=30, allow_newlines=True),
@@ -25,6 +30,8 @@ class RequireTextTests(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             require_text("line one\tline two", field="message", max_length=30, allow_newlines=True)
+        with self.assertRaises(ValueError):
+            require_text("line one\u200dline two", field="message", max_length=30, allow_newlines=True)
 
     def test_enforces_length_limit(self):
         with self.assertRaisesRegex(ValueError, "at most 4"):
@@ -55,6 +62,11 @@ class UrlValidationTests(unittest.TestCase):
         )
         for url in invalid:
             with self.subTest(url=url), self.assertRaises(ValueError):
+                require_http_url(url)
+
+    def test_rejects_hidden_unicode_controls_in_urls(self):
+        for url in ("https://example.com/a\u200db", "https://example.com/a\u206ab"):
+            with self.subTest(url=url), self.assertRaisesRegex(ValueError, "control"):
                 require_http_url(url)
 
     def test_rejects_overlong_dns_hostnames(self):
