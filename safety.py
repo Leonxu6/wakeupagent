@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 import re
+import unicodedata
 from urllib.parse import urlparse
 
 from network_validation import valid_hostname
@@ -18,10 +19,9 @@ _BIDI_CONTROLS = {
 
 def _has_disallowed_control(value: str, *, allow_newlines: bool) -> bool:
     for ch in value:
-        code = ord(ch)
         if ch in "\n\r" and allow_newlines:
             continue
-        if code < 32 or code == 127 or ch in _BIDI_CONTROLS:
+        if unicodedata.category(ch) in {"Cc", "Cf", "Cs"} or ch in _BIDI_CONTROLS:
             return True
     return False
 
