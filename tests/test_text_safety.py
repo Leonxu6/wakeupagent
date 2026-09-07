@@ -58,6 +58,12 @@ def test_model_text_stops_at_character_budget_without_slicing_input():
     assert model_text(content, limit=12, block_limit=3) == "aaaaaaaa bbb"
 
 
+def test_model_text_shares_one_raw_scan_budget_across_blocks():
+    hidden = "\u200d" * (_MAX_RAW_TEXT_CHARS // 2)
+    content = [hidden, hidden, "visible-tail-must-not-be-scanned"]
+    assert model_text(content, limit=50, block_limit=3) == ""
+
+
 def test_model_text_rejects_invalid_block_limit():
     with pytest.raises(ValueError):
         model_text("x", block_limit=0)
