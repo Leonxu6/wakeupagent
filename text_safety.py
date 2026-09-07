@@ -44,7 +44,11 @@ def single_line_text(value: object, *, limit: int) -> str:
 
 
 def model_text(content: object, *, limit: int = 2000, block_limit: int = 20) -> str:
-    """Extract bounded text from common LangChain/OpenAI structured content shapes."""
+    """Extract bounded text from common LangChain/OpenAI structured content shapes.
+
+    Structured responses share one raw-character inspection budget across all blocks so a
+    sequence of control-only blocks cannot multiply normalization work by ``block_limit``.
+    """
     limit = _positive_int(limit, field="limit", maximum=_MAX_TEXT_LIMIT)
     block_limit = _positive_int(block_limit, field="block_limit", maximum=_MAX_BLOCKS)
     if isinstance(content, str):
@@ -53,8 +57,9 @@ def model_text(content: object, *, limit: int = 2000, block_limit: int = 20) -> 
         return ""
     parts: list[str] = []
     used = 0
+    raw_used = 0
     for index, block in enumerate(content):
-        if index >= block_limit:
+        if index >= block_limit or raw_used >= _MAX_RAW_TEXT_CHARS:
             break
         if isinstance(block, str):
             raw = block
@@ -66,10 +71,13 @@ def model_text(content: object, *, limit: int = 2000, block_limit: int = 20) -> 
             raw = block["text"]
         else:
             continue
+        remaining_raw = _MAX_RAW_TEXT_CHARS - raw_used
+        inspected = raw[:remaining_raw]
+        raw_used += len(inspected)
         remaining = limit - used
         if remaining <= 0:
             break
-        text = single_line_text(raw, limit=remaining)
+        text = single_line_text(inspected, limit=remaining)
         if not text:
             continue
         separator = 1 if parts else 0
