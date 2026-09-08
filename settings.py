@@ -29,6 +29,10 @@ def _contains_unsafe_control(value: str) -> bool:
     return any(unicodedata.category(ch) in {"Cc", "Cf", "Cs"} for ch in value)
 
 
+def _reject_json_constant(value: str) -> None:
+    raise json.JSONDecodeError("nonstandard JSON constant", value, 0)
+
+
 def _env_name(name: object) -> str:
     if not isinstance(name, str) or not name or name != name.strip():
         raise ValueError("environment variable name must be clean non-empty text")
@@ -253,7 +257,7 @@ def env_json_string_map(name: str, default: dict[str, str], *, max_entries: int 
             return result
 
         try:
-            value = json.loads(raw, object_pairs_hook=_unique_object)
+            value = json.loads(raw, object_pairs_hook=_unique_object, parse_constant=_reject_json_constant)
         except json.JSONDecodeError as exc:
             raise ValueError(f"{name} must be a JSON object") from exc
     if not isinstance(value, dict):
