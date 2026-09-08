@@ -8,9 +8,13 @@ from pathlib import Path
 from maintenance.common import print_failures, require_root, tracked_files
 
 
+def _reject_nonstandard_constant(value: str) -> None:
+    raise json.JSONDecodeError("nonstandard JSON constant", value, 0)
+
+
 def audit_file(path: Path) -> list[str]:
     try:
-        json.loads(path.read_text(encoding="utf-8"))
+        json.loads(path.read_text(encoding="utf-8"), parse_constant=_reject_nonstandard_constant)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         return [f"invalid JSON: {path.name}: {exc}"]
     return []
