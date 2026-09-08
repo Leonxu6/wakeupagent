@@ -16,3 +16,12 @@ def test_json_syntax_audit_reports_invalid_json(tmp_path: Path):
     failures = audit_file(path)
     assert len(failures) == 1
     assert "invalid JSON" in failures[0]
+
+
+def test_json_syntax_audit_rejects_nonstandard_constants(tmp_path: Path):
+    for constant in ("NaN", "Infinity", "-Infinity"):
+        path = tmp_path / f"{constant.replace('-', 'neg-')}.json"
+        path.write_text('{"value":' + constant + "}", encoding="utf-8")
+        failures = audit_file(path)
+        assert len(failures) == 1
+        assert "invalid JSON" in failures[0]
