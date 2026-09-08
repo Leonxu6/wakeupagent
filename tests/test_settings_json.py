@@ -33,6 +33,13 @@ class JsonStringMapTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     env_json_string_map("CONTACTS", {})
 
+    def test_rejects_nonstandard_json_constants(self):
+        for constant in ("NaN", "Infinity", "-Infinity"):
+            raw = '{"mentor":' + constant + "}"
+            with self.subTest(constant=constant), patch.dict(os.environ, {"CONTACTS": raw}, clear=True):
+                with self.assertRaisesRegex(ValueError, "JSON object"):
+                    env_json_string_map("CONTACTS", {})
+
     def test_enforces_entry_count_and_option_type(self):
         with patch.dict(os.environ, {"CONTACTS": '{"a":"A","b":"B"}'}, clear=True):
             with self.assertRaises(ValueError):
