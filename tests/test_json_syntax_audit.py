@@ -25,3 +25,12 @@ def test_json_syntax_audit_rejects_nonstandard_constants(tmp_path: Path):
         failures = audit_file(path)
         assert len(failures) == 1
         assert "invalid JSON" in failures[0]
+
+
+def test_json_syntax_audit_rejects_duplicate_object_keys(tmp_path: Path):
+    path = tmp_path / "duplicate.json"
+    path.write_text('{"mode":"safe","mode":"unsafe"}', encoding="utf-8")
+    failures = audit_file(path)
+    assert len(failures) == 1
+    assert "invalid JSON" in failures[0]
+    assert "duplicate" in failures[0]
