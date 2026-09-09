@@ -32,6 +32,18 @@ class ObserveCameraTests(unittest.TestCase):
         self.assertNotIn("reading notes", rendered)
 
     @patch("tools.console.print")
+    def test_rejects_hidden_unicode_camera_descriptions(self, console_print):
+        for description in ("person\u200dreading", "person\u206areading", "person" + chr(0xD800) + "reading"):
+            with self.subTest(description=repr(description)), patch.dict(
+                sys.modules,
+                {"perception": self._perception(description)},
+            ):
+                result = observe_camera.invoke({})
+            self.assertEqual(result, "Error: camera description contains control characters")
+        rendered = " ".join(str(call.args[0]) for call in console_print.call_args_list if call.args)
+        self.assertNotIn("person reading", rendered)
+
+    @patch("tools.console.print")
     def test_rejects_non_text_or_empty_camera_descriptions(self, console_print):
         for description in (None, "   "):
             with self.subTest(description=description), patch.dict(sys.modules, {"perception": self._perception(description)}):
