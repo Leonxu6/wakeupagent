@@ -34,18 +34,19 @@ def _error(exc: ValueError) -> str:
     return f"Error: {exc}"
 
 
+def _is_unsafe_control(ch: str) -> bool:
+    return unicodedata.category(ch) in {"Cc", "Cf", "Cs"} or ch in _BIDI_CONTROLS
+
+
 def _bounded_detail(value: object, *, limit: int = 500) -> str:
-    """Keep driver/subprocess failures compact and single-line for local logs."""
+    """Keep driver/subprocess failures compact, visible, and single-line for local logs."""
     if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
         raise ValueError("limit must be a positive integer")
     try:
         rendered = str(value)
     except Exception:  # noqa: BLE001
         rendered = value.__class__.__name__
-    rendered = "".join(
-        ch if ord(ch) >= 32 and ord(ch) != 127 and ch not in _BIDI_CONTROLS else " "
-        for ch in rendered
-    )
+    rendered = "".join(" " if _is_unsafe_control(ch) else ch for ch in rendered)
     text = " ".join(rendered.split())
     return text[:limit] if text else "unknown error"
 
@@ -57,12 +58,12 @@ def _safe_url_label(url: str) -> str:
 
 
 def _observation_text(value: object, *, limit: int = 1000) -> str:
-    """Normalize a local vision response before logging or returning it to the graph."""
+    """Validate a local vision response before logging or returning it to the graph."""
     if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
         raise ValueError("observation limit must be a positive integer")
     if not isinstance(value, str):
         raise ValueError("camera description must be text")
-    if any(ord(ch) < 32 or ord(ch) == 127 or ch in _BIDI_CONTROLS for ch in value):
+    if any(_is_unsafe_control(ch) for ch in value):
         raise ValueError("camera description contains control characters")
     text = " ".join(value.split())
     if not text:
