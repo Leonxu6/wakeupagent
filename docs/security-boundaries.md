@@ -14,13 +14,21 @@ Both output size and raw normalization work are bounded. Extremely large raw str
 
 Structured model responses are not generic dictionaries. Only recognized text block types (`text`, `input_text`, `output_text`, plus legacy blocks without a type) may contribute text. Image, tool-result, and other non-text blocks must not be folded into prompts or persistent summaries merely because they happen to contain a `text` field.
 
+## Tool output boundary
+
+Camera descriptions and local driver/subprocess error details are also untrusted text. Before they are returned to the graph or printed locally, tool boundaries reject or neutralize the full Unicode control/format/surrogate categories (`Cc`, `Cf`, `Cs`), not only ASCII controls or the commonly known bidirectional characters. This keeps invisible formatting state from crossing from model/OS output into prompts, logs, or terminal rendering.
+
+Tool-facing error messages should expose a stable failure category while logs retain only bounded, single-line, control-safe detail. Do not echo a raw backend exception to the model merely because execution is local.
+
 ## Persistence paths
 
 Checkpoint and report paths are configuration boundaries, not free-form display text. Diagnostics reject padded paths and Unicode control, format, or surrogate characters before path expansion/resolution. This prevents invisible path spelling differences from reaching persistence checks and keeps diagnostic output stable across terminals and filesystems.
 
 ## Explicit opt-ins
 
-External messaging and process control are disabled unless explicitly enabled. A new side-effecting tool should follow the same pattern. Do not infer consent from the model response or from another feature flag.
+External messaging, browser control, local TTS, and process control are disabled unless explicitly enabled. A new side-effecting tool should follow the same pattern. Do not infer consent from the model response or from another feature flag.
+
+The historical destructive chaos mode is intentionally not registered in `ALL_TOOLS`; its compatibility entry point returns an error instead of reproducing the old side effects. Do not reintroduce it through orchestration prompts, aliases, or a second execution path.
 
 ## No generic shell bridge
 
