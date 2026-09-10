@@ -168,7 +168,9 @@ def _check_name(value: object) -> str:
         raise ValueError("check names must be non-empty unpadded text")
     if len(value) > 80:
         raise ValueError("check names must be at most 80 characters")
-    if any(ch in _BIDI_CONTROLS or _unsafe_check_identity_control(ch) for ch in value):
+    if any(ch in _BIDI_CONTROLS for ch in value):
+        raise ValueError("check names must not contain bidirectional control characters")
+    if any(_unsafe_check_identity_control(ch) for ch in value):
         raise ValueError("check names must not contain hidden control characters")
     normalized = _single_line(value, limit=80)
     if not normalized:
