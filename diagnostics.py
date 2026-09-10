@@ -158,13 +158,18 @@ def _single_line(value: object, *, limit: int = _DETAIL_LIMIT) -> str:
     return single_line_text(rendered, limit=limit)
 
 
+def _unsafe_check_identity_control(ch: str) -> bool:
+    category = unicodedata.category(ch)
+    return category in {"Cf", "Cs"} or (category == "Cc" and ch not in "\n\r\t")
+
+
 def _check_name(value: object) -> str:
     if not isinstance(value, str) or not value or value != value.strip():
         raise ValueError("check names must be non-empty unpadded text")
     if len(value) > 80:
         raise ValueError("check names must be at most 80 characters")
-    if any(ch in _BIDI_CONTROLS for ch in value):
-        raise ValueError("check names must not contain bidirectional controls")
+    if any(ch in _BIDI_CONTROLS or _unsafe_check_identity_control(ch) for ch in value):
+        raise ValueError("check names must not contain hidden control characters")
     normalized = _single_line(value, limit=80)
     if not normalized:
         raise ValueError("check names must contain visible text")
