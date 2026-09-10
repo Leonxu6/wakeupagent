@@ -9,11 +9,17 @@ def test_diagnostic_check_names_reject_padding_and_oversize():
             format_checks([Check(name, True, "ok")])
 
 
-def test_diagnostic_check_names_sanitize_controls_without_forging_lines():
+def test_diagnostic_check_names_sanitize_line_breaks_without_forging_lines():
     payload = checks_payload([Check("model\nname", False, "failed")])
     assert payload == [{"name": "model name", "ok": False, "detail": "failed"}]
     text = format_checks([Check("b\nspoof", False, "missing\n[OK] forged: yes")])
     assert text == "[WARN] b spoof: missing [OK] forged: yes"
+
+
+@pytest.mark.parametrize("control", ["\u200d", "\u206a", chr(0xD800), "\x00"])
+def test_diagnostic_check_names_reject_hidden_identity_controls(control):
+    with pytest.raises(ValueError, match="control"):
+        checks_payload([Check(f"model{control}name", True, "ok")])
 
 
 def test_diagnostic_check_names_still_reject_normalized_collisions():
