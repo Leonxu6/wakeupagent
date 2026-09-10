@@ -19,6 +19,8 @@ console = Console()
 _TTS_VOICE = "Tingting"
 _MAX_DETAIL_LIMIT = 10_000
 _MAX_DETAIL_INPUT_CHARS = 40_000
+_MAX_OBSERVATION_LIMIT = 5_000
+_MAX_OBSERVATION_INPUT_CHARS = 20_000
 _BIDI_CONTROLS = {
     "\u061c", "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",
     "\u2066", "\u2067", "\u2068", "\u2069",
@@ -63,14 +65,17 @@ def _safe_url_label(url: str) -> str:
 
 
 def _observation_text(value: object, *, limit: int = 1000) -> str:
-    """Validate a local vision response before logging or returning it to the graph."""
+    """Validate bounded local vision text before logging or returning it to the graph."""
     if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
         raise ValueError("observation limit must be a positive integer")
+    if limit > _MAX_OBSERVATION_LIMIT:
+        raise ValueError(f"observation limit must be at most {_MAX_OBSERVATION_LIMIT}")
     if not isinstance(value, str):
         raise ValueError("camera description must be text")
-    if any(_is_unsafe_control(ch) for ch in value):
+    bounded = value[:_MAX_OBSERVATION_INPUT_CHARS]
+    if any(_is_unsafe_control(ch) for ch in bounded):
         raise ValueError("camera description contains control characters")
-    text = " ".join(value.split())
+    text = " ".join(bounded.split())
     if not text:
         raise ValueError("camera description must not be empty")
     return text[:limit].rstrip()
