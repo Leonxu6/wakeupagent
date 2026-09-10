@@ -16,7 +16,7 @@ class ObservationTextTests(unittest.TestCase):
         original = tools._MAX_OBSERVATION_INPUT_CHARS
         try:
             tools._MAX_OBSERVATION_INPUT_CHARS = 12
-            self.assertEqual(_observation_text("person reading forever", limit=100), "person readin")
+            self.assertEqual(_observation_text("person reading forever", limit=100), "person readi")
         finally:
             tools._MAX_OBSERVATION_INPUT_CHARS = original
 
