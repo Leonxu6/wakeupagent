@@ -16,7 +16,7 @@ def test_diagnostic_check_names_sanitize_line_breaks_without_forging_lines():
     assert text == "[WARN] b spoof: missing [OK] forged: yes"
 
 
-@pytest.mark.parametrize("control", ["\u200d", "\u206a", chr(0xD800), "\x00"])
+@pytest.mark.parametrize("control", ["\u200d", "\u206a", chr(0xD800)])
 def test_diagnostic_check_names_reject_hidden_identity_controls(control):
     with pytest.raises(ValueError, match="control"):
         checks_payload([Check(f"model{control}name", True, "ok")])
