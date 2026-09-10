@@ -17,6 +17,8 @@ from settings import env_bool
 
 console = Console()
 _TTS_VOICE = "Tingting"
+_MAX_DETAIL_LIMIT = 10_000
+_MAX_DETAIL_INPUT_CHARS = 40_000
 _BIDI_CONTROLS = {
     "\u061c", "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",
     "\u2066", "\u2067", "\u2068", "\u2069",
@@ -39,13 +41,16 @@ def _is_unsafe_control(ch: str) -> bool:
 
 
 def _bounded_detail(value: object, *, limit: int = 500) -> str:
-    """Keep driver/subprocess failures compact, visible, and single-line for local logs."""
+    """Keep driver/subprocess failures compact, visible, and cheap to normalize."""
     if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
         raise ValueError("limit must be a positive integer")
+    if limit > _MAX_DETAIL_LIMIT:
+        raise ValueError(f"limit must be at most {_MAX_DETAIL_LIMIT}")
     try:
         rendered = str(value)
     except Exception:  # noqa: BLE001
         rendered = value.__class__.__name__
+    rendered = rendered[:_MAX_DETAIL_INPUT_CHARS]
     rendered = "".join(" " if _is_unsafe_control(ch) else ch for ch in rendered)
     text = " ".join(rendered.split())
     return text[:limit] if text else "unknown error"
