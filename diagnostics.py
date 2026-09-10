@@ -159,8 +159,8 @@ def _single_line(value: object, *, limit: int = _DETAIL_LIMIT) -> str:
 
 
 def _unsafe_check_identity_control(ch: str) -> bool:
-    category = unicodedata.category(ch)
-    return category in {"Cf", "Cs"} or (category == "Cc" and ch not in "\n\r\t")
+    """Reject invisible format/surrogate state while retaining legacy line-control normalization."""
+    return unicodedata.category(ch) in {"Cf", "Cs"}
 
 
 def _check_name(value: object) -> str:
