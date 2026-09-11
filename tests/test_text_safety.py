@@ -47,6 +47,24 @@ def test_model_text_ignores_non_text_blocks_even_when_they_have_text_fields():
     assert model_text(content, limit=100, block_limit=10) == "safe answer legacy text"
 
 
+def test_model_text_ignores_malformed_unhashable_block_types():
+    content = [
+        {"type": [], "text": "must not crash or leak"},
+        {"type": {"kind": "text"}, "text": "also ignored"},
+        {"type": "text", "text": "safe answer"},
+    ]
+    assert model_text(content, limit=100, block_limit=10) == "safe answer"
+
+
+def test_model_text_ignores_non_string_block_types():
+    content = [
+        {"type": 0, "text": "ignored"},
+        {"type": True, "text": "ignored too"},
+        {"type": None, "text": "legacy text"},
+    ]
+    assert model_text(content, limit=100, block_limit=10) == "legacy text"
+
+
 def test_model_text_stops_at_character_budget_without_slicing_input():
     class NoSliceList(list):
         def __getitem__(self, item):
