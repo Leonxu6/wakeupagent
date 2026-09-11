@@ -4,11 +4,14 @@ config.py — Global configuration for Cyber-Superego.
 Defaults are suitable for local development. Runtime-specific values can be
 overridden through validated environment variables without editing source.
 """
+from pathlib import Path
+
 from dotenv import load_dotenv
 
 from settings import env_float, env_http_url, env_int, env_json_string_map, env_path, env_secret, env_text
 
-load_dotenv()
+_DOTENV_PATH = Path(__file__).with_name(".env")
+load_dotenv(dotenv_path=_DOTENV_PATH, override=False)
 
 # ── Camera & Perception ───────────────────────────────────────
 CAMERA_INDEX = env_int("WAKEUP_CAMERA_INDEX", 0, minimum=0, maximum=32)
