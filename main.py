@@ -69,11 +69,9 @@ def _ai_message_texts(node_output: object) -> list[str]:
 
 
 def _log_error(exc: object) -> str:
-    try:
-        rendered = str(exc)
-    except Exception:  # noqa: BLE001
-        rendered = exc.__class__.__name__
-    text = _single_line_text(rendered, limit=_ERROR_TEXT_LIMIT) or "unknown error"
+    """Render only an exception class for console logs so backend secrets stay private."""
+    name = exc.__class__.__name__ if isinstance(exc, BaseException) else "Error"
+    text = _single_line_text(name, limit=_ERROR_TEXT_LIMIT) or "Error"
     return escape(text)
 
 
