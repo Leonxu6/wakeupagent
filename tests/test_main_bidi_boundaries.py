@@ -13,8 +13,11 @@ class MainBidiBoundaryTests(unittest.TestCase):
         self.assertEqual(main._message_text("left\u200fright"), "left right")
         self.assertEqual(main._message_text([{"text": "safe\u2066text"}]), "safe text")
 
-    def test_error_logs_neutralize_directional_controls(self):
-        self.assertEqual(main._log_error(RuntimeError("before\u202eafter")), "before after")
+    def test_error_logs_redact_backend_message_contents(self):
+        rendered = main._log_error(RuntimeError("password=secret\u202e internal host"))
+        self.assertEqual(rendered, "RuntimeError")
+        self.assertNotIn("secret", rendered)
+        self.assertNotIn("host", rendered)
 
 
 if __name__ == "__main__":
