@@ -43,6 +43,17 @@ def single_line_text(value: object, *, limit: int) -> str:
     return " ".join(clean.split())[:limit].rstrip()
 
 
+def _structured_text(block: object) -> str | None:
+    """Extract one allowed structured text block without trusting malformed type fields."""
+    if not isinstance(block, dict):
+        return None
+    block_type = block.get("type")
+    if block_type is not None and (not isinstance(block_type, str) or block_type not in _TEXT_BLOCK_TYPES):
+        return None
+    text = block.get("text")
+    return text if isinstance(text, str) else None
+
+
 def model_text(content: object, *, limit: int = 2000, block_limit: int = 20) -> str:
     """Extract bounded text from common LangChain/OpenAI structured content shapes.
 
@@ -63,14 +74,10 @@ def model_text(content: object, *, limit: int = 2000, block_limit: int = 20) -> 
             break
         if isinstance(block, str):
             raw = block
-        elif (
-            isinstance(block, dict)
-            and block.get("type") in _TEXT_BLOCK_TYPES
-            and isinstance(block.get("text"), str)
-        ):
-            raw = block["text"]
         else:
-            continue
+            raw = _structured_text(block)
+            if raw is None:
+                continue
         remaining_raw = _MAX_RAW_TEXT_CHARS - raw_used
         inspected = raw[:remaining_raw]
         raw_used += len(inspected)
