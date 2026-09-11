@@ -97,14 +97,14 @@ class MainCliTests(unittest.TestCase):
         self.assertEqual(texts[0], "ai-5")
         self.assertEqual(texts[-1], f"ai-{main._AI_MESSAGE_LIMIT + 4}")
 
-    def test_runtime_error_text_is_single_line_bounded_and_rich_escaped(self):
-        text = main._log_error(RuntimeError("[bold]boom[/bold]\n" + "x" * 1000))
-        self.assertIn(r"\[bold]boom\[/bold]", text)
-        self.assertNotIn("\n", text)
-        self.assertLessEqual(len(text.replace(r"\[", "[").replace(r"\]", "]")), main._ERROR_TEXT_LIMIT)
+    def test_runtime_error_text_exposes_only_exception_class(self):
+        text = main._log_error(RuntimeError("[bold]boom[/bold]\npassword=secret"))
+        self.assertEqual(text, "RuntimeError")
+        self.assertNotIn("boom", text)
+        self.assertNotIn("secret", text)
 
-    def test_runtime_error_rendering_falls_back_when_str_raises(self):
-        class Broken:
+    def test_runtime_error_rendering_does_not_call_exception_str(self):
+        class Broken(Exception):
             def __str__(self):
                 raise RuntimeError("render failed")
 
