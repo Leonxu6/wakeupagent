@@ -10,8 +10,16 @@ from dotenv import load_dotenv
 
 from settings import env_float, env_http_url, env_int, env_json_string_map, env_path, env_secret, env_text
 
-_DOTENV_PATH = Path(__file__).with_name(".env")
+_PROJECT_ROOT = Path(__file__).resolve().parent
+_DOTENV_PATH = _PROJECT_ROOT / ".env"
 load_dotenv(dotenv_path=_DOTENV_PATH, override=False)
+
+
+def _project_path(value: str) -> str:
+    """Anchor relative runtime files to the project instead of the caller's cwd."""
+    path = Path(value)
+    return str(path if path.is_absolute() else _PROJECT_ROOT / path)
+
 
 # ── Camera & Perception ───────────────────────────────────────
 CAMERA_INDEX = env_int("WAKEUP_CAMERA_INDEX", 0, minimum=0, maximum=32)
@@ -43,8 +51,8 @@ DEEPSEEK_MODEL = env_text("DEEPSEEK_MODEL", "deepseek-chat", max_length=120)
 DEEPSEEK_BASE_URL = env_http_url("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 
 # ── Agent Memory & Persistence ────────────────────────────────
-CHECKPOINT_DB_PATH = env_path("WAKEUP_CHECKPOINT_DB_PATH", "./superego.db")
-DAILY_REPORT_PATH = env_path("WAKEUP_DAILY_REPORT_PATH", "./memory/daily_reports.md")
+CHECKPOINT_DB_PATH = _project_path(env_path("WAKEUP_CHECKPOINT_DB_PATH", "./superego.db"))
+DAILY_REPORT_PATH = _project_path(env_path("WAKEUP_DAILY_REPORT_PATH", "./memory/daily_reports.md"))
 CONTEXT_MAX_MESSAGES = env_int("WAKEUP_CONTEXT_MAX_MESSAGES", 20, minimum=1, maximum=500)
 SUMMARIZE_THRESHOLD = env_int("WAKEUP_SUMMARIZE_THRESHOLD", 30, minimum=2, maximum=2000)
 REACT_MAX_ITERATIONS = env_int("WAKEUP_REACT_MAX_ITERATIONS", 5, minimum=1, maximum=20)
