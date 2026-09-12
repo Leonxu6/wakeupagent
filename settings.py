@@ -7,7 +7,7 @@ import os
 import re
 import unicodedata
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 from network_validation import valid_hostname
 
@@ -200,7 +200,7 @@ def env_bool(name: str, default: bool) -> bool:
 
 
 def env_http_url(name: str, default: str) -> str:
-    """Read a clean HTTP(S) service base URL without credentials or URL state."""
+    """Read a clean HTTP(S) service base URL without credentials or ambiguous path state."""
     value = env_text(name, default, max_length=2048)
     if any(ch.isspace() for ch in value):
         raise ValueError(f"{name} must not contain whitespace")
@@ -222,6 +222,11 @@ def env_http_url(name: str, default: str) -> str:
         raise ValueError(f"{name} must not contain a query string or fragment")
     if parsed.netloc.endswith(":") or port == 0:
         raise ValueError(f"{name} must use a valid non-zero port when a port is present")
+    decoded_path = unquote(parsed.path)
+    if "\\" in decoded_path or _contains_unsafe_control(decoded_path):
+        raise ValueError(f"{name} path contains unsafe encoded characters")
+    if any(segment in {".", ".."} for segment in decoded_path.split("/")):
+        raise ValueError(f"{name} path must not contain dot segments")
     return value.rstrip("/")
 
 
