@@ -171,6 +171,19 @@ class EnvironmentParserTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     env_http_url("URL", "http://localhost")
 
+    def test_http_url_parser_rejects_encoded_path_ambiguity(self):
+        invalid = (
+            "https://example.com/a/../b",
+            "https://example.com/a/%2e%2e/b",
+            "https://example.com/%2E/b",
+            "https://example.com/api%5cadmin",
+            "https://example.com/api%0Aadmin",
+        )
+        for value in invalid:
+            with self.subTest(value=value), patch.dict(os.environ, {"URL": value}, clear=True):
+                with self.assertRaises(ValueError):
+                    env_http_url("URL", "http://localhost")
+
     def test_http_url_parser_rejects_ipv4_zone_identifiers(self):
         for value in ("http://127.0.0.1%25eth0", "http://192.168.1.5%25en0/api"):
             with self.subTest(value=value), patch.dict(os.environ, {"URL": value}, clear=True):
