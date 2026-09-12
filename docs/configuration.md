@@ -1,6 +1,6 @@
 # Runtime configuration
 
-WakeUpAgent loads `.env` before evaluating `config.py`. Runtime overrides are parsed by `settings.py` so invalid values fail early instead of reaching camera, model, persistence, or HTTP client libraries.
+WakeUpAgent loads the project-root `.env` before evaluating `config.py`. Runtime overrides are parsed by `settings.py` so invalid values fail early instead of reaching camera, model, persistence, or HTTP client libraries.
 
 ## Camera and perception
 
@@ -18,7 +18,9 @@ WakeUpAgent loads `.env` before evaluating `config.py`. Runtime overrides are pa
 
 ## Persistence
 
-`WAKEUP_CHECKPOINT_DB_PATH` and `WAKEUP_DAILY_REPORT_PATH` support `~` expansion. Context and iteration limits are bounded integers so a typo cannot silently allocate unbounded work. The installation check converts path-resolution failures into diagnostic warnings instead of aborting the whole report.
+`WAKEUP_CHECKPOINT_DB_PATH` and `WAKEUP_DAILY_REPORT_PATH` support `~` expansion. Relative values are anchored to the WakeUpAgent project root rather than the shell's current working directory, so launching the agent from another directory does not silently create a second checkpoint database or report tree. Absolute paths are preserved.
+
+`WAKEUP_CONTEXT_MAX_MESSAGES`, `WAKEUP_SUMMARIZE_THRESHOLD`, and `WAKEUP_REACT_MAX_ITERATIONS` are bounded integers so a typo cannot silently allocate unbounded work. The installation check converts path-resolution failures into diagnostic warnings instead of aborting the whole report.
 
 ## Side effects
 
