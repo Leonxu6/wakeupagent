@@ -26,6 +26,14 @@ def test_audit_reports_malformed_duplicate_and_padded_settings(tmp_path):
     assert "setting must contain '='" in messages
 
 
+def test_audit_rejects_hidden_unicode_controls(tmp_path):
+    path = tmp_path / ".env.example"
+    path.write_text("MODEL=safe\u200dname\nHOST=local\u2066host\n", encoding="utf-8")
+    messages = [issue.message for issue in module.audit_env_example(path)]
+    assert "MODEL value contains control characters" in messages
+    assert "HOST value contains control characters" in messages
+
+
 def test_audit_rejects_populated_secret_like_settings(tmp_path):
     path = tmp_path / ".env.example"
     path.write_text(
