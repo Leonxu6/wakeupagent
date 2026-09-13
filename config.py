@@ -21,6 +21,17 @@ def _project_path(value: str) -> str:
     return str(path if path.is_absolute() else _PROJECT_ROOT / path)
 
 
+def _require_distinct_persistence_paths(checkpoint: str, report: str) -> None:
+    """Fail fast before SQLite and Markdown writers target the same file."""
+    try:
+        checkpoint_path = Path(checkpoint).resolve(strict=False)
+        report_path = Path(report).resolve(strict=False)
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise ValueError("persistence paths could not be normalized") from exc
+    if checkpoint_path == report_path:
+        raise ValueError("checkpoint and daily report paths must resolve to different files")
+
+
 # ── Camera & Perception ───────────────────────────────────────
 CAMERA_INDEX = env_int("WAKEUP_CAMERA_INDEX", 0, minimum=0, maximum=32)
 CAPTURE_INTERVAL_SEC = env_float("WAKEUP_CAPTURE_INTERVAL_SEC", 30.0, minimum=0.1, maximum=3600)
@@ -53,6 +64,7 @@ DEEPSEEK_BASE_URL = env_http_url("DEEPSEEK_BASE_URL", "https://api.deepseek.com"
 # ── Agent Memory & Persistence ────────────────────────────────
 CHECKPOINT_DB_PATH = _project_path(env_path("WAKEUP_CHECKPOINT_DB_PATH", "./superego.db"))
 DAILY_REPORT_PATH = _project_path(env_path("WAKEUP_DAILY_REPORT_PATH", "./memory/daily_reports.md"))
+_require_distinct_persistence_paths(CHECKPOINT_DB_PATH, DAILY_REPORT_PATH)
 CONTEXT_MAX_MESSAGES = env_int("WAKEUP_CONTEXT_MAX_MESSAGES", 20, minimum=1, maximum=500)
 SUMMARIZE_THRESHOLD = env_int("WAKEUP_SUMMARIZE_THRESHOLD", 30, minimum=2, maximum=2000)
 REACT_MAX_ITERATIONS = env_int("WAKEUP_REACT_MAX_ITERATIONS", 5, minimum=1, maximum=20)
