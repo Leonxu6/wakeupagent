@@ -18,3 +18,12 @@ def test_env_parity_reports_missing_runtime_variables(tmp_path: Path):
     (tmp_path / ".env.example").write_text("EXAMPLE_VALUE=x\nEXAMPLE_FLAG=false\n", encoding="utf-8")
     failures = audit(tmp_path)
     assert failures == [".env.example: missing runtime variable EXAMPLE_SIDE_EFFECT"]
+
+
+def test_env_parity_reports_stale_template_settings(tmp_path: Path):
+    _runtime_files(tmp_path)
+    (tmp_path / ".env.example").write_text(
+        "EXAMPLE_VALUE=x\nEXAMPLE_FLAG=false\nEXAMPLE_SIDE_EFFECT=false\nOLD_SETTING=legacy\n",
+        encoding="utf-8",
+    )
+    assert audit(tmp_path) == [".env.example: stale setting OLD_SETTING"]
