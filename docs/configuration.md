@@ -20,6 +20,8 @@ WakeUpAgent loads the project-root `.env` before evaluating `config.py`. Runtime
 
 `WAKEUP_CHECKPOINT_DB_PATH` and `WAKEUP_DAILY_REPORT_PATH` support `~` expansion. Relative values are anchored to the WakeUpAgent project root rather than the shell's current working directory, so launching the agent from another directory does not silently create a second checkpoint database or report tree. Absolute paths are preserved.
 
+The checkpoint database and daily report must resolve to different files. Configuration fails before startup when aliases such as `state/../runtime.db` and `./runtime.db` collapse to the same location, preventing SQLite data and Markdown reports from competing for one file.
+
 `WAKEUP_CONTEXT_MAX_MESSAGES`, `WAKEUP_SUMMARIZE_THRESHOLD`, and `WAKEUP_REACT_MAX_ITERATIONS` are bounded integers so a typo cannot silently allocate unbounded work. The installation check converts path-resolution failures into diagnostic warnings instead of aborting the whole report.
 
 ## Side effects
