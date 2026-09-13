@@ -1,4 +1,4 @@
-"""Ensure environment variables used by runtime code are represented in .env.example."""
+"""Ensure runtime environment variables and .env.example stay in sync."""
 from __future__ import annotations
 
 import argparse
@@ -36,10 +36,15 @@ def audit(root: Path) -> list[str]:
     root = require_root(root)
     try:
         template = (root / ".env.example").read_text(encoding="utf-8")
+        runtime = runtime_env_names(root)
     except (OSError, UnicodeError) as exc:
-        return [f".env.example: could not read template ({exc})"]
-    missing = sorted(runtime_env_names(root) - template_env_names(template))
-    return [f".env.example: missing runtime variable {name}" for name in missing]
+        return [f"environment parity inputs could not be read ({exc})"]
+    template_names = template_env_names(template)
+    missing = sorted(runtime - template_names)
+    stale = sorted(template_names - runtime)
+    failures = [f".env.example: missing runtime variable {name}" for name in missing]
+    failures.extend(f".env.example: stale setting {name}" for name in stale)
+    return failures
 
 
 def main(argv: list[str] | None = None) -> int:
