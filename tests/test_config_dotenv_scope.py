@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 import dotenv
+import pytest
 
 
 def _fresh_config():
@@ -50,3 +51,20 @@ def test_absolute_persistence_paths_are_preserved(monkeypatch, tmp_path):
 
     assert Path(module.CHECKPOINT_DB_PATH) == checkpoint
     assert Path(module.DAILY_REPORT_PATH) == report
+
+
+def test_persistence_paths_must_not_target_same_file(monkeypatch, tmp_path):
+    shared = tmp_path / "runtime-state"
+    monkeypatch.setenv("WAKEUP_CHECKPOINT_DB_PATH", str(shared))
+    monkeypatch.setenv("WAKEUP_DAILY_REPORT_PATH", str(shared))
+
+    with pytest.raises(ValueError, match="different files"):
+        _fresh_config()
+
+
+def test_equivalent_relative_persistence_paths_are_rejected(monkeypatch):
+    monkeypatch.setenv("WAKEUP_CHECKPOINT_DB_PATH", "state/../runtime.db")
+    monkeypatch.setenv("WAKEUP_DAILY_REPORT_PATH", "./runtime.db")
+
+    with pytest.raises(ValueError, match="different files"):
+        _fresh_config()
