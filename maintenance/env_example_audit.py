@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import re
+import unicodedata
 
 _KEY = re.compile(r"^[A-Z][A-Z0-9_]*$")
 _SECRET_SUFFIXES = ("_API_KEY", "_TOKEN", "_PASSWORD", "_SECRET")
@@ -17,6 +18,10 @@ class EnvIssue:
 
 def _looks_sensitive(key: str) -> bool:
     return key.endswith(_SECRET_SUFFIXES)
+
+
+def _has_hidden_control(value: str) -> bool:
+    return any(unicodedata.category(ch) in {"Cc", "Cf", "Cs"} for ch in value)
 
 
 def audit_env_example(path: Path) -> list[EnvIssue]:
@@ -38,7 +43,7 @@ def audit_env_example(path: Path) -> list[EnvIssue]:
         seen.add(key)
         if value != value.strip():
             issues.append(EnvIssue(number, f"{key} value has surrounding whitespace"))
-        if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+        if _has_hidden_control(value):
             issues.append(EnvIssue(number, f"{key} value contains control characters"))
         if _looks_sensitive(key) and value.strip():
             issues.append(EnvIssue(number, f"{key} must be empty in the tracked template"))
