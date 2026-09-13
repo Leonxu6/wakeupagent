@@ -25,6 +25,8 @@ The current advisory layer covers resource and lifecycle risks such as broad exc
 
 The maintenance suite verifies Python syntax without importing runtime modules, UTF-8 text integrity, tracked-file hygiene, maintainer documentation, environment-template parity, privacy-critical `.gitignore` rules, workflow permissions and versioned action refs, side-effect opt-in gates, CLI diagnostics, project metadata, lockfile alignment, documented commands, case-insensitive path collisions, credential-like filenames, pytest naming, and the flat runtime import layout.
 
+Environment-template checks are deliberately bidirectional. Every runtime setting used by `config.py`, diagnostics, or side-effect gates must appear in `.env.example`, and obsolete template settings are reported instead of silently drifting forever. Template values also reject hidden Unicode control, format, and surrogate characters in addition to ordinary ASCII controls, so an apparently harmless tracked setting cannot carry invisible directional or formatting payloads.
+
 Runtime-specific Python checks are scoped away from tests and maintenance tooling. They reject assertions that disappear under `python -O`, `BaseException` handlers that can swallow shutdown signals, runtime `sys.path` mutation, blocking `input()` prompts, unverified SSL contexts, host-derived UUIDv1 identifiers, and `socket.create_connection()` calls without explicit timeouts. This keeps the long-running agent predictable under unattended execution.
 
 The dedicated safety-documentation audit also makes sure the documented opt-in flags match the runtime contract and that the legacy chaos action remains documented as unregistered.
