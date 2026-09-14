@@ -223,6 +223,8 @@ def env_http_url(name: str, default: str) -> str:
     if parsed.netloc.endswith(":") or port == 0:
         raise ValueError(f"{name} must use a valid non-zero port when a port is present")
     decoded_path = unquote(parsed.path)
+    if "%2f" in parsed.path.lower():
+        raise ValueError(f"{name} path must not contain encoded slash separators")
     if "\\" in decoded_path or _contains_unsafe_control(decoded_path):
         raise ValueError(f"{name} path contains unsafe encoded characters")
     if any(segment in {".", ".."} for segment in decoded_path.split("/")):
