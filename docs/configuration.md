@@ -12,7 +12,7 @@ WakeUpAgent loads the project-root `.env` before evaluating `config.py`. Runtime
 
 ## Models and cloud credentials
 
-`OLLAMA_HOST` and `DEEPSEEK_BASE_URL` must be clean HTTP(S) service base URLs with a hostname, no embedded credentials, and no query string or fragment. Their decoded paths also reject dot segments, encoded backslashes, and encoded control characters so proxies and HTTP clients cannot disagree about the service endpoint. Model names reject empty, padded, overlong, and control-character values.
+`OLLAMA_HOST` and `DEEPSEEK_BASE_URL` must be clean HTTP(S) service base URLs with a hostname, no embedded credentials, and no query string or fragment. Their decoded paths also reject dot segments, encoded slash or backslash separators, and encoded control characters so proxies and HTTP clients cannot disagree about the service endpoint. Ordinary percent-encoding that does not create a path separator remains valid. Model names reject empty, padded, overlong, and control-character values.
 
 `DEEPSEEK_API_KEY` is optional for local-only diagnostics and may be left empty. When set, it rejects leading/trailing whitespace, control characters, and implausibly long values before the key can reach an HTTP authorization header. The checked-in `.env.example` intentionally leaves the key empty so copying it does not look like a configured credential.
 
@@ -21,6 +21,8 @@ WakeUpAgent loads the project-root `.env` before evaluating `config.py`. Runtime
 `WAKEUP_CHECKPOINT_DB_PATH` and `WAKEUP_DAILY_REPORT_PATH` support `~` expansion. Relative values are anchored to the WakeUpAgent project root rather than the shell's current working directory, so launching the agent from another directory does not silently create a second checkpoint database or report tree. Absolute paths are preserved.
 
 The checkpoint database and daily report must resolve to different files. Configuration fails before startup when aliases such as `state/../runtime.db` and `./runtime.db` collapse to the same location, preventing SQLite data and Markdown reports from competing for one file.
+
+The checkpoint database parent must already exist because SQLite opens that file directly. Daily-report parents are different: report persistence creates missing parent directories at write time, so diagnostics accepts a missing report directory when its nearest existing ancestor is writable. The check remains side-effect free and never creates directories itself.
 
 `WAKEUP_CONTEXT_MAX_MESSAGES`, `WAKEUP_SUMMARIZE_THRESHOLD`, and `WAKEUP_REACT_MAX_ITERATIONS` are bounded integers so a typo cannot silently allocate unbounded work. The installation check converts path-resolution failures into diagnostic warnings instead of aborting the whole report.
 
@@ -47,4 +49,4 @@ Run:
 uv run main.py --check
 ```
 
-The check verifies model files, persistence directories, endpoint shapes, optional cloud credentials, and side-effect feature flags. It does not open the camera, play audio, launch a browser, send messages, close apps, or contact network services. Filesystem metadata errors are reported as warnings rather than crashing the diagnostic command.
+The check verifies that required model artifacts exist, are regular non-empty readable files; validates persistence directory readiness; checks endpoint shapes, optional cloud credentials, and side-effect feature flags. It does not open the camera, play audio, launch a browser, send messages, close apps, or contact network services. Filesystem metadata and permission errors are reported as warnings rather than crashing the diagnostic command.
