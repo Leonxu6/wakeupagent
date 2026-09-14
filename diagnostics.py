@@ -79,6 +79,8 @@ def _model_check(name: str, path: Path) -> Check:
         return Check(name, False, f"unreadable: {path} ({exc})")
     if not stat.S_ISREG(metadata.st_mode):
         return Check(name, False, f"not a file: {path}")
+    if not os.access(path, os.R_OK):
+        return Check(name, False, f"not readable: {path}")
     if metadata.st_size == 0:
         return Check(name, False, f"empty model file: {path}")
     return Check(name, True, f"{path.name} ({metadata.st_size} bytes)")
