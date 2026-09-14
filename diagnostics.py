@@ -100,6 +100,27 @@ def _directory_check(name: str, path: Path) -> Check:
     return Check(name, True, str(path))
 
 
+def _creatable_directory_check(name: str, path: Path) -> Check:
+    """Check whether an absent directory could be created without touching the filesystem."""
+    candidate = path
+    while True:
+        try:
+            metadata = candidate.stat()
+            break
+        except FileNotFoundError:
+            parent = candidate.parent
+            if parent == candidate:
+                return Check(name, False, f"missing: {path}")
+            candidate = parent
+        except OSError as exc:
+            return Check(name, False, f"unreadable: {candidate} ({exc})")
+    if not stat.S_ISDIR(metadata.st_mode):
+        return Check(name, False, f"not a directory: {candidate}")
+    if not os.access(candidate, os.W_OK):
+        return Check(name, False, f"not writable: {candidate}")
+    return Check(name, True, f"{path} (creatable)")
+
+
 def _has_unsafe_path_controls(value: str) -> bool:
     return any(unicodedata.category(ch) in {"Cc", "Cf", "Cs"} for ch in value)
 
@@ -113,11 +134,13 @@ def _configured_path_text(value: object, *, field: str) -> str:
     return text
 
 
-def _persistence_parent_check(name: str, value: object) -> Check:
+def _persistence_parent_check(name: str, value: object, *, allow_missing_parent: bool = False) -> Check:
     try:
         text = _configured_path_text(value, field="configured path")
     except ValueError as exc:
         return Check(name, False, str(exc))
+    if not isinstance(allow_missing_parent, bool):
+        return Check(name, False, "allow_missing_parent must be boolean")
     try:
         path = Path(text).expanduser()
         if not path.name:
@@ -128,6 +151,8 @@ def _persistence_parent_check(name: str, value: object) -> Check:
         parent = resolved.parent
     except (OSError, RuntimeError, ValueError) as exc:
         return Check(name, False, f"invalid path: {text} ({exc})")
+    if allow_missing_parent:
+        return _creatable_directory_check(name, parent)
     return _directory_check(name, parent)
 
 
@@ -242,7 +267,7 @@ def collect_checks(base_dir: Path | str | None = None) -> list[Check]:
     checks.append(config_check)
     if runtime_config is not None:
         checks.append(_persistence_parent_check("checkpoint-dir", runtime_config.CHECKPOINT_DB_PATH))
-        checks.append(_persistence_parent_check("report-dir", runtime_config.DAILY_REPORT_PATH))
+        checks.append(_persistence_parent_check("report-dir", runtime_config.DAILY_REPORT_PATH, allow_missing_parent=True))
         checks.append(_http_url_check("ollama-url", runtime_config.OLLAMA_HOST))
         checks.append(_http_url_check("deepseek-url", runtime_config.DEEPSEEK_BASE_URL))
         key_configured = bool(runtime_config.DEEPSEEK_API_KEY)
