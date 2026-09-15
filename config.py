@@ -32,6 +32,11 @@ def _require_distinct_persistence_paths(checkpoint: str, report: str) -> None:
         raise ValueError("checkpoint and daily report paths must resolve to different files")
 
 
+def _summary_threshold() -> int:
+    """Require enough messages for compression to remove at least one old item."""
+    return env_int("WAKEUP_SUMMARIZE_THRESHOLD", 30, minimum=6, maximum=2000)
+
+
 # ── Camera & Perception ───────────────────────────────────────
 CAMERA_INDEX = env_int("WAKEUP_CAMERA_INDEX", 0, minimum=0, maximum=32)
 CAPTURE_INTERVAL_SEC = env_float("WAKEUP_CAPTURE_INTERVAL_SEC", 30.0, minimum=0.1, maximum=3600)
@@ -66,7 +71,7 @@ CHECKPOINT_DB_PATH = _project_path(env_path("WAKEUP_CHECKPOINT_DB_PATH", "./supe
 DAILY_REPORT_PATH = _project_path(env_path("WAKEUP_DAILY_REPORT_PATH", "./memory/daily_reports.md"))
 _require_distinct_persistence_paths(CHECKPOINT_DB_PATH, DAILY_REPORT_PATH)
 CONTEXT_MAX_MESSAGES = env_int("WAKEUP_CONTEXT_MAX_MESSAGES", 20, minimum=1, maximum=500)
-SUMMARIZE_THRESHOLD = env_int("WAKEUP_SUMMARIZE_THRESHOLD", 30, minimum=2, maximum=2000)
+SUMMARIZE_THRESHOLD = _summary_threshold()
 REACT_MAX_ITERATIONS = env_int("WAKEUP_REACT_MAX_ITERATIONS", 5, minimum=1, maximum=20)
 
 # ── WeChat Contacts ───────────────────────────────────────────
