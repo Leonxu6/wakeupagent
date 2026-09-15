@@ -24,7 +24,7 @@ The checkpoint database and daily report must resolve to different files. Config
 
 The checkpoint database parent must already exist because SQLite opens that file directly. Daily-report parents are different: report persistence creates missing parent directories at write time, so diagnostics accepts a missing report directory when its nearest existing ancestor is writable. The check remains side-effect free and never creates directories itself.
 
-`WAKEUP_CONTEXT_MAX_MESSAGES`, `WAKEUP_SUMMARIZE_THRESHOLD`, and `WAKEUP_REACT_MAX_ITERATIONS` are bounded integers so a typo cannot silently allocate unbounded work. The installation check converts path-resolution failures into diagnostic warnings instead of aborting the whole report.
+`WAKEUP_CONTEXT_MAX_MESSAGES`, `WAKEUP_SUMMARIZE_THRESHOLD`, and `WAKEUP_REACT_MAX_ITERATIONS` are bounded integers so a typo cannot silently allocate unbounded work. The summary threshold must be at least `6` because memory compression intentionally preserves the newest five messages; lower values would repeatedly pay for summarization without deleting any history. The installation check converts path-resolution failures into diagnostic warnings instead of aborting the whole report.
 
 ## Side effects
 
