@@ -12,7 +12,7 @@ WakeUpAgent loads the project-root `.env` before evaluating `config.py`. Runtime
 
 ## Models and cloud credentials
 
-`OLLAMA_HOST` and `DEEPSEEK_BASE_URL` must be clean HTTP(S) service base URLs with a hostname, no embedded credentials, and no query string or fragment. Their decoded paths also reject dot segments, encoded slash or backslash separators, and encoded control characters so proxies and HTTP clients cannot disagree about the service endpoint. Ordinary percent-encoding that does not create a path separator remains valid. Model names reject empty, padded, overlong, and control-character values.
+`OLLAMA_HOST` and `DEEPSEEK_BASE_URL` must be clean HTTP(S) service base URLs with a hostname, no embedded credentials, and no query string or fragment. Their decoded paths also reject dot segments, encoded slash or backslash separators, and encoded control characters so proxies and HTTP clients cannot disagree about the service endpoint. Every percent escape must be complete hexadecimal syntax and decode as valid UTF-8 before those path checks run; malformed escapes such as `%`, `%GG`, or invalid UTF-8 bytes fail closed. Ordinary valid UTF-8 percent-encoding that does not create a path separator remains valid. Model names reject empty, padded, overlong, and control-character values.
 
 `DEEPSEEK_API_KEY` is optional for local-only diagnostics and may be left empty. When set, it rejects leading/trailing whitespace, control characters, and implausibly long values before the key can reach an HTTP authorization header. The checked-in `.env.example` intentionally leaves the key empty so copying it does not look like a configured credential.
 
