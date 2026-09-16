@@ -18,6 +18,7 @@ _FLOAT_TEXT = re.compile(r"^-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$", re.ASC
 _INVALID_PERCENT_ESCAPE = re.compile(r"%(?![0-9A-Fa-f]{2})")
 _MAX_ENV_NAME = 128
 _MAX_NUMERIC_TEXT = 128
+_MAX_BOOL_TEXT = 16
 _MAX_MAP_ENTRIES = 1000
 _MAX_TEXT_LIMIT = 100_000
 _BIDI_CONTROLS = {
@@ -202,6 +203,8 @@ def env_bool(name: str, default: bool) -> bool:
         if not isinstance(default, bool):
             raise ValueError(f"{name} default must be a boolean")
         return default
+    if len(value) > _MAX_BOOL_TEXT:
+        raise ValueError(f"{name} boolean text must be at most {_MAX_BOOL_TEXT} characters")
     normalized = value.lower()
     if normalized in _TRUE:
         return True
