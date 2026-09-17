@@ -19,6 +19,8 @@ def broken_local_links(root: Path) -> list[BrokenLink]:
     broken: list[BrokenLink] = []
     root_resolved = root.resolve()
     for source in sorted(root.rglob("*.md")):
+        if source.is_symlink() or not source.is_file():
+            continue
         text = source.read_text(encoding="utf-8")
         for raw_target in _LINK.findall(text):
             raw_target = raw_target.strip()
