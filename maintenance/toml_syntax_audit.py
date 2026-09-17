@@ -9,6 +9,10 @@ from maintenance.common import print_failures, require_root, tracked_files
 
 
 def audit_file(path: Path) -> list[str]:
+    if path.is_symlink():
+        return [f"invalid TOML: {path.name}: symbolic links are not accepted"]
+    if not path.is_file():
+        return [f"invalid TOML: {path.name}: expected a regular file"]
     try:
         with path.open("rb") as handle:
             tomllib.load(handle)
