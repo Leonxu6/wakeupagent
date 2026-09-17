@@ -15,3 +15,25 @@ def test_toml_syntax_audit_reports_invalid_toml(tmp_path: Path):
     failures = audit_file(path)
     assert len(failures) == 1
     assert "invalid TOML" in failures[0]
+
+
+def test_toml_syntax_audit_rejects_symlinked_toml(tmp_path: Path):
+    outside = tmp_path / "outside.toml"
+    outside.write_text('[project]\nname = "demo"\n', encoding="utf-8")
+    link = tmp_path / "pyproject.toml"
+    link.symlink_to(outside)
+
+    failures = audit_file(link)
+
+    assert len(failures) == 1
+    assert "symbolic links" in failures[0]
+
+
+def test_toml_syntax_audit_rejects_directory_named_toml(tmp_path: Path):
+    path = tmp_path / "pyproject.toml"
+    path.mkdir()
+
+    failures = audit_file(path)
+
+    assert len(failures) == 1
+    assert "regular file" in failures[0]
