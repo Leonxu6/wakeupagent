@@ -34,3 +34,25 @@ def test_json_syntax_audit_rejects_duplicate_object_keys(tmp_path: Path):
     assert len(failures) == 1
     assert "invalid JSON" in failures[0]
     assert "duplicate" in failures[0]
+
+
+def test_json_syntax_audit_rejects_symlinked_json(tmp_path: Path):
+    outside = tmp_path / "outside.json"
+    outside.write_text('{"enabled":true}', encoding="utf-8")
+    link = tmp_path / "config.json"
+    link.symlink_to(outside)
+
+    failures = audit_file(link)
+
+    assert len(failures) == 1
+    assert "symbolic links" in failures[0]
+
+
+def test_json_syntax_audit_rejects_directory_named_json(tmp_path: Path):
+    path = tmp_path / "config.json"
+    path.mkdir()
+
+    failures = audit_file(path)
+
+    assert len(failures) == 1
+    assert "regular file" in failures[0]
