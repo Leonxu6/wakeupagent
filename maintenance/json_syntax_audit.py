@@ -22,6 +22,10 @@ def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
 
 
 def audit_file(path: Path) -> list[str]:
+    if path.is_symlink():
+        return [f"invalid JSON: {path.name}: symbolic links are not accepted"]
+    if not path.is_file():
+        return [f"invalid JSON: {path.name}: expected a regular file"]
     try:
         json.loads(
             path.read_text(encoding="utf-8"),
