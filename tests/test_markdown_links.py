@@ -38,3 +38,12 @@ def test_checker_rejects_links_that_escape_repository_root(tmp_path):
     (tmp_path / "README.md").write_text("[outside](../outside.md)\n", encoding="utf-8")
     broken = module.broken_local_links(tmp_path)
     assert [(item.source.as_posix(), item.target) for item in broken] == [("README.md", "../outside.md")]
+
+
+def test_checker_does_not_read_symlinked_markdown_sources(tmp_path):
+    outside = tmp_path.parent / "external-guide.md"
+    outside.write_text("[missing](not-in-repository.md)\n", encoding="utf-8")
+    link = tmp_path / "linked-guide.md"
+    link.symlink_to(outside)
+
+    assert module.broken_local_links(tmp_path) == []
