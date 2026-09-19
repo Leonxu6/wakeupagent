@@ -52,6 +52,9 @@ _MAX_TOOL_CALLS = 20
 _MAX_TOOL_NAME = 80
 _MAX_TOOL_CALL_ID = 200
 _MAX_STATE_COUNTER = 10_000
+_MAX_STATE_MESSAGES = 10_000
+_MAX_VISION_TEXT = 2000
+_MAX_TIMESTAMP_TEXT = 80
 
 
 def _safe_error_detail(exc: object) -> str:
@@ -68,6 +71,31 @@ def _state_counter(state: object, field: str, *, maximum: int = _MAX_STATE_COUNT
     if isinstance(value, bool) or not isinstance(value, int) or value < 0 or value > maximum:
         return 0
     return value
+
+
+def _state_messages(state: object) -> list[BaseMessage]:
+    """Recover a bounded sequence of valid LangChain messages from persisted state."""
+    if not isinstance(state, dict):
+        return []
+    value = state.get("messages", [])
+    if not isinstance(value, (list, tuple)):
+        return []
+    recent = value[-_MAX_STATE_MESSAGES:]
+    return [message for message in recent if isinstance(message, BaseMessage)]
+
+
+def _state_session_date(state: object) -> str:
+    """Return a canonical persisted ISO date, or an empty sentinel when state is corrupt."""
+    if not isinstance(state, dict):
+        return ""
+    value = state.get("session_date", "")
+    if not isinstance(value, str) or len(value) != 10:
+        return ""
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError:
+        return ""
+    return value if parsed.isoformat() == value else ""
 
 
 def _tool_call_names(tool_calls: object) -> list[str]:
@@ -133,7 +161,7 @@ def _get_llm_plain():
 def daily_reset_node(state: AgentState) -> dict:
     """检测日期变更并生成昨日摘要，随后重置每日计数。"""
     today = date.today().isoformat()
-    session_date = state.get("session_date", "")
+    session_date = _state_session_date(state)
     if not session_date:
         return {
             "session_date": today,
@@ -144,7 +172,7 @@ def daily_reset_node(state: AgentState) -> dict:
     if session_date == today:
         return {}
 
-    messages = state.get("messages", [])
+    messages = _state_messages(state)
     console.print(f"{LOG_RESET} new day detected ({session_date} → {today}), generating report...")
     report_text = _generate_daily_report(messages, session_date, state)
     _save_daily_report(report_text, session_date)
@@ -160,7 +188,7 @@ def daily_reset_node(state: AgentState) -> dict:
     }
 
 
-def _generate_daily_report(messages: list, date_str: str, state: AgentState) -> str:
+def _generate_daily_report(messages: list[BaseMessage], date_str: str, state: AgentState) -> str:
     if not messages and not date_str:
         return ""
     unhealthy = _state_counter(state, "unhealthy_count")
@@ -190,9 +218,11 @@ def _save_daily_report(report: str, date_str: str):
 
 
 def perception_node(state: AgentState) -> dict:
-    vision_text = state.get("current_vision_text", "")
-    timestamp = state.get("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    should_escalate = state.get("should_escalate", False)
+    vision_text = single_line_text(state.get("current_vision_text", ""), limit=_MAX_VISION_TEXT)
+    timestamp = single_line_text(state.get("timestamp", ""), limit=_MAX_TIMESTAMP_TEXT)
+    if not timestamp:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    should_escalate = state.get("should_escalate") is True
     console.print(f"{LOG_PERCEPTION} t={timestamp} vision=\"{vision_text[:80]}\"")
     route = "escalate -> [B]" if should_escalate else "pass -> END"
     console.print(f"{LOG_PERCEPTION} cerebellum decision: {route}")
@@ -277,7 +307,7 @@ def decision_node(state: AgentState) -> dict:
         console.print(f"{LOG_DECISION} max iterations ({REACT_MAX_ITERATIONS}) reached, ending gracefully")
         return {"react_iterations": 0}
     console.print(f"{LOG_DECISION} calling DeepSeek... [react iter={iteration}]")
-    raw_messages = state.get("messages", [])
+    raw_messages = _state_messages(state)
     trimmed = trim_messages(
         raw_messages,
         strategy="last",
@@ -338,7 +368,7 @@ def decision_node(state: AgentState) -> dict:
     return updates
 
 
-def _summarize_messages(messages: list, state: AgentState) -> dict:
+def _summarize_messages(messages: list[BaseMessage], state: AgentState) -> dict:
     """将历史消息压缩为摘要，删除旧消息，保留最新5条上下文。"""
     console.print(f"{LOG_DECISION} summarizing {len(messages)} messages...")
     summary_so_far = single_line_text(state.get("conversation_summary", ""), limit=_SUMMARY_TEXT_LIMIT)
@@ -357,11 +387,11 @@ def _summarize_messages(messages: list, state: AgentState) -> dict:
 
 
 def route_after_perception(state: AgentState) -> str:
-    return "decision" if state.get("should_escalate", False) else END
+    return "decision" if state.get("should_escalate") is True else END
 
 
 def route_after_decision(state: AgentState) -> str:
-    messages = state.get("messages", [])
+    messages = _state_messages(state)
     last = messages[-1] if messages else None
     if last and isinstance(last, AIMessage) and getattr(last, "tool_calls", None):
         return "execution"
