@@ -105,6 +105,21 @@ class EnvironmentParserTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True), self.assertRaises(ValueError):
             env_text("VALUE", "bad\x00value", max_length=20)
 
+    def test_oversize_environment_values_fail_before_normalization_details(self):
+        huge = " " + ("x" * 10_000) + "\u200d"
+        with patch.dict(os.environ, {"VALUE": huge}, clear=True):
+            with self.assertRaisesRegex(ValueError, "at most 5 characters"):
+                env_text("VALUE", "ok", max_length=5)
+        with patch.dict(os.environ, {"TOKEN": huge}, clear=True):
+            with self.assertRaisesRegex(ValueError, "at most 5 characters"):
+                env_secret("TOKEN", max_length=5)
+        with patch.dict(os.environ, {"FLAG": "true" * 10_000}, clear=True):
+            with self.assertRaisesRegex(ValueError, "boolean text"):
+                env_bool("FLAG", False)
+        with patch.dict(os.environ, {"COUNT": "1" * 10_000}, clear=True):
+            with self.assertRaisesRegex(ValueError, "numeric text"):
+                env_int("COUNT", 1)
+
     def test_secret_parser_allows_empty_but_rejects_unsafe_header_values(self):
         for value in ("", "token-123", "abc.def_456"):
             with self.subTest(value=value), patch.dict(os.environ, {"TOKEN": value}, clear=True):
