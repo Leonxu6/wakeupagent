@@ -45,11 +45,13 @@ def _env_name(name: object) -> str:
     return name
 
 
-def _raw(name: str) -> str | None:
+def _raw(name: str, *, max_length: int | None = None, length_label: str = "value") -> str | None:
     name = _env_name(name)
     value = os.getenv(name)
     if value is None:
         return None
+    if max_length is not None and len(value) > max_length:
+        raise ValueError(f"{name} {length_label} must be at most {max_length} characters")
     if value != value.strip():
         raise ValueError(f"{name} must not have leading or trailing whitespace")
     if not value:
@@ -60,10 +62,7 @@ def _raw(name: str) -> str | None:
 
 
 def _numeric_raw(name: str) -> str | None:
-    value = _raw(name)
-    if value is not None and len(value) > _MAX_NUMERIC_TEXT:
-        raise ValueError(f"{name} numeric text must be at most {_MAX_NUMERIC_TEXT} characters")
-    return value
+    return _raw(name, max_length=_MAX_NUMERIC_TEXT, length_label="numeric text")
 
 
 def _positive_limit(value: object, *, field: str) -> int:
@@ -104,12 +103,12 @@ def _float_bound(value: object, *, field: str) -> float | None:
 def _validate_text(value: object, *, field: str, max_length: int, allow_empty: bool = False) -> str:
     if not isinstance(value, str):
         raise ValueError(f"{field} must be a string")
+    if len(value) > max_length:
+        raise ValueError(f"{field} must be at most {max_length} characters")
     if value != value.strip():
         raise ValueError(f"{field} must not have leading or trailing whitespace")
     if not value and not allow_empty:
         raise ValueError(f"{field} must not be empty")
-    if len(value) > max_length:
-        raise ValueError(f"{field} must be at most {max_length} characters")
     if _contains_unsafe_control(value):
         raise ValueError(f"{field} contains control characters")
     return value
@@ -127,7 +126,7 @@ def _decode_url_path(path: str, *, name: str) -> str:
 
 def env_text(name: str, default: str, *, max_length: int = 500) -> str:
     max_length = _text_limit(max_length)
-    value = _raw(name)
+    value = _raw(name, max_length=max_length)
     if value is None:
         value = default
     return _validate_text(value, field=name, max_length=max_length)
@@ -198,13 +197,11 @@ def env_float(name: str, default: float, *, minimum: float | None = None, maximu
 
 
 def env_bool(name: str, default: bool) -> bool:
-    value = _raw(name)
+    value = _raw(name, max_length=_MAX_BOOL_TEXT, length_label="boolean text")
     if value is None:
         if not isinstance(default, bool):
             raise ValueError(f"{name} default must be a boolean")
         return default
-    if len(value) > _MAX_BOOL_TEXT:
-        raise ValueError(f"{name} boolean text must be at most {_MAX_BOOL_TEXT} characters")
     normalized = value.lower()
     if normalized in _TRUE:
         return True
@@ -264,10 +261,10 @@ def env_json_string_map(name: str, default: dict[str, str], *, max_entries: int 
     if raw is None:
         value: object = default
     else:
-        if not raw or raw != raw.strip():
-            raise ValueError(f"{name} must be non-empty JSON without surrounding whitespace")
         if len(raw) > 16384:
             raise ValueError(f"{name} must be at most 16384 characters")
+        if not raw or raw != raw.strip():
+            raise ValueError(f"{name} must be non-empty JSON without surrounding whitespace")
 
         def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
             result: dict[str, object] = {}
