@@ -7,6 +7,8 @@ from pathlib import Path
 
 from maintenance.common import print_failures, require_root, tracked_files
 
+_MAX_JSON_BYTES = 4 * 1024 * 1024
+
 
 def _reject_nonstandard_constant(value: str) -> None:
     raise json.JSONDecodeError("nonstandard JSON constant", value, 0)
@@ -27,6 +29,8 @@ def audit_file(path: Path) -> list[str]:
     if not path.is_file():
         return [f"invalid JSON: {path.name}: expected a regular file"]
     try:
+        if path.stat().st_size > _MAX_JSON_BYTES:
+            return [f"invalid JSON: {path.name}: file exceeds {_MAX_JSON_BYTES} byte audit limit"]
         json.loads(
             path.read_text(encoding="utf-8"),
             parse_constant=_reject_nonstandard_constant,
