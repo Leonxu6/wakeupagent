@@ -40,21 +40,22 @@ Tracked environment templates are audited separately. Secret-like keys such as A
 
 ## Repository maintenance audits
 
-The main CI workflow runs lightweight repository audits before the full test suite:
+The main CI workflow runs the complete offline maintenance suite before the full test suite:
 
 ```bash
-uv run python maintenance/ci_contract_audit.py
-uv run python maintenance/env_example_audit.py
-uv run python maintenance/python_version_audit.py
-uv run python maintenance/model_asset_audit.py
+uv run python maintenance/run_all.py
 ```
 
-These checks protect a few maintenance invariants that ordinary unit tests can miss:
+The suite includes CI-contract, environment-template, Python-version, model-asset, syntax, source-integrity, dependency, Markdown, and security-oriented checks. These audits protect maintenance invariants that ordinary runtime unit tests can miss, including:
 
-- CI must retain `main` push and pull-request triggers, Python provisioning, frozen dependency sync, and test execution.
+- CI must retain `main` push and pull-request triggers, Python provisioning, frozen dependency sync, maintenance audits, and test execution.
 - `.env.example` must remain syntactically clean and must not contain populated secret-like settings.
 - `.python-version` must agree with the `requires-python` floor in `pyproject.toml`.
 - Required `.task` model assets must exist as non-empty regular files.
+- Tracked JSON rejects duplicate object keys, non-standard constants, symbolic links, non-file paths, and files larger than **4 MiB**.
+- Tracked TOML rejects symbolic links, non-file paths, and files larger than **2 MiB**.
+
+The JSON/TOML size ceilings keep CI parsing work predictable. Oversized configuration-like files fail explicitly instead of being read into memory without a bound; large generated payloads should use an artifact/data path rather than masquerading as repository configuration.
 
 The Markdown link checker remains available as an offline maintainer tool:
 
