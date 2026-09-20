@@ -7,6 +7,8 @@ from pathlib import Path
 
 from maintenance.common import print_failures, require_root, tracked_files
 
+_MAX_TOML_BYTES = 2 * 1024 * 1024
+
 
 def audit_file(path: Path) -> list[str]:
     if path.is_symlink():
@@ -14,6 +16,8 @@ def audit_file(path: Path) -> list[str]:
     if not path.is_file():
         return [f"invalid TOML: {path.name}: expected a regular file"]
     try:
+        if path.stat().st_size > _MAX_TOML_BYTES:
+            return [f"invalid TOML: {path.name}: file exceeds {_MAX_TOML_BYTES} byte audit limit"]
         with path.open("rb") as handle:
             tomllib.load(handle)
     except (OSError, tomllib.TOMLDecodeError) as exc:
