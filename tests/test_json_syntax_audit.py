@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from maintenance.json_syntax_audit import audit_file
+from maintenance.json_syntax_audit import _MAX_JSON_BYTES, audit_file
 
 
 def test_json_syntax_audit_accepts_valid_json(tmp_path: Path):
@@ -56,3 +56,13 @@ def test_json_syntax_audit_rejects_directory_named_json(tmp_path: Path):
 
     assert len(failures) == 1
     assert "regular file" in failures[0]
+
+
+def test_json_syntax_audit_rejects_oversized_files_before_parsing(tmp_path: Path):
+    path = tmp_path / "oversized.json"
+    path.write_bytes(b" " * (_MAX_JSON_BYTES + 1))
+
+    failures = audit_file(path)
+
+    assert len(failures) == 1
+    assert "audit limit" in failures[0]
