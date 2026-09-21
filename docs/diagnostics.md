@@ -52,10 +52,11 @@ The suite includes CI-contract, environment-template, Python-version, model-asse
 - `.env.example` must remain syntactically clean and must not contain populated secret-like settings.
 - `.python-version` must agree with the `requires-python` floor in `pyproject.toml`.
 - Required `.task` model assets must exist as non-empty regular files.
+- `pyproject.toml` and `uv.lock` must both be regular, bounded, valid TOML files; their `requires-python` values must agree and the lock must contain well-formed package entries. Symlinked or oversized lock metadata fails before parsing.
 - Tracked JSON rejects duplicate object keys, non-standard constants, symbolic links, non-file paths, and files larger than **4 MiB**.
 - Tracked TOML rejects symbolic links, non-file paths, and files larger than **2 MiB**.
 
-The JSON/TOML size ceilings keep CI parsing work predictable. Oversized configuration-like files fail explicitly instead of being read into memory without a bound; large generated payloads should use an artifact/data path rather than masquerading as repository configuration.
+The syntax and dependency-metadata size ceilings keep CI parsing work predictable. Oversized configuration-like files or lock metadata fail explicitly instead of being read into memory without a bound; large generated payloads should use an artifact/data path rather than masquerading as repository configuration.
 
 The Markdown link checker remains available as an offline maintainer tool:
 
