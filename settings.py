@@ -7,15 +7,14 @@ import os
 import re
 import unicodedata
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
 
-from network_validation import valid_hostname
+from network_validation import decode_safe_url_path, valid_hostname
 
 _TRUE = {"1", "true", "yes", "on"}
 _FALSE = {"0", "false", "no", "off"}
 _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _FLOAT_TEXT = re.compile(r"^-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$", re.ASCII)
-_INVALID_PERCENT_ESCAPE = re.compile(r"%(?![0-9A-Fa-f]{2})")
 _MAX_ENV_NAME = 128
 _MAX_NUMERIC_TEXT = 128
 _MAX_BOOL_TEXT = 16
@@ -112,16 +111,6 @@ def _validate_text(value: object, *, field: str, max_length: int, allow_empty: b
     if _contains_unsafe_control(value):
         raise ValueError(f"{field} contains control characters")
     return value
-
-
-def _decode_url_path(path: str, *, name: str) -> str:
-    """Decode one service path only when every percent escape is valid UTF-8."""
-    if _INVALID_PERCENT_ESCAPE.search(path):
-        raise ValueError(f"{name} path contains invalid percent encoding")
-    try:
-        return unquote(path, errors="strict")
-    except UnicodeDecodeError as exc:
-        raise ValueError(f"{name} path contains invalid UTF-8 percent encoding") from exc
 
 
 def env_text(name: str, default: str, *, max_length: int = 500) -> str:
@@ -233,11 +222,9 @@ def env_http_url(name: str, default: str) -> str:
         raise ValueError(f"{name} must not contain a query string or fragment")
     if parsed.netloc.endswith(":") or port == 0:
         raise ValueError(f"{name} must use a valid non-zero port when a port is present")
-    decoded_path = _decode_url_path(parsed.path, name=name)
+    decoded_path = decode_safe_url_path(parsed.path, field=name)
     if "%2f" in parsed.path.lower():
         raise ValueError(f"{name} path must not contain encoded slash separators")
-    if "\\" in decoded_path or _contains_unsafe_control(decoded_path):
-        raise ValueError(f"{name} path contains unsafe encoded characters")
     if any(segment in {".", ".."} for segment in decoded_path.split("/")):
         raise ValueError(f"{name} path must not contain dot segments")
     return value.rstrip("/")
