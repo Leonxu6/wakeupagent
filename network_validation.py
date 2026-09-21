@@ -2,12 +2,35 @@
 from __future__ import annotations
 
 import ipaddress
+import re
 import string
+import unicodedata
+from urllib.parse import unquote
 
 _MAX_DNS_NAME = 253
 _MAX_DNS_LABEL = 63
 _MAX_ZONE_ID = 64
 _HEX_DIGITS = frozenset(string.hexdigits)
+_INVALID_PERCENT_ESCAPE = re.compile(r"%(?![0-9A-Fa-f]{2})")
+
+
+def decode_safe_url_path(path: object, *, field: str = "url") -> str:
+    """Decode a URL path only when its percent encoding is unambiguous and safe."""
+    if not isinstance(path, str):
+        raise ValueError(f"{field} path must be text")
+    if _INVALID_PERCENT_ESCAPE.search(path):
+        raise ValueError(f"{field} path contains invalid percent encoding")
+    try:
+        decoded = unquote(path, errors="strict")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"{field} path contains invalid UTF-8 percent encoding") from exc
+    if "\\" in decoded or any(
+        unicodedata.category(ch) in {"Cc", "Cf", "Cs"} for ch in decoded
+    ):
+        raise ValueError(f"{field} path contains unsafe encoded characters")
+    if any(segment in {".", ".."} for segment in decoded.split("/")):
+        raise ValueError(f"{field} path must not contain dot segments")
+    return decoded
 
 
 def _valid_ip_literal(hostname: str) -> bool:
