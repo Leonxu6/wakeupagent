@@ -6,7 +6,7 @@ import re
 import unicodedata
 from urllib.parse import urlparse
 
-from network_validation import valid_hostname
+from network_validation import decode_safe_url_path, valid_hostname
 
 _APP_NAME = re.compile(r"^[\w .+()\-]{1,80}$", re.UNICODE)
 _MAX_FIELD_LENGTH = 80
@@ -91,6 +91,7 @@ def require_http_url(value: object, *, max_length: int = 2048) -> str:
         raise ValueError("url must not contain embedded credentials")
     if parsed.netloc.endswith(":") or port == 0:
         raise ValueError("url must use a valid non-zero port when a port is present")
+    decode_safe_url_path(parsed.path, field="url")
     return url
 
 
