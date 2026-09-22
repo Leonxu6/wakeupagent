@@ -44,7 +44,7 @@ class RequireTextTests(unittest.TestCase):
 
 class UrlValidationTests(unittest.TestCase):
     def test_accepts_http_and_https_urls(self):
-        for url in ("http://example.com", "https://example.com/path?q=1"):
+        for url in ("http://example.com", "https://example.com/path?q=1", "https://example.com/%E4%B8%AD"):
             with self.subTest(url=url):
                 self.assertEqual(require_http_url(url), url)
 
@@ -67,6 +67,19 @@ class UrlValidationTests(unittest.TestCase):
     def test_rejects_hidden_unicode_controls_in_urls(self):
         for url in ("https://example.com/a\u200db", "https://example.com/a\u206ab"):
             with self.subTest(url=url), self.assertRaisesRegex(ValueError, "control"):
+                require_http_url(url)
+
+    def test_rejects_ambiguous_percent_encoded_paths(self):
+        invalid = (
+            "https://example.com/%",
+            "https://example.com/%GG",
+            "https://example.com/%FF",
+            "https://example.com/a%5Cb",
+            "https://example.com/a/%2e%2e/b",
+            "https://example.com/a%0Ab",
+        )
+        for url in invalid:
+            with self.subTest(url=url), self.assertRaises(ValueError):
                 require_http_url(url)
 
     def test_rejects_overlong_dns_hostnames(self):
