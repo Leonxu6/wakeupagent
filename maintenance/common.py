@@ -13,6 +13,7 @@ IGNORED_PARTS = {
     ".ruff_cache", ".mypy_cache", "build", "dist",
 }
 NON_RUNTIME_ROOTS = {"tests", "maintenance"}
+MAX_PRODUCTION_PYTHON_BYTES = 1_048_576
 
 
 def require_root(root: object) -> Path:
@@ -65,7 +66,7 @@ def tracked_files(root: Path) -> list[Path]:
 
 
 def production_python_files(root: Path) -> list[Path]:
-    """Return regular tracked runtime Python files without following symlinks."""
+    """Return bounded regular tracked runtime Python files without following symlinks."""
     root = require_root(root)
     files: list[Path] = []
     for rel in tracked_files(root):
@@ -74,6 +75,14 @@ def production_python_files(root: Path) -> list[Path]:
         path = root / rel
         if path.is_symlink() or not path.is_file():
             continue
+        try:
+            size = path.stat().st_size
+        except OSError as exc:
+            raise ValueError(f"could not inspect runtime Python source: {rel}") from exc
+        if size > MAX_PRODUCTION_PYTHON_BYTES:
+            raise ValueError(
+                f"runtime Python source exceeds {MAX_PRODUCTION_PYTHON_BYTES} byte audit limit: {rel}"
+            )
         files.append(rel)
     return files
 
