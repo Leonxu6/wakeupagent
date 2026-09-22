@@ -49,6 +49,15 @@ def test_production_python_files_skips_symlinks_and_non_files(monkeypatch, tmp_p
     assert common.production_python_files(tmp_path) == [Path("runtime.py")]
 
 
+def test_production_python_files_rejects_oversized_runtime_source(monkeypatch, tmp_path):
+    oversized = tmp_path / "runtime.py"
+    oversized.write_bytes(b"x" * (common.MAX_PRODUCTION_PYTHON_BYTES + 1))
+    monkeypatch.setattr(common, "tracked_files", lambda root: [Path("runtime.py")])
+
+    with pytest.raises(ValueError, match="exceeds .* audit limit"):
+        common.production_python_files(tmp_path)
+
+
 def test_tracked_files_rejects_repository_escape_paths(monkeypatch, tmp_path):
     class Result:
         stdout = b"config.py\0../escape.py\0"
