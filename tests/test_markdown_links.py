@@ -2,6 +2,8 @@ from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import sys
 
+import pytest
+
 MODULE_PATH = Path(__file__).resolve().parents[1] / "maintenance" / "markdown_links.py"
 spec = spec_from_file_location("markdown_links", MODULE_PATH)
 module = module_from_spec(spec)
@@ -47,3 +49,19 @@ def test_checker_does_not_read_symlinked_markdown_sources(tmp_path):
     link.symlink_to(outside)
 
     assert module.broken_local_links(tmp_path) == []
+
+
+def test_checker_rejects_oversized_markdown_sources(tmp_path):
+    source = tmp_path / "README.md"
+    source.write_bytes(b"x" * (module._MAX_MARKDOWN_SOURCE_BYTES + 1))
+
+    with pytest.raises(ValueError, match="Markdown source exceeds .* audit limit: README.md"):
+        module.broken_local_links(tmp_path)
+
+
+def test_checker_reports_non_utf8_markdown_sources(tmp_path):
+    source = tmp_path / "README.md"
+    source.write_bytes(b"\xff\xfe\x00")
+
+    with pytest.raises(ValueError, match="could not read Markdown source as UTF-8: README.md"):
+        module.broken_local_links(tmp_path)
