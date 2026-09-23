@@ -29,6 +29,8 @@ Environment-template checks are deliberately bidirectional. Every runtime settin
 
 Runtime-specific Python checks are scoped away from tests and maintenance tooling. They reject assertions that disappear under `python -O`, `BaseException` handlers that can swallow shutdown signals, runtime `sys.path` mutation, blocking `input()` prompts, unverified SSL contexts, host-derived UUIDv1 identifiers, and `socket.create_connection()` calls without explicit timeouts. The shared runtime-source enumerator also refuses tracked production Python files larger than 1 MiB before individual AST audits read them, keeping the full maintenance suite bounded even if a generated or corrupt source file is committed accidentally. This keeps the long-running agent predictable under unattended execution.
 
+The local Markdown-link audit applies the same bounded-input principle to documentation: each regular Markdown source must be valid UTF-8 and no larger than 1 MiB before links are parsed. Symlinked Markdown sources remain ignored, so repository checks do not follow documentation paths outside the worktree.
+
 The dedicated safety-documentation audit also makes sure the documented opt-in flags match the runtime contract and that the legacy chaos action remains documented as unregistered.
 
 ## Adding an audit
