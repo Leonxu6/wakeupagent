@@ -6,6 +6,8 @@ from pathlib import Path
 import re
 from urllib.parse import unquote, urlsplit
 
+from maintenance.common import tracked_files
+
 _LINK = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 _MAX_MARKDOWN_SOURCE_BYTES = 1_048_576
 
@@ -14,6 +16,19 @@ _MAX_MARKDOWN_SOURCE_BYTES = 1_048_576
 class BrokenLink:
     source: Path
     target: str
+
+
+def _markdown_sources(root: Path) -> list[Path]:
+    """Return regular tracked Markdown sources without following symlinks."""
+    sources: list[Path] = []
+    for rel in tracked_files(root):
+        if rel.suffix.lower() != ".md":
+            continue
+        source = root / rel
+        if source.is_symlink() or not source.is_file():
+            continue
+        sources.append(source)
+    return sources
 
 
 def _read_markdown_source(source: Path, *, root: Path) -> str:
@@ -36,9 +51,7 @@ def _read_markdown_source(source: Path, *, root: Path) -> str:
 def broken_local_links(root: Path) -> list[BrokenLink]:
     broken: list[BrokenLink] = []
     root_resolved = root.resolve()
-    for source in sorted(root.rglob("*.md")):
-        if source.is_symlink() or not source.is_file():
-            continue
+    for source in _markdown_sources(root):
         text = _read_markdown_source(source, root=root)
         for raw_target in _LINK.findall(text):
             raw_target = raw_target.strip()
