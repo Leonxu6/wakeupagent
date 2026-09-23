@@ -12,6 +12,15 @@ sys.modules[spec.name] = module
 spec.loader.exec_module(module)
 
 
+@pytest.fixture(autouse=True)
+def _tracked_markdown_fixture(monkeypatch):
+    monkeypatch.setattr(
+        module,
+        "tracked_files",
+        lambda root: sorted(path.relative_to(root) for path in root.rglob("*.md")),
+    )
+
+
 def test_checker_accepts_existing_local_and_external_links(tmp_path):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "other.md").write_text("# Other\n", encoding="utf-8")
@@ -47,6 +56,14 @@ def test_checker_does_not_read_symlinked_markdown_sources(tmp_path):
     outside.write_text("[missing](not-in-repository.md)\n", encoding="utf-8")
     link = tmp_path / "linked-guide.md"
     link.symlink_to(outside)
+
+    assert module.broken_local_links(tmp_path) == []
+
+
+def test_checker_ignores_untracked_markdown_sources(monkeypatch, tmp_path):
+    (tmp_path / "README.md").write_text("# tracked\n", encoding="utf-8")
+    (tmp_path / "scratch.md").write_text("[missing](not-here.md)\n", encoding="utf-8")
+    monkeypatch.setattr(module, "tracked_files", lambda root: [Path("README.md")])
 
     assert module.broken_local_links(tmp_path) == []
 
