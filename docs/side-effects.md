@@ -6,6 +6,8 @@ WakeUpAgent mixes perception with optional desktop automation. The project treat
 
 Side-effecting capabilities are opt-in. External messaging, process control, local TTS, and browser control remain disabled until their corresponding environment flags are explicitly enabled. Browser navigation also accepts only validated HTTP(S) URLs.
 
+A malformed capability flag never enables its side effect. Runtime tools fail closed and emit a bounded configuration diagnostic without echoing the raw environment value; `uv run main.py --check` also treats an invalid capability flag as a failed installation check and exits nonzero. This makes a typo visible without turning it into an accidental permission grant.
+
 The legacy `chaos_terminal_punishment` symbol remains importable only so old checkpoints can deserialize safely. It is intentionally inert, is not registered in `ALL_TOOLS`, and must not be advertised by prompts or documentation as a supported escalation path. Do not recreate its disruptive terminal/process behavior through combinations of other tools.
 
 ## External messaging
