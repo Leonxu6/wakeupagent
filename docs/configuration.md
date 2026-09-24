@@ -39,7 +39,7 @@ WAKEUP_ALLOW_PROCESS_CONTROL=true
 
 Enable only the capabilities you actually want to grant. TTS allows local audio output, browser control allows opening validated HTTP(S) URLs, external messaging enables the configured WeChat alias map, and process control allows requesting that an explicitly named app quit. Leaving a flag unset or `false` keeps that capability unavailable to agent tools.
 
-Boolean settings accept only the documented short spellings (`1/0`, `true/false`, `yes/no`, `on/off`) and reject oversized text before case normalization. This keeps configuration parsing work bounded even when an environment source contains an accidentally huge value. The diagnostics command parses all four side-effect flags without triggering them; invalid spellings are reported as warnings so `.env` mistakes are visible before a live run.
+Boolean settings accept only the documented short spellings (`1/0`, `true/false`, `yes/no`, `on/off`) and reject oversized text before case normalization. This keeps configuration parsing work bounded even when an environment source contains an accidentally huge value. The diagnostics command parses all four side-effect flags without triggering them; invalid spellings are reported and make the diagnostics command exit nonzero so a mistyped capability gate cannot be mistaken for a healthy installation.
 
 ## Installation check
 
