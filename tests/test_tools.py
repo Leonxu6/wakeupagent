@@ -14,6 +14,17 @@ class OpenWebpageTests(unittest.TestCase):
         self.assertIn("WAKEUP_ALLOW_BROWSER_CONTROL", result)
         browser_open.assert_not_called()
 
+    @patch("tools.console.print")
+    @patch("tools.webbrowser.open")
+    def test_invalid_browser_flag_is_logged_without_side_effects(self, browser_open, console_print):
+        with patch.dict(os.environ, {"WAKEUP_ALLOW_BROWSER_CONTROL": "sometimes"}, clear=True):
+            result = open_webpage.invoke({"url": "https://example.com"})
+        self.assertIn("disabled", result)
+        browser_open.assert_not_called()
+        rendered = console_print.call_args.args[0]
+        self.assertIn("invalid WAKEUP_ALLOW_BROWSER_CONTROL feature flag", rendered)
+        self.assertNotIn("sometimes", rendered)
+
     @patch("tools.webbrowser.open", return_value=True)
     def test_opens_http_and_https_urls(self, browser_open):
         with patch.dict(os.environ, {"WAKEUP_ALLOW_BROWSER_CONTROL": "true"}, clear=True):
