@@ -31,6 +31,10 @@ _CRITICAL_CHECKS = {
     "configuration",
     "checkpoint-dir",
     "report-dir",
+    "tts",
+    "browser-control",
+    "external-messaging",
+    "process-control",
 }
 _CRITICAL_IDENTITIES = {
     unicodedata.normalize("NFKC", name).casefold() for name in _CRITICAL_CHECKS
