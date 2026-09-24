@@ -30,7 +30,8 @@ _BIDI_CONTROLS = {
 def _feature_enabled(name: str) -> bool:
     try:
         return env_bool(name, False)
-    except ValueError:
+    except ValueError as exc:
+        console.print(f"[red][config] invalid {escape(name)} feature flag: {escape(_bounded_detail(exc))}[/red]")
         return False
 
 
