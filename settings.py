@@ -218,7 +218,7 @@ def env_http_url(name: str, default: str) -> str:
         raise ValueError(f"{name} hostname is malformed")
     if parsed.username is not None or parsed.password is not None:
         raise ValueError(f"{name} must not contain credentials")
-    if parsed.query or parsed.fragment:
+    if "?" in value or "#" in value:
         raise ValueError(f"{name} must not contain a query string or fragment")
     if parsed.netloc.endswith(":") or port == 0:
         raise ValueError(f"{name} must use a valid non-zero port when a port is present")
