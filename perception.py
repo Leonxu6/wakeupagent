@@ -250,13 +250,14 @@ If any of the above are clearly present, answer yes.
 Description: {text}
 Answer (yes or no):"""
 
+# Only clear leisure signals bypass the local classifier. Scrolling notes,
+# watching a lecture video, or resting in bed can all be planned activities.
 _UNHEALTHY_KEYWORDS = [
-    'scrolling', 'scroll', 'social media', 'tiktok', 'instagram',
+    'social media', 'tiktok', 'instagram',
     'selfie', 'taking a selfie',
     'watching television', 'watching tv', 'watching a show', 'watching a movie',
-    'watching video', 'streaming', 'netflix',
+    'netflix',
     'playing video game', 'playing a game', 'gaming',
-    'lying in bed', 'lying on bed',
 ]
 
 
