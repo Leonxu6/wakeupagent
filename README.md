@@ -348,7 +348,7 @@ wakeupagent/
 ### FAQ
 
 **Q: The system keeps flagging me as procrastinating even when I'm studying.**
-The cerebellum uses "innocent until proven guilty" — ambiguous cases default to healthy. If you're consistently misclassified, capture Moondream's exact description, check it for an unintended match in `_UNHEALTHY_KEYWORDS`, and adjust the keyword list or `_CLASSIFIER_PROMPT` in `perception.py` with a regression test.
+The cerebellum uses "innocent until proven guilty" — ambiguous cases default to healthy. Planned activities such as scrolling lecture notes, watching a tutorial, exercising with a video, or intentionally resting are passed to the local classifier with recent context instead of being rejected by a generic keyword alone. If you're consistently misclassified, capture Moondream's exact description, check it for an unintended match in `_UNHEALTHY_KEYWORDS`, and adjust the keyword list or `_CLASSIFIER_PROMPT` in `perception.py` with a regression test.
 
 **Q: WeChat messages aren't sending.**
 Check: (1) WeChat Mac is logged in and running; (2) your terminal has Accessibility permission; (3) `WECHAT_CONTACTS` values exactly match WeChat search results (including spaces and special characters).
@@ -700,7 +700,7 @@ wakeupagent/
 ### 常见问题
 
 **Q: 我在认真学习，但系统总是把我判定为摆烂。**
-小脑使用"疑罪从无"原则 —— 模糊情况默认为健康。如果你持续被误判，先记录 Moondream 的原始描述，检查是否误命中 `perception.py` 中的 `_UNHEALTHY_KEYWORDS`，再通过回归测试调整关键词或 `_CLASSIFIER_PROMPT`。
+小脑使用"疑罪从无"原则 —— 模糊情况默认为健康。滚动查看课程笔记、观看教程、跟随视频锻炼或有意休息等计划内活动，会结合近期上下文交给本地分类器判断，而不会仅凭通用关键词直接判为摆烂。如果你持续被误判，先记录 Moondream 的原始描述，检查是否误命中 `perception.py` 中的 `_UNHEALTHY_KEYWORDS`，再通过回归测试调整关键词或 `_CLASSIFIER_PROMPT`。
 
 **Q: 微信消息发不出去。**
 检查：(1) 微信 Mac 已登录并在运行；(2) 终端已获得辅助功能权限；(3) `WECHAT_CONTACTS` 的值与微信搜索结果完全一致（包括空格和特殊字符）。
