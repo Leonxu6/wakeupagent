@@ -237,15 +237,16 @@ def query_moondream(frame_bgr: np.ndarray) -> str:
         Path(tmp_path).unlink(missing_ok=True)
 
 
-_CLASSIFIER_PROMPT = """Does this description contain any of these activities?
-- scrolling phone / social media / TikTok / Instagram
+_CLASSIFIER_PROMPT = """Is the person clearly doing an unplanned recreational activity instead of their intended work, study, exercise, or rest?
+- scrolling social media / TikTok / Instagram
 - taking selfie / posing in mirror / phone camera
 - watching TV / television / a show / a movie / streaming / Netflix / video on screen
 - playing video game / gaming / console
 - lying in bed on phone
 
-{context_section}If NONE of the above are mentioned, answer no.
-If any of the above are clearly present, answer yes.
+Use recent context to distinguish distraction from planned activity. Scrolling notes, watching a lecture or tutorial, exercising with a video, and intentional rest are not procrastination. If the activity or intent is ambiguous, answer no.
+
+{context_section}If a recreational distraction is clearly present, answer yes. Otherwise answer no.
 
 Description: {text}
 Answer (yes or no):"""
