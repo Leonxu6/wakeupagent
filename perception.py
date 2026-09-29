@@ -3,6 +3,7 @@ perception.py — Node A: local edge perception
 camera -> mediapipe pose+gesture -> moondream2 -> annotated display
 """
 import os
+import re
 import tempfile
 import time
 import threading
@@ -50,6 +51,7 @@ _POSE_MODEL  = Path(__file__).parent / "pose_landmarker_lite.task"
 _GESTURE_MODEL = Path(__file__).parent / "gesture_recognizer.task"
 _MAX_DESCRIPTION_CHARS = 1000
 _MAX_CONTEXT_CHARS = 2000
+_MAX_CLASSIFIER_RESPONSE_CHARS = 100
 _BIDI_CONTROLS = {chr(code) for code in (0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x2066, 0x2067, 0x2068, 0x2069)}
 
 _ollama_client = ollama.Client(host=OLLAMA_HOST)
@@ -262,6 +264,14 @@ _UNHEALTHY_KEYWORDS = [
 ]
 
 
+def _classifier_verdict(value: object) -> str | None:
+    """Parse a bounded leading yes/no answer from the local classifier."""
+    if not isinstance(value, str):
+        return None
+    match = re.match(r"^(yes|no)\b", value[:_MAX_CLASSIFIER_RESPONSE_CHARS].strip().lower())
+    return match.group(1) if match else None
+
+
 def classify_behavior(vision_text: str, context: str = "") -> tuple[bool, bool]:
     is_healthy = _qwen_health_check(vision_text, context)
     should_escalate = not is_healthy
@@ -287,16 +297,13 @@ def _qwen_health_check(vision_text: str, context: str = "") -> bool:
         )
         prompt = _CLASSIFIER_PROMPT.format(context_section=context_section, text=vision_text)
         response = _ollama_client.generate(model=LOCAL_CLASSIFIER_MODEL, prompt=prompt)
-        value = getattr(response, "response", "")
-        raw = value.strip().lower() if isinstance(value, str) and value.strip() else "no"
-        for word in raw.split():
-            word = word.rstrip('.,:')
-            if word == 'yes':
-                console.print(f"{LOG_A} qwen → yes → unhealthy")
-                return False
-            if word == 'no':
-                console.print(f"{LOG_A} qwen → no → healthy")
-                return True
+        verdict = _classifier_verdict(getattr(response, "response", ""))
+        if verdict == "yes":
+            console.print(f"{LOG_A} qwen → yes → unhealthy")
+            return False
+        if verdict == "no":
+            console.print(f"{LOG_A} qwen → no → healthy")
+            return True
         console.print(f"{LOG_A} qwen → unclear response → healthy (default)")
         return True
     except Exception as exc:  # noqa: BLE001
