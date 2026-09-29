@@ -24,6 +24,8 @@ def test_ambiguous_activity_uses_local_classifier(monkeypatch, description):
     monkeypatch.setattr(perception, "_ollama_client", Client())
     assert perception._qwen_health_check(description) is True
     assert prompts and description in prompts[0]
+    assert "lecture or tutorial" in prompts[0]
+    assert "ambiguous, answer no" in prompts[0]
 
 
 def test_explicit_social_media_still_uses_fast_path(monkeypatch):
