@@ -282,6 +282,15 @@ def classify_behavior(vision_text: str, context: str = "") -> tuple[bool, bool]:
     return is_healthy, should_escalate
 
 
+def _deliver_state_callback(callback, text: str, timestamp: str,
+                            is_healthy: bool, should_escalate: bool) -> bool:
+    """Publish an analysis only while the perception session is still active."""
+    if callback is None or _stop_event.is_set():
+        return False
+    callback(text, timestamp, is_healthy, should_escalate)
+    return True
+
+
 def _qwen_health_check(vision_text: str, context: str = "") -> bool:
     vision_text = _clean_text(vision_text, field="vision text", limit=_MAX_DESCRIPTION_CHARS)
     if context:
@@ -318,11 +327,21 @@ def run_perception_loop(state_callback=None, get_context=None):
             console.print(f"{LOG_A} missing model: {name}")
             return
 
+    _stop_event.clear()
     console.print(f"{LOG_A} cam={CAMERA_INDEX} interval={CAPTURE_INTERVAL_SEC}s  q/ESC to quit")
     cap = cv2.VideoCapture(CAMERA_INDEX)
-    if not cap.isOpened():
-        console.print(f"{LOG_A} cannot open camera")
-        return
+    try:
+        if not cap.isOpened():
+            console.print(f"{LOG_A} cannot open camera")
+            return
+        return _run_open_camera(cap, state_callback=state_callback, get_context=get_context)
+    finally:
+        _stop_event.set()
+        cap.release()
+        cv2.destroyAllWindows()
+
+
+def _run_open_camera(cap, state_callback=None, get_context=None):
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
@@ -346,8 +365,7 @@ def run_perception_loop(state_callback=None, get_context=None):
             with lock:
                 behavior[0] = text
             console.print(f"{LOG_A} [{ts}] moondream={moondream_elapsed:.1f}s -> description ready")
-            if state_callback:
-                state_callback(text, ts, is_healthy, should_escalate)
+            _deliver_state_callback(state_callback, text, ts, is_healthy, should_escalate)
         except Exception as exc:  # noqa: BLE001
             console.print(f"{LOG_A} analyze failed ({exc.__class__.__name__})")
         finally:
@@ -447,10 +465,6 @@ def run_perception_loop(state_callback=None, get_context=None):
                 console.print(f"{LOG_A} quit")
                 _stop_event.set()
                 break
-
-    cap.release()
-    cv2.destroyAllWindows()
-
 
 if __name__ == "__main__":
     run_perception_loop()
