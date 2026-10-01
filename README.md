@@ -323,7 +323,7 @@ All settings live in `config.py`. No other files need to be edited for normal us
 | `MOONDREAM_PROMPT` | `"What is the person doing?"` | Controls Moondream's description angle |
 | `WECHAT_CONTACTS` | placeholders | **Must be customized** — WeChat contact names |
 
-The perception window owns the camera for one session. Closing it with `q`/Esc, a camera-open failure, or a detector exception releases the capture handle, closes OpenCV windows, and stops late analysis callbacks before another session starts.
+The perception window owns the camera for one session. Closing it with `q`/Esc, a camera-open failure, or a detector exception releases the capture handle, closes OpenCV windows, discards the last captured frame, and stops late analysis callbacks before another session starts. `observe_camera` therefore never reuses an image retained from a previous or failed session.
 
 ### File Structure
 
