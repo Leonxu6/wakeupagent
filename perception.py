@@ -321,6 +321,8 @@ def _qwen_health_check(vision_text: str, context: str = "") -> bool:
 
 
 def run_perception_loop(state_callback=None, get_context=None):
+    global _latest_raw_frame
+    _latest_raw_frame = None
     for p, name in [(_POSE_MODEL, "pose_landmarker_lite.task"),
                     (_GESTURE_MODEL, "gesture_recognizer.task")]:
         if not p.exists():
@@ -337,6 +339,7 @@ def run_perception_loop(state_callback=None, get_context=None):
         return _run_open_camera(cap, state_callback=state_callback, get_context=get_context)
     finally:
         _stop_event.set()
+        _latest_raw_frame = None
         cap.release()
         cv2.destroyAllWindows()
 
