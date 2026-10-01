@@ -55,6 +55,7 @@ _MAX_STATE_COUNTER = 10_000
 _MAX_STATE_MESSAGES = 10_000
 _MAX_VISION_TEXT = 2000
 _MAX_TIMESTAMP_TEXT = 80
+_CHECKPOINT_LOCK_TIMEOUT_SEC = 30.0
 
 
 def _safe_error_detail(exc: object) -> str:
@@ -415,6 +416,10 @@ def build_graph():
         {"execution": "execution", END: END},
     )
     builder.add_edge("execution", "decision")
-    conn = sqlite3.connect(CHECKPOINT_DB_PATH, check_same_thread=False)
+    conn = sqlite3.connect(
+        CHECKPOINT_DB_PATH,
+        timeout=_CHECKPOINT_LOCK_TIMEOUT_SEC,
+        check_same_thread=False,
+    )
     checkpointer = SqliteSaver(conn=conn)
     return builder.compile(checkpointer=checkpointer)
