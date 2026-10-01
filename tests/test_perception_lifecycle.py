@@ -41,6 +41,7 @@ def test_failed_camera_open_releases_handle_and_signals_stop(monkeypatch):
     assert capture.released is True
     assert destroyed == [True]
     assert perception._stop_event.is_set()
+    assert perception.get_latest_frame() is None
 
 
 def test_session_clears_stale_stop_and_cleans_up_after_failure(monkeypatch):
@@ -60,6 +61,20 @@ def test_session_clears_stale_stop_and_cleans_up_after_failure(monkeypatch):
     assert capture.released is True
     assert destroyed == [True]
     assert perception._stop_event.is_set()
+    assert perception.get_latest_frame() is None
+
+
+def test_session_discards_stale_frame_before_model_validation(monkeypatch):
+    class MissingModel:
+        def exists(self):
+            return False
+
+    monkeypatch.setattr(perception, "_POSE_MODEL", MissingModel())
+    monkeypatch.setattr(perception, "_latest_raw_frame", object())
+
+    perception.run_perception_loop()
+
+    assert perception.get_latest_frame() is None
 
 
 def test_stopped_session_suppresses_late_analysis_callback(monkeypatch):
