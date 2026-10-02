@@ -2,6 +2,7 @@
 perception.py — Node A: local edge perception
 camera -> mediapipe pose+gesture -> moondream2 -> annotated display
 """
+import math
 import os
 import re
 import tempfile
@@ -57,6 +58,8 @@ _BIDI_CONTROLS = {chr(code) for code in (0x202A, 0x202B, 0x202C, 0x202D, 0x202E,
 _ollama_client = ollama.Client(host=OLLAMA_HOST)
 
 _latest_raw_frame: np.ndarray | None = None
+_latest_frame_captured_at: float | None = None
+_latest_frame_lock = threading.Lock()
 _stop_event = threading.Event()
 
 
@@ -82,10 +85,36 @@ def _validate_frame(frame: object) -> np.ndarray:
     return frame
 
 
-def get_latest_frame() -> np.ndarray | None:
-    """Return an isolated copy of the latest clean frame for observe_camera."""
-    frame = _latest_raw_frame
-    return None if frame is None else frame.copy()
+def get_latest_frame(*, captured_after: float | None = None) -> np.ndarray | None:
+    """Return an isolated frame copy, optionally requiring a fresh capture."""
+    if captured_after is not None and (
+        isinstance(captured_after, bool)
+        or not isinstance(captured_after, (int, float))
+        or not math.isfinite(captured_after)
+    ):
+        raise ValueError("captured_after must be a finite monotonic timestamp")
+    with _latest_frame_lock:
+        if _latest_raw_frame is None:
+            return None
+        if captured_after is not None and (
+            _latest_frame_captured_at is None or _latest_frame_captured_at < captured_after
+        ):
+            return None
+        return _latest_raw_frame.copy()
+
+
+def _clear_latest_frame() -> None:
+    global _latest_raw_frame, _latest_frame_captured_at
+    with _latest_frame_lock:
+        _latest_raw_frame = None
+        _latest_frame_captured_at = None
+
+
+def _store_latest_frame(frame: np.ndarray) -> None:
+    global _latest_raw_frame, _latest_frame_captured_at
+    with _latest_frame_lock:
+        _latest_raw_frame = frame
+        _latest_frame_captured_at = time.monotonic()
 
 
 _HAND_CONNECTIONS = [
@@ -321,8 +350,7 @@ def _qwen_health_check(vision_text: str, context: str = "") -> bool:
 
 
 def run_perception_loop(state_callback=None, get_context=None):
-    global _latest_raw_frame
-    _latest_raw_frame = None
+    _clear_latest_frame()
     for p, name in [(_POSE_MODEL, "pose_landmarker_lite.task"),
                     (_GESTURE_MODEL, "gesture_recognizer.task")]:
         if not p.exists():
@@ -339,7 +367,7 @@ def run_perception_loop(state_callback=None, get_context=None):
         return _run_open_camera(cap, state_callback=state_callback, get_context=get_context)
     finally:
         _stop_event.set()
-        _latest_raw_frame = None
+        _clear_latest_frame()
         cap.release()
         cv2.destroyAllWindows()
 
@@ -404,8 +432,7 @@ def _run_open_camera(cap, state_callback=None, get_context=None):
                 console.print(f"{LOG_A} camera read failed")
                 break
             raw_frame = frame.copy()
-            global _latest_raw_frame
-            _latest_raw_frame = raw_frame
+            _store_latest_frame(raw_frame)
             fh, fw    = frame.shape[:2]
             now       = time.time()
             ts_ms     = int(now * 1000) - start_ms
