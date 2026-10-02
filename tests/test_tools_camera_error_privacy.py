@@ -13,7 +13,7 @@ class _StopEvent:
 
 
 def test_camera_frame_error_hides_backend_detail(monkeypatch):
-    def fail_frame():
+    def fail_frame(**_kwargs):
         raise RuntimeError("camera backend path /Users/private/device")
 
     fake_perception = SimpleNamespace(

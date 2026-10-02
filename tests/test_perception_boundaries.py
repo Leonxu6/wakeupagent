@@ -13,6 +13,21 @@ def test_latest_frame_returns_defensive_copy(monkeypatch):
     assert original[0, 0, 0] == 0
 
 
+def test_latest_frame_can_require_a_capture_after_request(monkeypatch):
+    original = np.zeros((2, 2, 3), dtype=np.uint8)
+    monkeypatch.setattr(perception, "_latest_raw_frame", original)
+    monkeypatch.setattr(perception, "_latest_frame_captured_at", 10.0)
+
+    assert perception.get_latest_frame(captured_after=10.1) is None
+    assert perception.get_latest_frame(captured_after=10.0) is not None
+
+
+@pytest.mark.parametrize("value", [True, "10", float("nan"), float("inf")])
+def test_latest_frame_rejects_invalid_capture_threshold(value):
+    with pytest.raises(ValueError, match="finite monotonic"):
+        perception.get_latest_frame(captured_after=value)
+
+
 @pytest.mark.parametrize("frame", [None, object(), np.array([]), np.zeros((2, 2, 2, 2)), np.zeros((2, 2, 5))])
 def test_validate_frame_rejects_invalid_shapes(frame):
     with pytest.raises(ValueError):

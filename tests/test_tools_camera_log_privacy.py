@@ -16,7 +16,7 @@ def test_camera_description_is_returned_but_not_logged(monkeypatch):
     private_description = "Private whiteboard project codename"
     perception = SimpleNamespace(
         _stop_event=StopEvent(),
-        get_latest_frame=lambda: object(),
+        get_latest_frame=lambda **_kwargs: object(),
         query_moondream=lambda _frame: private_description,
     )
     monkeypatch.setitem(sys.modules, "perception", perception)

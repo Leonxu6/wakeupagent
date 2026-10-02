@@ -18,7 +18,7 @@ class ObserveCameraTests(unittest.TestCase):
     def _perception(self, description):
         return types.SimpleNamespace(
             _stop_event=_StopEvent(),
-            get_latest_frame=lambda: object(),
+            get_latest_frame=lambda **_kwargs: object(),
             query_moondream=lambda frame: description,
         )
 
@@ -58,7 +58,7 @@ class ObserveCameraTests(unittest.TestCase):
 
         fake = types.SimpleNamespace(
             _stop_event=_StopEvent(),
-            get_latest_frame=lambda: object(),
+            get_latest_frame=lambda **_kwargs: object(),
             query_moondream=_boom,
         )
         with patch.dict(sys.modules, {"perception": fake}):
@@ -70,7 +70,7 @@ class ObserveCameraTests(unittest.TestCase):
     def test_reports_camera_frame_failures_without_calling_model(self, console_print):
         calls = []
 
-        def _frame_boom():
+        def _frame_boom(**_kwargs):
             raise RuntimeError("camera backend\nfailed")
 
         fake = types.SimpleNamespace(
@@ -83,6 +83,20 @@ class ObserveCameraTests(unittest.TestCase):
         self.assertEqual(result, "Error: camera frame unavailable")
         self.assertNotIn("camera backend", result)
         self.assertEqual(calls, [])
+
+    @patch("tools.console.print")
+    @patch("tools.time.monotonic", return_value=123.5)
+    def test_requires_a_frame_captured_after_observation_started(self, _monotonic, _console_print):
+        thresholds = []
+        fake = types.SimpleNamespace(
+            _stop_event=_StopEvent(),
+            get_latest_frame=lambda **kwargs: thresholds.append(kwargs["captured_after"]),
+            query_moondream=lambda frame: "unused",
+        )
+        with patch.dict(sys.modules, {"perception": fake}):
+            result = observe_camera.invoke({})
+        self.assertEqual(result, "camera not available")
+        self.assertEqual(thresholds, [123.5])
 
 
 if __name__ == "__main__":
