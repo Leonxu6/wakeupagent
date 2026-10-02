@@ -323,7 +323,7 @@ All settings live in `config.py`. No other files need to be edited for normal us
 | `MOONDREAM_PROMPT` | `"What is the person doing?"` | Controls Moondream's description angle |
 | `WECHAT_CONTACTS` | placeholders | **Must be customized** — WeChat contact names |
 
-The perception window owns the camera for one session. Closing it with `q`/Esc, a camera-open failure, or a detector exception releases the capture handle, closes OpenCV windows, discards the last captured frame, and stops late analysis callbacks before another session starts. `observe_camera` therefore never reuses an image retained from a previous or failed session.
+The perception window owns the camera for one session. Closing it with `q`/Esc, a camera-open failure, or a detector exception releases the capture handle, closes OpenCV windows, discards the last captured frame, and stops late analysis callbacks before another session starts. `observe_camera` records when its wait begins and only accepts a frame captured at or after that point, so a re-check never reuses an image retained from an earlier interval, previous session, or failed session.
 
 ### File Structure
 
@@ -676,6 +676,8 @@ uv run perception.py
 | `DEEPSEEK_MODEL` | `deepseek-chat` | 云端大脑模型 |
 | `MOONDREAM_PROMPT` | `"What is the person doing?"` | Moondream 的描述提示词 |
 | `WECHAT_CONTACTS` | 占位符 | **必须自定义** —— 微信联系人名称 |
+
+感知窗口独占一次摄像头会话。按 `q`/Esc 关闭、摄像头打开失败或检测器异常时，程序都会释放句柄、关闭 OpenCV 窗口、丢弃最后一帧，并阻止迟到的分析回调。`observe_camera` 还会记录等待开始时间，只接受该时刻之后采集的新帧，因此重新观察不会复用上一轮、上一会话或失败会话留下的画面。
 
 ### 文件结构
 
