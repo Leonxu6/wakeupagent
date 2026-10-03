@@ -46,6 +46,7 @@ LOG_RESET      = "[blue][R][/blue]"
 console = Console()
 _ERROR_DETAIL_LIMIT = 120
 _REPORT_TEXT_LIMIT = 1000
+_REPORT_ENTRY_MAX_BYTES = 4096
 _SUMMARY_TEXT_LIMIT = 2000
 _RESPONSE_TEXT_LIMIT = 2000
 _MAX_TOOL_CALLS = 20
@@ -212,10 +213,35 @@ def _generate_daily_report(messages: list[BaseMessage], date_str: str, state: Ag
 
 
 def _save_daily_report(report: str, date_str: str):
+    try:
+        parsed_date = date.fromisoformat(date_str)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("daily report date must be a canonical ISO date") from exc
+    if parsed_date.isoformat() != date_str:
+        raise ValueError("daily report date must be a canonical ISO date")
+    report_text = single_line_text(report, limit=_REPORT_TEXT_LIMIT)
+    if not report_text:
+        raise ValueError("daily report text must not be empty")
+    payload = f"\n## {date_str}\n{report_text}\n".encode("utf-8")
+    if len(payload) > _REPORT_ENTRY_MAX_BYTES:
+        raise ValueError("daily report entry is too large")
+
     path = Path(DAILY_REPORT_PATH)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "a", encoding="utf-8") as f:
-        f.write(f"\n## {date_str}\n{report}\n")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    fd = os.open(path, flags, 0o600)
+    try:
+        offset = 0
+        while offset < len(payload):
+            written = os.write(fd, payload[offset:])
+            if written <= 0:
+                raise OSError(f"daily report append stalled after {offset}/{len(payload)} bytes")
+            offset += written
+        os.fsync(fd)
+    finally:
+        os.close(fd)
 
 
 def perception_node(state: AgentState) -> dict:
