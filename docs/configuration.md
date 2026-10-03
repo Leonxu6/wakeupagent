@@ -24,6 +24,8 @@ The checkpoint database and daily report must resolve to different files. Config
 
 The checkpoint database parent must already exist because SQLite opens that file directly. Daily-report parents are different: report persistence creates missing parent directories at write time, so diagnostics accepts a missing report directory when its nearest existing ancestor is writable. The check remains side-effect free and never creates directories itself.
 
+Daily-report entries are normalized and size-bounded before persistence. New report files are private to the current user, symbolic-link targets are refused on supported platforms, and each append is checked for short writes and synchronized before the daily reset continues.
+
 Checkpoint writes use an explicit 30-second SQLite lock timeout. A competing process can finish a short transaction instead of causing an immediate lock error, while persistent lock contention still fails within a known bound rather than inheriting an implicit driver default.
 
 `WAKEUP_CONTEXT_MAX_MESSAGES`, `WAKEUP_SUMMARIZE_THRESHOLD`, and `WAKEUP_REACT_MAX_ITERATIONS` are bounded integers so a typo cannot silently allocate unbounded work. The summary threshold must be at least `6` because memory compression intentionally preserves the newest five messages; lower values would repeatedly pay for summarization without deleting any history. The installation check converts path-resolution failures into diagnostic warnings instead of aborting the whole report.
