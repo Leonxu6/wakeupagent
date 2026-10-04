@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 from datetime import datetime, date
 from pathlib import Path
 from typing import Annotated
@@ -229,10 +230,17 @@ def _save_daily_report(report: str, date_str: str):
     path = Path(DAILY_REPORT_PATH)
     path.parent.mkdir(parents=True, exist_ok=True)
     flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND
+    if hasattr(os, "O_NONBLOCK"):
+        flags |= os.O_NONBLOCK
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
     fd = os.open(path, flags, 0o600)
     try:
+        metadata = os.fstat(fd)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise OSError("daily report target must be a regular file")
+        if hasattr(os, "fchmod"):
+            os.fchmod(fd, stat.S_IMODE(metadata.st_mode) & 0o600)
         offset = 0
         while offset < len(payload):
             written = os.write(fd, payload[offset:])
