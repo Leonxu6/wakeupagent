@@ -1,4 +1,5 @@
 import os
+import stat
 
 import pytest
 
@@ -66,3 +67,29 @@ def test_daily_report_refuses_symlink_targets(tmp_path, monkeypatch):
         graph._save_daily_report("report", "2026-10-03")
 
     assert target.read_text(encoding="utf-8") == "unchanged"
+
+
+@pytest.mark.skipif(not hasattr(os, "fchmod"), reason="platform has no descriptor chmod")
+def test_daily_report_tightens_existing_file_permissions(tmp_path, monkeypatch):
+    path = tmp_path / "daily.md"
+    path.write_text("existing\n", encoding="utf-8")
+    path.chmod(0o666)
+    monkeypatch.setattr(graph, "DAILY_REPORT_PATH", str(path))
+
+    graph._save_daily_report("private entry", "2026-10-04")
+
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert path.read_text(encoding="utf-8").endswith("\n## 2026-10-04\nprivate entry\n")
+
+
+@pytest.mark.skipif(
+    not hasattr(os, "mkfifo") or not hasattr(os, "O_NONBLOCK"),
+    reason="platform cannot create and reject FIFOs without blocking",
+)
+def test_daily_report_refuses_fifo_targets(tmp_path, monkeypatch):
+    path = tmp_path / "daily.md"
+    os.mkfifo(path)
+    monkeypatch.setattr(graph, "DAILY_REPORT_PATH", str(path))
+
+    with pytest.raises(OSError):
+        graph._save_daily_report("report", "2026-10-04")
