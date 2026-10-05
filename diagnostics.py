@@ -138,17 +138,27 @@ def _configured_path_text(value: object, *, field: str) -> str:
     return text
 
 
-def _persistence_parent_check(name: str, value: object, *, allow_missing_parent: bool = False) -> Check:
+def _persistence_parent_check(
+    name: str,
+    value: object,
+    *,
+    allow_missing_parent: bool = False,
+    reject_symlink_target: bool = False,
+) -> Check:
     try:
         text = _configured_path_text(value, field="configured path")
     except ValueError as exc:
         return Check(name, False, str(exc))
     if not isinstance(allow_missing_parent, bool):
         return Check(name, False, "allow_missing_parent must be boolean")
+    if not isinstance(reject_symlink_target, bool):
+        return Check(name, False, "reject_symlink_target must be boolean")
     try:
         path = Path(text).expanduser()
         if not path.name:
             return Check(name, False, "configured path must name a persistence file")
+        if reject_symlink_target and path.is_symlink():
+            return Check(name, False, "configured path must not be a symbolic link")
         resolved = path.resolve()
         if resolved.is_dir():
             return Check(name, False, "configured path must name a file, not a directory")
@@ -271,7 +281,12 @@ def collect_checks(base_dir: Path | str | None = None) -> list[Check]:
     checks.append(config_check)
     if runtime_config is not None:
         checks.append(_persistence_parent_check("checkpoint-dir", runtime_config.CHECKPOINT_DB_PATH))
-        checks.append(_persistence_parent_check("report-dir", runtime_config.DAILY_REPORT_PATH, allow_missing_parent=True))
+        checks.append(_persistence_parent_check(
+            "report-dir",
+            runtime_config.DAILY_REPORT_PATH,
+            allow_missing_parent=True,
+            reject_symlink_target=True,
+        ))
         checks.append(_http_url_check("ollama-url", runtime_config.OLLAMA_HOST))
         checks.append(_http_url_check("deepseek-url", runtime_config.DEEPSEEK_BASE_URL))
         key_configured = bool(runtime_config.DEEPSEEK_API_KEY)
