@@ -10,6 +10,7 @@ graph.py — LangGraph 状态机定义 v3
 """
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import stat
@@ -241,13 +242,25 @@ def _save_daily_report(report: str, date_str: str):
             raise OSError("daily report target must be a regular file")
         if hasattr(os, "fchmod"):
             os.fchmod(fd, stat.S_IMODE(metadata.st_mode) & 0o600)
-        offset = 0
-        while offset < len(payload):
-            written = os.write(fd, payload[offset:])
-            if written <= 0:
-                raise OSError(f"daily report append stalled after {offset}/{len(payload)} bytes")
-            offset += written
-        os.fsync(fd)
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        original_size = os.fstat(fd).st_size
+        try:
+            offset = 0
+            while offset < len(payload):
+                written = os.write(fd, payload[offset:])
+                if written <= 0:
+                    raise OSError(f"daily report append stalled after {offset}/{len(payload)} bytes")
+                offset += written
+            os.fsync(fd)
+        except BaseException:
+            try:
+                os.ftruncate(fd, original_size)
+                os.fsync(fd)
+            except OSError as rollback_error:
+                raise OSError("daily report append failed and could not be rolled back") from rollback_error
+            raise
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
     finally:
         os.close(fd)
 
