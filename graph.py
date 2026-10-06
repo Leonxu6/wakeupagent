@@ -252,7 +252,7 @@ def _save_daily_report(report: str, date_str: str):
                     raise OSError(f"daily report append stalled after {offset}/{len(payload)} bytes")
                 offset += written
             os.fsync(fd)
-        except BaseException:
+        except Exception:
             try:
                 os.ftruncate(fd, original_size)
                 os.fsync(fd)
