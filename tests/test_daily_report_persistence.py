@@ -33,6 +33,49 @@ def test_daily_report_retries_short_writes_until_entry_is_complete(tmp_path, mon
     assert path.read_text(encoding="utf-8") == "\n## 2026-10-03\ncomplete entry\n"
 
 
+def test_daily_report_rolls_back_partial_entry_on_write_failure(tmp_path, monkeypatch):
+    path = tmp_path / "daily.md"
+    path.write_text("existing\n", encoding="utf-8")
+    monkeypatch.setattr(graph, "DAILY_REPORT_PATH", str(path))
+    original_write = graph.os.write
+    calls = 0
+
+    def fail_after_partial_write(fd, payload):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return original_write(fd, payload[:5])
+        raise OSError("simulated storage failure")
+
+    monkeypatch.setattr(graph.os, "write", fail_after_partial_write)
+    with pytest.raises(OSError, match="simulated storage failure"):
+        graph._save_daily_report("incomplete entry", "2026-10-03")
+
+    assert path.read_text(encoding="utf-8") == "existing\n"
+
+
+def test_daily_report_holds_exclusive_lock_while_appending(tmp_path, monkeypatch):
+    path = tmp_path / "daily.md"
+    monkeypatch.setattr(graph, "DAILY_REPORT_PATH", str(path))
+    events = []
+    original_flock = graph.fcntl.flock
+    original_write = graph.os.write
+
+    def tracked_flock(fd, operation):
+        events.append("lock" if operation == graph.fcntl.LOCK_EX else "unlock")
+        return original_flock(fd, operation)
+
+    def tracked_write(fd, payload):
+        events.append("write")
+        return original_write(fd, payload)
+
+    monkeypatch.setattr(graph.fcntl, "flock", tracked_flock)
+    monkeypatch.setattr(graph.os, "write", tracked_write)
+    graph._save_daily_report("serialized entry", "2026-10-03")
+
+    assert events == ["lock", "write", "unlock"]
+
+
 @pytest.mark.parametrize("date_str", ["2026-1-03", "2026-02-30", "2026-10-03\n", None])
 def test_daily_report_rejects_noncanonical_dates(tmp_path, monkeypatch, date_str):
     path = tmp_path / "daily.md"
