@@ -50,6 +50,8 @@ _ERROR_DETAIL_LIMIT = 120
 _REPORT_TEXT_LIMIT = 1000
 _REPORT_ENTRY_MAX_BYTES = 4096
 _SUMMARY_TEXT_LIMIT = 2000
+_SUMMARY_BATCH_MESSAGES = 20
+_SUMMARY_RECENT_MESSAGES = 5
 _RESPONSE_TEXT_LIMIT = 2000
 _MAX_TOOL_CALLS = 20
 _MAX_TOOL_NAME = 80
@@ -417,20 +419,23 @@ def decision_node(state: AgentState) -> dict:
 
 
 def _summarize_messages(messages: list[BaseMessage], state: AgentState) -> dict:
-    """将历史消息压缩为摘要，删除旧消息，保留最新5条上下文。"""
+    """Compress one bounded oldest batch and delete only successfully summarized messages."""
     console.print(f"{LOG_DECISION} summarizing {len(messages)} messages...")
     summary_so_far = single_line_text(state.get("conversation_summary", ""), limit=_SUMMARY_TEXT_LIMIT)
     prefix = f"已有摘要：{summary_so_far}\n\n请在此基础上更新：" if summary_so_far else "请总结以下对话："
+    deletable = messages[:-_SUMMARY_RECENT_MESSAGES]
+    batch = deletable[:_SUMMARY_BATCH_MESSAGES]
     try:
         llm = _get_llm_plain()
         response = llm.invoke(
-            messages[-20:] + [HumanMessage(content=prefix + "（50字以内，记录关键偏离与重新聚焦动作）")]
+            batch + [HumanMessage(content=prefix + "（50字以内，记录关键偏离与重新聚焦动作）")]
         )
-        new_summary = model_text(response.content, limit=_SUMMARY_TEXT_LIMIT, block_limit=20) or summary_so_far
+        new_summary = model_text(response.content, limit=_SUMMARY_TEXT_LIMIT, block_limit=20)
     except Exception:  # noqa: BLE001
-        new_summary = summary_so_far
-    to_delete = messages[:-5]
-    delete_ops = [RemoveMessage(id=m.id) for m in to_delete if hasattr(m, 'id') and m.id]
+        new_summary = ""
+    if not new_summary:
+        return {"conversation_summary": summary_so_far, "messages": []}
+    delete_ops = [RemoveMessage(id=m.id) for m in batch if hasattr(m, 'id') and m.id]
     return {"conversation_summary": new_summary, "messages": delete_ops}
 
 
