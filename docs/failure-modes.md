@@ -10,6 +10,8 @@ Malformed booleans, numbers, URLs, paths, secrets, and JSON contact mappings sho
 
 A malformed graph message batch or structured response should be normalized or rejected without turning arbitrary objects into executable instructions. Context should remain bounded even when upstream text is unexpectedly large.
 
+Memory compaction summarizes the oldest bounded batch and removes only messages included in a successful summary. Model errors or empty summary responses leave the raw history intact for a later retry, preventing silent context loss during an outage.
+
 ## File system
 
 Model and persistence paths can disappear or change type between checks. Diagnostics should report these races and remain side-effect free rather than creating directories or placeholder files.
