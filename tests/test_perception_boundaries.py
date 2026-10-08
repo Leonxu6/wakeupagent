@@ -55,6 +55,32 @@ def test_classifier_input_is_bounded_before_model_call(monkeypatch):
     assert len(seen["prompt"]) < 4000
 
 
+def test_keyword_shortcut_still_handles_clear_distraction_without_context(monkeypatch):
+    class Client:
+        def generate(self, **kwargs):
+            raise AssertionError("clear context-free keywords should not need a model call")
+
+    monkeypatch.setattr(perception, "_ollama_client", Client())
+    assert perception._qwen_health_check("person scrolling social media") is False
+
+
+def test_recent_context_can_override_keyword_shortcut(monkeypatch):
+    seen = {}
+
+    class Client:
+        def generate(self, *, model, prompt):
+            seen["prompt"] = prompt
+            return type("Response", (), {"response": "no"})()
+
+    monkeypatch.setattr(perception, "_ollama_client", Client())
+
+    assert perception._qwen_health_check(
+        "person watching television",
+        "The user scheduled a documentary study session for this hour.",
+    ) is True
+    assert "documentary study session" in seen["prompt"]
+
+
 def test_qwen_backend_error_is_redacted(monkeypatch):
     calls = []
 

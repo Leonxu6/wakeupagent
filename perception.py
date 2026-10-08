@@ -282,8 +282,8 @@ Use recent context to distinguish distraction from planned activity. Scrolling n
 Description: {text}
 Answer (yes or no):"""
 
-# Only clear leisure signals bypass the local classifier. Scrolling notes,
-# watching a lecture video, or resting in bed can all be planned activities.
+# Only clear leisure signals without contrary session context bypass the local
+# classifier. Context may identify the same activity as planned work or rest.
 _UNHEALTHY_KEYWORDS = [
     'social media', 'tiktok', 'instagram',
     'selfie', 'taking a selfie',
@@ -325,7 +325,7 @@ def _qwen_health_check(vision_text: str, context: str = "") -> bool:
     if context:
         context = _clean_text(context, field="classifier context", limit=_MAX_CONTEXT_CHARS)
     text_lower = vision_text.lower()
-    if any(kw in text_lower for kw in _UNHEALTHY_KEYWORDS):
+    if not context and any(kw in text_lower for kw in _UNHEALTHY_KEYWORDS):
         console.print(f"{LOG_A} qwen → keyword match → unhealthy")
         return False
     try:
