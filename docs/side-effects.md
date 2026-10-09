@@ -22,7 +22,7 @@ Enable `WAKEUP_ALLOW_PROCESS_CONTROL=true` only on a machine where closing an ex
 
 ## TTS and browser control
 
-Enable local TTS or browser control only when foreground interruptions are acceptable. A model decision never overrides these local feature gates. If a tool reports that a capability is disabled, orchestration should accept that result rather than retrying or finding another side-effect path.
+Enable local TTS with `WAKEUP_ALLOW_TTS=true` or browser control with `WAKEUP_ALLOW_BROWSER_CONTROL=true` only when foreground interruptions are acceptable. Both flags default to `false`. A model decision never overrides these local feature gates. If a tool reports that a capability is disabled, orchestration should accept that result rather than retrying or finding another side-effect path.
 
 ## Testing expectations
 
