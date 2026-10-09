@@ -52,6 +52,7 @@ _POSE_MODEL  = Path(__file__).parent / "pose_landmarker_lite.task"
 _GESTURE_MODEL = Path(__file__).parent / "gesture_recognizer.task"
 _MAX_DESCRIPTION_CHARS = 1000
 _MAX_CONTEXT_CHARS = 2000
+_MAX_TEXT_INPUT_CHARS = 20_000
 _MAX_CLASSIFIER_RESPONSE_CHARS = 100
 _BIDI_CONTROLS = {chr(code) for code in (0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x2066, 0x2067, 0x2068, 0x2069)}
 
@@ -66,7 +67,11 @@ _stop_event = threading.Event()
 def _clean_text(value: object, *, field: str, limit: int) -> str:
     if not isinstance(value, str):
         raise ValueError(f"{field} must be text")
-    text = " ".join(value.split())
+    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+        raise ValueError("text limit must be a positive integer")
+    if limit > _MAX_CONTEXT_CHARS:
+        raise ValueError(f"text limit must be at most {_MAX_CONTEXT_CHARS}")
+    text = " ".join(value[:_MAX_TEXT_INPUT_CHARS].split())
     text = "".join(ch for ch in text if ch not in _BIDI_CONTROLS and ord(ch) >= 32 and ord(ch) != 127).strip()
     if not text:
         raise ValueError(f"{field} must not be empty")
@@ -351,6 +356,7 @@ def _qwen_health_check(vision_text: str, context: str = "") -> bool:
 
 def run_perception_loop(state_callback=None, get_context=None):
     _clear_latest_frame()
+    _stop_event.set()
     for p, name in [(_POSE_MODEL, "pose_landmarker_lite.task"),
                     (_GESTURE_MODEL, "gesture_recognizer.task")]:
         if not p.exists():

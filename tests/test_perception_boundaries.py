@@ -42,6 +42,22 @@ def test_clean_text_normalizes_controls_and_bounds_output():
     assert "\u202e" not in text
 
 
+@pytest.mark.parametrize("limit", [True, 0, -1, 1.5, "10", 2001])
+def test_clean_text_rejects_invalid_limits(limit):
+    with pytest.raises(ValueError, match="text limit"):
+        perception._clean_text("reading", field="camera description", limit=limit)
+
+
+def test_clean_text_bounds_work_before_normalization(monkeypatch):
+    monkeypatch.setattr(perception, "_MAX_TEXT_INPUT_CHARS", 20)
+    text = perception._clean_text(
+        "person reading " + "word " * 100_000,
+        field="camera description",
+        limit=1000,
+    )
+    assert text == "person reading word"
+
+
 def test_classifier_input_is_bounded_before_model_call(monkeypatch):
     seen = {}
 

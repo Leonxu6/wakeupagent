@@ -75,6 +75,7 @@ def test_session_discards_stale_frame_before_model_validation(monkeypatch):
     perception.run_perception_loop()
 
     assert perception.get_latest_frame() is None
+    assert perception._stop_event.is_set()
 
 
 def test_stopped_session_suppresses_late_analysis_callback(monkeypatch):
