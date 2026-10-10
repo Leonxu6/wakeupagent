@@ -16,6 +16,8 @@ backend returns an unexpectedly large response.
 
 Memory compaction summarizes the oldest bounded batch and removes only messages included in a successful summary. Model errors or empty summary responses leave the raw history intact for a later retry, preventing silent context loss during an outage.
 
+Tool proposals are executable only when every call names a registered tool, carries a unique normalized call ID, and contains a strict-JSON argument object within the 20,000-byte envelope budget. Unknown tools, duplicate IDs, missing IDs, non-object arguments, non-finite numbers, and oversized payloads are rejected before the response is stored or routed to `ToolNode`.
+
 ## File system
 
 Model and persistence paths can disappear or change type between checks. Diagnostics should report these races and remain side-effect free rather than creating directories or placeholder files.
