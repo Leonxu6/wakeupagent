@@ -69,6 +69,39 @@ def test_tool_call_names_preserve_valid_order():
     ]
 
 
+def test_executable_tool_calls_require_known_names_unique_ids_and_json_arguments():
+    calls = [
+        {"id": "call-1", "name": "observe_camera", "args": {}},
+        {"id": "call-2", "name": "open_webpage", "args": {"url": "https://example.com"}},
+    ]
+    assert graph._validated_tool_call_names(calls) == ["observe_camera", "open_webpage"]
+
+    invalid = [
+        [{"id": "call-1", "name": "unknown_tool", "args": {}}],
+        [{"name": "observe_camera", "args": {}}],
+        [
+            {"id": "same", "name": "observe_camera", "args": {}},
+            {"id": "same", "name": "open_webpage", "args": {}},
+        ],
+        [{"id": " padded ", "name": "observe_camera", "args": {}}],
+        [{"id": "call-1", "name": "observe_camera", "args": []}],
+        [{"id": "call-1", "name": "observe_camera", "args": {1: "not text"}}],
+        [{"id": "call-1", "name": "observe_camera", "args": {"nested": {1: "not text"}}}],
+        [{"id": "call-1", "name": "observe_camera", "args": {"values": (1, 2)}}],
+        [{"id": "call-1", "name": "observe_camera", "args": {"value": float("nan")}}],
+    ]
+    for tool_calls in invalid:
+        with pytest.raises(ValueError):
+            graph._validated_tool_call_names(tool_calls)
+
+
+def test_executable_tool_calls_enforce_serialized_argument_budget():
+    with pytest.raises(ValueError, match="at most"):
+        graph._validated_tool_call_names(
+            [{"id": "call-1", "name": "open_webpage", "args": {"url": "x" * 20_001}}]
+        )
+
+
 def test_repair_skips_malformed_persisted_tool_calls_without_crashing():
     message = AIMessage(content="hello")
     message.tool_calls = [None, {"id": 123, "name": "observe_camera"}]

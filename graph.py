@@ -56,11 +56,13 @@ _RESPONSE_TEXT_LIMIT = 2000
 _MAX_TOOL_CALLS = 20
 _MAX_TOOL_NAME = 80
 _MAX_TOOL_CALL_ID = 200
+_MAX_TOOL_ARGUMENT_BYTES = 20_000
 _MAX_STATE_COUNTER = 10_000
 _MAX_STATE_MESSAGES = 10_000
 _MAX_VISION_TEXT = 2000
 _MAX_TIMESTAMP_TEXT = 80
 _CHECKPOINT_LOCK_TIMEOUT_SEC = 30.0
+_KNOWN_TOOL_NAMES = frozenset(tool.name for tool in ALL_TOOLS)
 
 
 def _safe_error_detail(exc: object) -> str:
@@ -118,6 +120,51 @@ def _tool_call_names(tool_calls: object) -> list[str]:
         if not name or name != call.get("name"):
             raise ValueError("tool call names must be normalized text")
         names.append(name)
+    return names
+
+
+def _strict_json_shape(value: object) -> bool:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return True
+    if isinstance(value, list):
+        return all(_strict_json_shape(item) for item in value)
+    if isinstance(value, dict):
+        return all(isinstance(key, str) and _strict_json_shape(item) for key, item in value.items())
+    return False
+
+
+def _validated_tool_call_names(tool_calls: object) -> list[str]:
+    """Validate executable model output before it can reach ``ToolNode``."""
+    names = _tool_call_names(tool_calls)
+    seen_ids: set[str] = set()
+    for index, (call, name) in enumerate(zip(tool_calls, names)):
+        if name not in _KNOWN_TOOL_NAMES:
+            raise ValueError(f"tool call {index} names an unavailable tool")
+        raw_id = call.get("id") if "id" in call else call.get("tool_call_id")
+        call_id = single_line_text(raw_id, limit=_MAX_TOOL_CALL_ID)
+        if not call_id or call_id != raw_id:
+            raise ValueError(f"tool call {index} id must be normalized bounded text")
+        if call_id in seen_ids:
+            raise ValueError(f"tool call {index} reuses an earlier id")
+        seen_ids.add(call_id)
+
+        arguments = call.get("args")
+        if not isinstance(arguments, dict) or not _strict_json_shape(arguments):
+            raise ValueError(f"tool call {index} arguments must be a JSON object with text keys")
+        try:
+            encoded = json.dumps(
+                arguments,
+                ensure_ascii=False,
+                sort_keys=True,
+                allow_nan=False,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        except (OverflowError, TypeError, ValueError, RecursionError) as exc:
+            raise ValueError(f"tool call {index} arguments must be strict JSON") from exc
+        if len(encoded) > _MAX_TOOL_ARGUMENT_BYTES:
+            raise ValueError(
+                f"tool call {index} arguments must be at most {_MAX_TOOL_ARGUMENT_BYTES} bytes"
+            )
     return names
 
 
@@ -381,7 +428,7 @@ def decision_node(state: AgentState) -> dict:
         return {"react_iterations": 0}
     response_text = model_text(response.content, limit=_RESPONSE_TEXT_LIMIT, block_limit=20)
     try:
-        tool_names = _tool_call_names(response.tool_calls) if response.tool_calls else []
+        tool_names = _validated_tool_call_names(response.tool_calls) if response.tool_calls else []
     except ValueError as exc:
         console.print(f"{LOG_DECISION} rejected malformed tool calls ({_safe_error_detail(exc)})")
         return {"react_iterations": 0}
