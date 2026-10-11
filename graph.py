@@ -57,6 +57,8 @@ _MAX_TOOL_CALLS = 20
 _MAX_TOOL_NAME = 80
 _MAX_TOOL_CALL_ID = 200
 _MAX_TOOL_ARGUMENT_BYTES = 20_000
+_MAX_TOOL_ARGUMENT_DEPTH = 32
+_MAX_TOOL_ARGUMENT_NODES = 2_000
 _MAX_STATE_COUNTER = 10_000
 _MAX_STATE_MESSAGES = 10_000
 _MAX_VISION_TEXT = 2000
@@ -124,13 +126,42 @@ def _tool_call_names(tool_calls: object) -> list[str]:
 
 
 def _strict_json_shape(value: object) -> bool:
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return True
-    if isinstance(value, list):
-        return all(_strict_json_shape(item) for item in value)
-    if isinstance(value, dict):
-        return all(isinstance(key, str) and _strict_json_shape(item) for key, item in value.items())
-    return False
+    """Validate JSON structure iteratively so hostile depth cannot exhaust Python's stack."""
+    stack: list[tuple[object, int, bool]] = [(value, 0, False)]
+    active_containers: set[int] = set()
+    nodes = 0
+    while stack:
+        current, depth, leaving = stack.pop()
+        if leaving:
+            active_containers.remove(id(current))
+            continue
+        nodes += 1
+        if nodes > _MAX_TOOL_ARGUMENT_NODES or depth > _MAX_TOOL_ARGUMENT_DEPTH:
+            return False
+        if type(current) is str:
+            continue
+        if current is None or type(current) in {int, float, bool}:
+            continue
+        if type(current) not in {list, dict}:
+            return False
+        container_id = id(current)
+        if container_id in active_containers:
+            return False
+        active_containers.add(container_id)
+        stack.append((current, depth, True))
+        if type(current) is dict:
+            if not all(isinstance(key, str) for key in current):
+                return False
+            nodes += len(current)
+            if nodes > _MAX_TOOL_ARGUMENT_NODES:
+                return False
+            children = list(current.values())
+        else:
+            children = list(current)
+        if len(children) > _MAX_TOOL_ARGUMENT_NODES - nodes:
+            return False
+        stack.extend((item, depth + 1, False) for item in reversed(children))
+    return True
 
 
 def _validated_tool_call_names(tool_calls: object) -> list[str]:

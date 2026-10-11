@@ -102,6 +102,39 @@ def test_executable_tool_calls_enforce_serialized_argument_budget():
         )
 
 
+def test_executable_tool_calls_reject_cyclic_arguments_without_recursing():
+    arguments = {}
+    arguments["self"] = arguments
+
+    with pytest.raises(ValueError, match="JSON object"):
+        graph._validated_tool_call_names(
+            [{"id": "call-1", "name": "observe_camera", "args": arguments}]
+        )
+
+
+def test_executable_tool_calls_enforce_argument_depth_budget():
+    arguments = {}
+    current = arguments
+    for _ in range(graph._MAX_TOOL_ARGUMENT_DEPTH + 1):
+        child = {}
+        current["child"] = child
+        current = child
+
+    with pytest.raises(ValueError, match="JSON object"):
+        graph._validated_tool_call_names(
+            [{"id": "call-1", "name": "observe_camera", "args": arguments}]
+        )
+
+
+def test_executable_tool_calls_enforce_argument_node_budget():
+    arguments = {"values": [None] * graph._MAX_TOOL_ARGUMENT_NODES}
+
+    with pytest.raises(ValueError, match="JSON object"):
+        graph._validated_tool_call_names(
+            [{"id": "call-1", "name": "observe_camera", "args": arguments}]
+        )
+
+
 def test_repair_skips_malformed_persisted_tool_calls_without_crashing():
     message = AIMessage(content="hello")
     message.tool_calls = [None, {"id": 123, "name": "observe_camera"}]
