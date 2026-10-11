@@ -18,7 +18,7 @@ WakeUpAgent is intentionally small: perception collects local signals, the graph
 2. Perception produces observations without granting them execution authority.
 3. Observations are normalized before entering bounded history.
 4. The model proposes a decision.
-5. Structured decision text and the complete tool-call envelope are normalized and validated.
+5. Structured decision text and the complete tool-call envelope are normalized and validated. Tool arguments must form an acyclic strict-JSON object within byte, node-count, and nesting-depth budgets; this validation is iterative so deeply nested model output cannot consume the Python call stack.
 6. A tool may run only when its explicit opt-in flag and input validator both allow it.
 7. Tool results return bounded, non-sensitive summaries to the graph.
 

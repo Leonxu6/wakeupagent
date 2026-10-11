@@ -16,7 +16,7 @@ backend returns an unexpectedly large response.
 
 Memory compaction summarizes the oldest bounded batch and removes only messages included in a successful summary. Model errors or empty summary responses leave the raw history intact for a later retry, preventing silent context loss during an outage.
 
-Tool proposals are executable only when every call names a registered tool, carries a unique normalized call ID, and contains a strict-JSON argument object within the 20,000-byte envelope budget. Unknown tools, duplicate IDs, missing IDs, non-object arguments, non-finite numbers, and oversized payloads are rejected before the response is stored or routed to `ToolNode`.
+Tool proposals are executable only when every call names a registered tool, carries a unique normalized call ID, and contains a strict-JSON argument object within the 20,000-byte envelope budget. Structural validation is iterative rather than recursive and also caps nesting at 32 levels and the decoded shape at 2,000 nodes. Unknown tools, duplicate IDs, missing IDs, non-object arguments, cycles, excessive nesting, excessive structural complexity, non-finite numbers, and oversized payloads are rejected before the response is stored or routed to `ToolNode`.
 
 ## File system
 
