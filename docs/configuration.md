@@ -9,6 +9,7 @@ WakeUpAgent loads the project-root `.env` before evaluating `config.py`. Runtime
 | `WAKEUP_CAMERA_INDEX` | `0` | integer `0..32` |
 | `WAKEUP_CAPTURE_INTERVAL_SEC` | `30` | finite number `0.1..3600` |
 | `WAKEUP_MEDIAPIPE_CONFIDENCE` | `0.5` | finite number `0..1` |
+| `WAKEUP_OLLAMA_TIMEOUT_SEC` | `60` | finite seconds `1..600` |
 
 ## Models and cloud credentials
 
@@ -18,6 +19,8 @@ signals such as social-media scrolling, while planned study, exercise, or rest
 can be evaluated by the classifier instead of being automatically escalated.
 
 `OLLAMA_HOST` and `DEEPSEEK_BASE_URL` must be clean HTTP(S) service base URLs with a hostname, no embedded credentials, and no query string or fragment. Their decoded paths also reject dot segments, encoded slash or backslash separators, and encoded control characters so proxies and HTTP clients cannot disagree about the service endpoint. Every percent escape must be complete hexadecimal syntax and decode as valid UTF-8 before those path checks run; malformed escapes such as `%`, `%GG`, or invalid UTF-8 bytes fail closed. Ordinary valid UTF-8 percent-encoding that does not create a path separator remains valid. Model names reject empty, padded, overlong, and control-character values.
+
+`WAKEUP_OLLAMA_TIMEOUT_SEC` bounds every local image-description and behavior-classification request, including connection, pool, write, and response waits in the Ollama HTTP client. A stalled local or remote endpoint therefore releases the perception worker instead of leaving future scans permanently blocked behind its busy flag. Increase the default only for deliberately slow models; the value remains capped at ten minutes.
 
 `DEEPSEEK_API_KEY` is optional for local-only diagnostics and may be left empty. When set, it rejects leading/trailing whitespace, control characters, and implausibly long values before the key can reach an HTTP authorization header. The checked-in `.env.example` intentionally leaves the key empty so copying it does not look like a configured credential.
 
