@@ -43,6 +43,7 @@ from config import (
     MOONDREAM_PROMPT,
     LOCAL_CLASSIFIER_MODEL,
     OLLAMA_HOST,
+    OLLAMA_TIMEOUT_SEC,
     LOG_A,
 )
 
@@ -56,7 +57,13 @@ _MAX_TEXT_INPUT_CHARS = 20_000
 _MAX_CLASSIFIER_RESPONSE_CHARS = 100
 _BIDI_CONTROLS = {chr(code) for code in (0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x2066, 0x2067, 0x2068, 0x2069)}
 
-_ollama_client = ollama.Client(host=OLLAMA_HOST)
+
+def _create_ollama_client(host: str = OLLAMA_HOST, timeout: float = OLLAMA_TIMEOUT_SEC):
+    """Create a client whose connect/read/write/pool waits are explicitly bounded."""
+    return ollama.Client(host=host, timeout=timeout)
+
+
+_ollama_client = _create_ollama_client()
 
 _latest_raw_frame: np.ndarray | None = None
 _latest_frame_captured_at: float | None = None

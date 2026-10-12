@@ -18,6 +18,7 @@ def test_runtime_config_accepts_complete_configuration_shape(monkeypatch):
         CHECKPOINT_DB_PATH="state.db",
         DAILY_REPORT_PATH="report.txt",
         OLLAMA_HOST="http://127.0.0.1:11434",
+        OLLAMA_TIMEOUT_SEC=60.0,
         DEEPSEEK_BASE_URL="https://api.deepseek.com",
         DEEPSEEK_API_KEY="",
     )

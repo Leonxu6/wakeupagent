@@ -114,6 +114,7 @@ class DiagnosticsTests(unittest.TestCase):
             CHECKPOINT_DB_PATH=str(root / "state.db"),
             DAILY_REPORT_PATH=str(root / "reports.md"),
             OLLAMA_HOST="http://localhost:11434",
+            OLLAMA_TIMEOUT_SEC=60.0,
             DEEPSEEK_BASE_URL="https://api.deepseek.com",
             DEEPSEEK_API_KEY="",
         )
@@ -136,6 +137,7 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertTrue(by_name["configuration"].ok)
         self.assertTrue(by_name["checkpoint-dir"].ok)
         self.assertTrue(by_name["ollama-url"].ok)
+        self.assertEqual(by_name["ollama-timeout"].detail, "60 seconds")
         self.assertTrue(by_name["deepseek-url"].ok)
         self.assertTrue(by_name["deepseek-key"].ok)
         self.assertEqual(by_name["deepseek-key"].detail, "not configured (optional)")

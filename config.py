@@ -37,6 +37,11 @@ def _summary_threshold() -> int:
     return env_int("WAKEUP_SUMMARIZE_THRESHOLD", 30, minimum=6, maximum=2000)
 
 
+def _ollama_timeout() -> float:
+    """Bound local model calls so one stalled backend cannot freeze perception."""
+    return env_float("WAKEUP_OLLAMA_TIMEOUT_SEC", 60.0, minimum=1.0, maximum=600.0)
+
+
 # ── Camera & Perception ───────────────────────────────────────
 CAMERA_INDEX = env_int("WAKEUP_CAMERA_INDEX", 0, minimum=0, maximum=32)
 CAPTURE_INTERVAL_SEC = env_float("WAKEUP_CAPTURE_INTERVAL_SEC", 30.0, minimum=0.1, maximum=3600)
@@ -57,6 +62,7 @@ GESTURE_COLOR   = (0, 220, 255)     # Gesture label color
 
 # ── Local Models (Ollama) ─────────────────────────────────────
 OLLAMA_HOST = env_http_url("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_TIMEOUT_SEC = _ollama_timeout()
 MOONDREAM_MODEL = env_text("MOONDREAM_MODEL", "moondream", max_length=120)
 MOONDREAM_PROMPT = env_text("MOONDREAM_PROMPT", "What is the person doing?", max_length=500)
 LOCAL_CLASSIFIER_MODEL = env_text("LOCAL_CLASSIFIER_MODEL", "qwen2.5:1.5b", max_length=120)

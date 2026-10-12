@@ -43,6 +43,7 @@ _REQUIRED_CONFIG_FIELDS = (
     "CHECKPOINT_DB_PATH",
     "DAILY_REPORT_PATH",
     "OLLAMA_HOST",
+    "OLLAMA_TIMEOUT_SEC",
     "DEEPSEEK_BASE_URL",
     "DEEPSEEK_API_KEY",
 )
@@ -288,6 +289,7 @@ def collect_checks(base_dir: Path | str | None = None) -> list[Check]:
             reject_symlink_target=True,
         ))
         checks.append(_http_url_check("ollama-url", runtime_config.OLLAMA_HOST))
+        checks.append(Check("ollama-timeout", True, f"{runtime_config.OLLAMA_TIMEOUT_SEC:g} seconds"))
         checks.append(_http_url_check("deepseek-url", runtime_config.DEEPSEEK_BASE_URL))
         key_configured = bool(runtime_config.DEEPSEEK_API_KEY)
         checks.append(Check("deepseek-key", True, "configured" if key_configured else "not configured (optional)"))
