@@ -158,8 +158,16 @@ def _persistence_parent_check(
         path = Path(text).expanduser()
         if not path.name:
             return Check(name, False, "configured path must name a persistence file")
-        if reject_symlink_target and path.is_symlink():
-            return Check(name, False, "configured path must not be a symbolic link")
+        if reject_symlink_target:
+            try:
+                metadata = path.lstat()
+            except FileNotFoundError:
+                metadata = None
+            if metadata is not None:
+                if stat.S_ISLNK(metadata.st_mode):
+                    return Check(name, False, "configured path must not be a symbolic link")
+                if not stat.S_ISREG(metadata.st_mode):
+                    return Check(name, False, "configured path must name a regular file")
         resolved = path.resolve()
         if resolved.is_dir():
             return Check(name, False, "configured path must name a file, not a directory")
@@ -281,7 +289,11 @@ def collect_checks(base_dir: Path | str | None = None) -> list[Check]:
     runtime_config, config_check = _runtime_config()
     checks.append(config_check)
     if runtime_config is not None:
-        checks.append(_persistence_parent_check("checkpoint-dir", runtime_config.CHECKPOINT_DB_PATH))
+        checks.append(_persistence_parent_check(
+            "checkpoint-dir",
+            runtime_config.CHECKPOINT_DB_PATH,
+            reject_symlink_target=True,
+        ))
         checks.append(_persistence_parent_check(
             "report-dir",
             runtime_config.DAILY_REPORT_PATH,

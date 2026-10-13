@@ -529,6 +529,36 @@ def route_after_decision(state: AgentState) -> str:
     return END
 
 
+def _validate_checkpoint_target(path: Path) -> None:
+    """Reject existing checkpoint aliases and special files before SQLite opens them."""
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise ValueError("checkpoint target metadata is unreadable") from exc
+    if stat.S_ISLNK(metadata.st_mode):
+        raise ValueError("checkpoint target must not be a symbolic link")
+    if not stat.S_ISREG(metadata.st_mode):
+        raise ValueError("checkpoint target must be a regular file")
+
+
+def _connect_checkpoint(path: Path):
+    """Open one bounded SQLite connection and revalidate its filesystem target."""
+    _validate_checkpoint_target(path)
+    conn = sqlite3.connect(
+        path,
+        timeout=_CHECKPOINT_LOCK_TIMEOUT_SEC,
+        check_same_thread=False,
+    )
+    try:
+        _validate_checkpoint_target(path)
+    except Exception:
+        conn.close()
+        raise
+    return conn
+
+
 def build_graph():
     builder = StateGraph(AgentState)
     builder.add_node("daily_reset", daily_reset_node)
@@ -546,10 +576,6 @@ def build_graph():
         {"execution": "execution", END: END},
     )
     builder.add_edge("execution", "decision")
-    conn = sqlite3.connect(
-        CHECKPOINT_DB_PATH,
-        timeout=_CHECKPOINT_LOCK_TIMEOUT_SEC,
-        check_same_thread=False,
-    )
+    conn = _connect_checkpoint(Path(CHECKPOINT_DB_PATH))
     checkpointer = SqliteSaver(conn=conn)
     return builder.compile(checkpointer=checkpointer)

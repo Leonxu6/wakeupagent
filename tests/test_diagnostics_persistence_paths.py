@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from diagnostics import _persistence_parent_check
@@ -30,6 +31,40 @@ def test_report_persistence_check_rejects_symlink_target(tmp_path):
 
     assert not check.ok
     assert "symbolic link" in check.detail
+
+
+def test_checkpoint_persistence_check_rejects_symlink_target(tmp_path):
+    target = tmp_path / "private.db"
+    target.write_bytes(b"")
+    link = tmp_path / "state.db"
+    link.symlink_to(target)
+
+    check = _persistence_parent_check(
+        "checkpoint-dir",
+        link,
+        reject_symlink_target=True,
+    )
+
+    assert not check.ok
+    assert "symbolic link" in check.detail
+
+
+def test_persistence_check_rejects_existing_special_targets(tmp_path):
+    fifo = tmp_path / "state.db"
+    fifo.parent.mkdir(parents=True, exist_ok=True)
+    fifo.unlink(missing_ok=True)
+    if not hasattr(os, "mkfifo"):
+        return
+    os.mkfifo(fifo)
+
+    check = _persistence_parent_check(
+        "checkpoint-dir",
+        fifo,
+        reject_symlink_target=True,
+    )
+
+    assert not check.ok
+    assert "regular file" in check.detail
 
 
 def test_persistence_check_validates_symlink_policy_type(tmp_path):
