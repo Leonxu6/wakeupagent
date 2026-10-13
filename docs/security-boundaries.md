@@ -24,6 +24,8 @@ Tool-facing error messages should expose a stable failure category while logs re
 
 Browser targets and service base URLs share the same decoded-path safety rules. Percent escapes must be syntactically complete and decode as valid UTF-8; decoded control/format/surrogate characters, backslashes, and `.`/`..` path segments are rejected before a URL reaches a browser or HTTP client. Browser URLs additionally reject embedded credentials, while service URLs also prohibit query/fragment state and encoded slash separators where endpoint joining would become ambiguous.
 
+Checkpoint persistence does not follow an existing symbolic-link target and does not open directories, FIFOs, devices, or other special files as SQLite databases. The side-effect-free diagnostics command applies the same target policy as graph startup, so an unsafe checkpoint path is visible before the agent begins processing observations.
+
 ## Persistence paths
 
 Checkpoint and report paths are configuration boundaries, not free-form display text. Diagnostics reject padded paths and Unicode control, format, or surrogate characters before path expansion/resolution. This prevents invisible path spelling differences from reaching persistence checks and keeps diagnostic output stable across terminals and filesystems.
