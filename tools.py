@@ -5,7 +5,6 @@ import os
 import subprocess
 import time
 import unicodedata
-import webbrowser
 from urllib.parse import urlsplit, urlunsplit
 
 from langchain_core.tools import tool
@@ -22,6 +21,7 @@ _MAX_DETAIL_LIMIT = 10_000
 _MAX_DETAIL_INPUT_CHARS = 40_000
 _MAX_OBSERVATION_LIMIT = 5_000
 _MAX_OBSERVATION_INPUT_CHARS = 20_000
+_BROWSER_OPEN_TIMEOUT_SEC = 10
 _BIDI_CONTROLS = {
     "\u061c", "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",
     "\u2066", "\u2067", "\u2068", "\u2069",
@@ -219,9 +219,21 @@ def open_webpage(url: str) -> str:
     label = _safe_url_label(url)
     console.print(f"[bold cyan]🌐 [browser] opening {escape(label)}[/bold cyan]")
     try:
-        if not webbrowser.open(url):
+        result = subprocess.run(
+            ["open", url],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=_BROWSER_OPEN_TIMEOUT_SEC,
+            check=False,
+        )
+        if result.returncode != 0:
             return f"Error: 浏览器未能打开：{label}"
         return f"已在浏览器中打开：{label}"
+    except FileNotFoundError:
+        return "Error: open 命令不存在（仅支持 macOS）"
+    except subprocess.TimeoutExpired:
+        return f"Error: 浏览器打开超时：{label}"
     except Exception:  # noqa: BLE001
         return f"Error: 浏览器打开失败：{label}"
 
