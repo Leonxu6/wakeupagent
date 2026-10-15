@@ -58,6 +58,23 @@ def test_clean_text_bounds_work_before_normalization(monkeypatch):
     assert text == "person reading word"
 
 
+def test_wrap_text_preserves_normal_words_within_the_budget():
+    assert perception._wrap_text("person reading a book", 10) == ["person", "reading a", "book"]
+
+
+def test_wrap_text_splits_unbroken_model_tokens_to_the_budget():
+    lines = perception._wrap_text("prefix abcdefghijkl suffix", 5)
+
+    assert lines == ["prefi", "x", "abcde", "fghij", "kl", "suffi", "x"]
+    assert all(len(line) <= 5 for line in lines)
+
+
+@pytest.mark.parametrize("max_chars", [True, False, 0, -1, 1001, 1.5, "10"])
+def test_wrap_text_rejects_invalid_budgets(max_chars):
+    with pytest.raises(ValueError, match="text wrap limit"):
+        perception._wrap_text("reading", max_chars)
+
+
 def test_classifier_input_is_bounded_before_model_call(monkeypatch):
     seen = {}
 

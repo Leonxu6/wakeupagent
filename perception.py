@@ -171,15 +171,33 @@ def _get_person_bbox(
 
 
 def _wrap_text(text: str, max_chars: int) -> list[str]:
+    if (
+        isinstance(max_chars, bool)
+        or not isinstance(max_chars, int)
+        or not 1 <= max_chars <= _MAX_DESCRIPTION_CHARS
+    ):
+        raise ValueError(
+            f"text wrap limit must be an integer from 1 to {_MAX_DESCRIPTION_CHARS}"
+        )
+
     words = text.split()
     lines, cur = [], ""
-    for w in words:
-        if len(cur) + len(w) + 1 <= max_chars:
-            cur = (cur + " " + w).strip()
-        else:
+    for word in words:
+        while len(word) > max_chars:
             if cur:
                 lines.append(cur)
-            cur = w
+                cur = ""
+            lines.append(word[:max_chars])
+            word = word[max_chars:]
+        if not word:
+            continue
+        if not cur:
+            cur = word
+        elif len(cur) + len(word) + 1 <= max_chars:
+            cur = f"{cur} {word}"
+        else:
+            lines.append(cur)
+            cur = word
     if cur:
         lines.append(cur)
     return lines or [""]
