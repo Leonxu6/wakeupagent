@@ -18,6 +18,8 @@ Contact aliases are a local trust boundary. The model may request an alias, but 
 
 When adding logs, prefer event type, bounded error class, and sanitized detail. Avoid dumping raw model payloads, environment dictionaries, command output, or OS paths. Error messages from external programs should be length-bounded before they are returned to the graph.
 
+Daily Markdown reports are append-only but bounded to 5 MiB. A retry for a date already present is idempotent, and a new entry fails before writing when it would exceed the file budget. Archive or rotate the report deliberately before restarting if this limit is reached; do not silently discard older private history.
+
 ## Development fixtures
 
 Tests must use synthetic names, URLs, messages, and temporary paths. A bug report should be reproducible without real personal data.
