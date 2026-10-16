@@ -49,6 +49,7 @@ console = Console()
 _ERROR_DETAIL_LIMIT = 120
 _REPORT_TEXT_LIMIT = 1000
 _REPORT_ENTRY_MAX_BYTES = 4096
+_REPORT_FILE_MAX_BYTES = 5 * 1024 * 1024
 _SUMMARY_TEXT_LIMIT = 2000
 _SUMMARY_BATCH_MESSAGES = 20
 _SUMMARY_RECENT_MESSAGES = 5
@@ -310,7 +311,7 @@ def _save_daily_report(report: str, date_str: str):
 
     path = Path(DAILY_REPORT_PATH)
     path.parent.mkdir(parents=True, exist_ok=True)
-    flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND
+    flags = os.O_RDWR | os.O_CREAT | os.O_APPEND
     if hasattr(os, "O_NONBLOCK"):
         flags |= os.O_NONBLOCK
     if hasattr(os, "O_NOFOLLOW"):
@@ -325,6 +326,22 @@ def _save_daily_report(report: str, date_str: str):
         fcntl.flock(fd, fcntl.LOCK_EX)
         original_size = os.fstat(fd).st_size
         try:
+            if original_size > _REPORT_FILE_MAX_BYTES:
+                raise OSError("daily report file exceeds its size limit")
+            os.lseek(fd, 0, os.SEEK_SET)
+            remaining = original_size
+            chunks: list[bytes] = []
+            while remaining:
+                chunk = os.read(fd, min(64 * 1024, remaining))
+                if not chunk:
+                    raise OSError("daily report changed while checking existing entries")
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            heading = f"\n## {date_str}\n".encode("utf-8")
+            if heading in b"".join(chunks):
+                return
+            if original_size + len(payload) > _REPORT_FILE_MAX_BYTES:
+                raise OSError("daily report append would exceed its size limit")
             offset = 0
             while offset < len(payload):
                 written = os.write(fd, payload[offset:])

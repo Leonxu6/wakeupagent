@@ -76,6 +76,29 @@ def test_daily_report_holds_exclusive_lock_while_appending(tmp_path, monkeypatch
     assert events == ["lock", "write", "unlock"]
 
 
+def test_daily_report_retries_are_idempotent_by_date(tmp_path, monkeypatch):
+    path = tmp_path / "daily.md"
+    monkeypatch.setattr(graph, "DAILY_REPORT_PATH", str(path))
+
+    graph._save_daily_report("first completed report", "2026-10-03")
+    graph._save_daily_report("duplicate retry", "2026-10-03")
+
+    assert path.read_text(encoding="utf-8") == "\n## 2026-10-03\nfirst completed report\n"
+
+
+def test_daily_report_rejects_appends_beyond_file_budget(tmp_path, monkeypatch):
+    path = tmp_path / "daily.md"
+    original = b"existing report\n"
+    path.write_bytes(original)
+    monkeypatch.setattr(graph, "DAILY_REPORT_PATH", str(path))
+    monkeypatch.setattr(graph, "_REPORT_FILE_MAX_BYTES", len(original) + 4)
+
+    with pytest.raises(OSError, match="size limit"):
+        graph._save_daily_report("new report", "2026-10-04")
+
+    assert path.read_bytes() == original
+
+
 @pytest.mark.parametrize("date_str", ["2026-1-03", "2026-02-30", "2026-10-03\n", None])
 def test_daily_report_rejects_noncanonical_dates(tmp_path, monkeypatch, date_str):
     path = tmp_path / "daily.md"
