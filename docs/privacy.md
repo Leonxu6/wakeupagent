@@ -14,6 +14,8 @@ WakeUpAgent handles observations, model prompts, contact aliases, and potentiall
 
 Contact aliases are a local trust boundary. The model may request an alias, but the mapping from alias to real destination stays outside model-visible output. If a message is sent, return a generic success/failure summary rather than the resolved contact name or account identifier.
 
+The WeChat automation program is delivered to `osascript` over standard input. Resolved contacts and message bodies are never placed in process arguments, so they are not exposed through ordinary process-list inspection. They still exist briefly in the local subprocess input and clipboard and therefore remain protected data.
+
 ## Logs
 
 When adding logs, prefer event type, bounded error class, and sanitized detail. Avoid dumping raw model payloads, environment dictionaries, command output, or OS paths. Error messages from external programs should be length-bounded before they are returned to the graph.
