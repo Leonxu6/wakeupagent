@@ -1,4 +1,5 @@
 import os
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -49,7 +50,24 @@ class ExternalMessagingTests(unittest.TestCase):
         self.assertNotIn("Private Real Contact", rendered_log)
         self.assertNotIn("Please check in", rendered_log)
         run.assert_called_once()
-        self.assertEqual(run.call_args.args[0][:2], ["osascript", "-e"])
+        self.assertEqual(run.call_args.args[0], ["osascript"])
+        self.assertIn("Private Real Contact", run.call_args.kwargs["input"])
+        self.assertIn("Please check in", run.call_args.kwargs["input"])
+
+    @patch("tools.subprocess.run")
+    def test_private_message_is_supplied_over_stdin_not_process_arguments(self, run):
+        run.return_value = subprocess.CompletedProcess(["osascript"], 0)
+        with patch.dict(os.environ, {"WAKEUP_ALLOW_EXTERNAL_MESSAGING": "true"}, clear=True), \
+             patch("config.WECHAT_CONTACTS", {"mentor": "Private Real Contact"}):
+            result = send_wechat_shame_message.invoke({"target": "mentor", "message": "Private update"})
+
+        self.assertEqual(result, "消息发送完成")
+        argv = run.call_args.args[0]
+        self.assertEqual(argv, ["osascript"])
+        self.assertNotIn("Private Real Contact", " ".join(argv))
+        self.assertNotIn("Private update", " ".join(argv))
+        self.assertIn("Private Real Contact", run.call_args.kwargs["input"])
+        self.assertIn("Private update", run.call_args.kwargs["input"])
 
     @patch("tools.subprocess.run")
     def test_automation_failures_do_not_echo_private_script_details(self, run):

@@ -190,7 +190,8 @@ def send_wechat_shame_message(target: str, message: str) -> str:
     script = _wechat_script(contact, message)
     try:
         result = subprocess.run(
-            ["osascript", "-e", script],
+            ["osascript"],
+            input=script,
             capture_output=True,
             text=True,
             timeout=30,
