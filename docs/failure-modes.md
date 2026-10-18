@@ -17,6 +17,9 @@ backend returns an unexpectedly large response.
 On-screen labels also hard-wrap individual tokens to the calculated display
 budget. A malformed or code-like model response with no spaces therefore cannot
 create a single oversized overlay that extends beyond the camera frame.
+Wrapped labels are also capped to the number of lines the current frame can
+display. Clipped descriptions end with an ellipsis, so a long but otherwise
+valid model response cannot create a text block taller than the camera image.
 
 Memory compaction summarizes the oldest bounded batch and removes only messages included in a successful summary. Model errors or empty summary responses leave the raw history intact for a later retry, preventing silent context loss during an outage.
 
