@@ -203,6 +203,18 @@ def _wrap_text(text: str, max_chars: int) -> list[str]:
     return lines or [""]
 
 
+def _fit_label_lines(lines: list[str], max_lines: int) -> list[str]:
+    """Keep an overlay inside its vertical budget and mark clipped model text."""
+    if isinstance(max_lines, bool) or not isinstance(max_lines, int) or max_lines < 1:
+        raise ValueError("label line budget must be a positive integer")
+    if len(lines) <= max_lines:
+        return lines
+    visible = lines[:max_lines]
+    last = visible[-1]
+    visible[-1] = (last[:-1] + "…") if last else "…"
+    return visible
+
+
 def _draw_label(frame: np.ndarray, text: str, x: int, y: int, max_width: int = 380,
                 color: tuple = None) -> None:
     if not text:
@@ -212,16 +224,20 @@ def _draw_label(frame: np.ndarray, text: str, x: int, y: int, max_width: int = 3
     lh     = int(TEXT_FONT_SCALE * 38 + 8)
     mc     = max(8, max_width // max(1, int(TEXT_FONT_SCALE * 16)))
     lines  = _wrap_text(text, mc)
-    bg_w   = max(cv2.getTextSize(l, font, TEXT_FONT_SCALE, TEXT_THICKNESS)[0][0] for l in lines) + 14
-    bg_h   = lh * len(lines) + 10
     fh, fw = frame.shape[:2]
-    if x + bg_w > fw: x = max(0, fw - bg_w - 4)
-    if y + bg_h > fh: y = max(0, fh - bg_h - 4)
+    lines  = _fit_label_lines(lines, max(1, (fh - 10) // lh))
+    bg_w   = min(
+        max(cv2.getTextSize(l, font, TEXT_FONT_SCALE, TEXT_THICKNESS)[0][0] for l in lines) + 14,
+        max(1, fw - 8),
+    )
+    bg_h   = lh * len(lines) + 10
+    left   = min(max(0, x - 4), max(0, fw - bg_w - 4))
+    top    = min(max(0, y - lh + 4), max(0, fh - bg_h))
     ov = frame.copy()
-    cv2.rectangle(ov, (x-4, y-lh+4), (x+bg_w, y+bg_h-lh+4), (0,0,0), -1)
+    cv2.rectangle(ov, (left, top), (min(fw - 1, left + bg_w), min(fh - 1, top + bg_h)), (0,0,0), -1)
     cv2.addWeighted(ov, 0.55, frame, 0.45, 0, frame)
     for i, line in enumerate(lines):
-        cv2.putText(frame, line, (x, y + i*lh), font, TEXT_FONT_SCALE, color, TEXT_THICKNESS, cv2.LINE_AA)
+        cv2.putText(frame, line, (left + 4, top + lh + i*lh), font, TEXT_FONT_SCALE, color, TEXT_THICKNESS, cv2.LINE_AA)
 
 
 def _draw_hand(frame: np.ndarray, hand_landmarks: list, gesture: str, handedness: str) -> None:

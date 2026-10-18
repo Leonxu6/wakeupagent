@@ -75,6 +75,41 @@ def test_wrap_text_rejects_invalid_budgets(max_chars):
         perception._wrap_text("reading", max_chars)
 
 
+def test_fit_label_lines_marks_text_clipped_to_the_frame_budget():
+    assert perception._fit_label_lines(["one", "two", "three"], 2) == ["one", "tw…"]
+    assert perception._fit_label_lines(["one", "two"], 2) == ["one", "two"]
+
+
+@pytest.mark.parametrize("max_lines", [True, False, 0, -1, 1.5, "2"])
+def test_fit_label_lines_rejects_invalid_budgets(max_lines):
+    with pytest.raises(ValueError, match="label line budget"):
+        perception._fit_label_lines(["reading"], max_lines)
+
+
+def test_draw_label_keeps_background_and_baselines_inside_small_frame(monkeypatch):
+    rectangles = []
+    baselines = []
+    monkeypatch.setattr(perception.cv2, "getTextSize", lambda *args: ((120, 10), 0))
+    monkeypatch.setattr(
+        perception.cv2, "rectangle",
+        lambda _frame, start, end, *_args: rectangles.append((start, end)),
+    )
+    monkeypatch.setattr(perception.cv2, "addWeighted", lambda *_args: None)
+    monkeypatch.setattr(
+        perception.cv2, "putText",
+        lambda _frame, _line, origin, *_args: baselines.append(origin),
+    )
+    frame = np.zeros((60, 80, 3), dtype=np.uint8)
+
+    perception._draw_label(frame, "word " * 200, 75, 55, max_width=100)
+
+    assert len(baselines) == 1
+    assert rectangles
+    for point in (*rectangles[0], *baselines):
+        assert 0 <= point[0] < frame.shape[1]
+        assert 0 <= point[1] < frame.shape[0]
+
+
 def test_classifier_input_is_bounded_before_model_call(monkeypatch):
     seen = {}
 
