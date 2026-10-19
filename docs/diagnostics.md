@@ -32,6 +32,14 @@ The output is a JSON array. Each entry contains `name`, `ok`, and `detail`. Name
 
 The JSON mode uses the same exit-code policy as the human-readable mode, so callers can consume structured output without losing failure semantics.
 
+Tools that also need an explicit readiness value and stable top-level schema can request the versioned report:
+
+```bash
+uv run main.py --check-json-report
+```
+
+That command emits an object with `schema_version`, `ready`, `summary`, and `checks`. `summary` contains total, passing, and warning counts; `ready` follows the same critical-check policy as the process exit code. The original `--check-json` array remains unchanged for existing consumers.
+
 ## Invalid local configuration
 
 Diagnostics load the validated runtime configuration defensively. If an environment variable has an invalid type, range, URL, path, or other rejected value, the diagnostic command reports a `configuration` failure instead of crashing during module import. This makes configuration mistakes discoverable before the main runtime starts.

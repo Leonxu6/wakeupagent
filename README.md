@@ -83,9 +83,10 @@ Keep the action flags disabled for the first run. Add your own `DEEPSEEK_API_KEY
 ```bash
 uv run main.py --check
 uv run main.py --check-json
+uv run main.py --check-json-report
 ```
 
-These commands inspect configuration, model files, and persistence paths without opening the camera or contacting model services. A missing API key produces a nonzero exit status even if you only intend to inspect the local installation. A passing result does not prove that a camera or model service works; see [diagnostics](docs/diagnostics.md).
+These commands inspect configuration, model files, and persistence paths without opening the camera or contacting model services. The report form adds an explicit readiness boolean and summary counts for CI consumers while the array form remains backward compatible. A passing result does not prove that a camera or model service works; see [diagnostics](docs/diagnostics.md).
 
 ### 2. Prepare local perception
 
