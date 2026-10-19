@@ -331,6 +331,31 @@ def format_checks_json(checks: list[Check]) -> str:
     return json.dumps(checks_payload(checks), ensure_ascii=False, sort_keys=True, allow_nan=False)
 
 
+def checks_report_payload(checks: list[Check]) -> dict[str, object]:
+    """Return a versioned diagnostics envelope suitable for CI and setup tooling."""
+    records = checks_payload(checks)
+    ok_count = sum(record["ok"] is True for record in records)
+    ready = not any(
+        record["ok"] is False
+        and unicodedata.normalize("NFKC", str(record["name"])).casefold() in _CRITICAL_IDENTITIES
+        for record in records
+    )
+    return {
+        "schema_version": 1,
+        "ready": ready,
+        "summary": {
+            "total": len(records),
+            "ok": ok_count,
+            "warnings": len(records) - ok_count,
+        },
+        "checks": records,
+    }
+
+
+def format_checks_json_report(checks: list[Check]) -> str:
+    return json.dumps(checks_report_payload(checks), ensure_ascii=False, sort_keys=True, allow_nan=False)
+
+
 def diagnostics_exit_code(checks: list[Check]) -> int:
     return 1 if any(
         not check.ok

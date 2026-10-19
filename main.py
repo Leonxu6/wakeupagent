@@ -6,6 +6,7 @@ usage:
     uv run main.py --graph      # one-shot langgraph run (mock)
     uv run main.py --check      # human-readable side-effect-free diagnostics
     uv run main.py --check-json # machine-readable side-effect-free diagnostics
+    uv run main.py --check-json-report # versioned diagnostics envelope with readiness summary
 """
 import argparse
 from datetime import datetime
@@ -135,11 +136,23 @@ def run_graph_mode():
     console.print(f"{LOG_A} graph run complete")
 
 
-def run_check_mode(*, json_output: bool = False) -> int:
-    from diagnostics import collect_checks, diagnostics_exit_code, format_checks, format_checks_json
+def run_check_mode(*, json_output: bool = False, json_report: bool = False) -> int:
+    from diagnostics import (
+        collect_checks,
+        diagnostics_exit_code,
+        format_checks,
+        format_checks_json,
+        format_checks_json_report,
+    )
 
     checks = collect_checks()
-    console.print(format_checks_json(checks) if json_output else format_checks(checks), markup=False)
+    if json_report:
+        rendered = format_checks_json_report(checks)
+    elif json_output:
+        rendered = format_checks_json(checks)
+    else:
+        rendered = format_checks(checks)
+    console.print(rendered, markup=False)
     return diagnostics_exit_code(checks)
 
 
@@ -149,11 +162,18 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--graph", action="store_true", help="run mock graph flow")
     mode.add_argument("--check", action="store_true", help="validate installation without camera/network side effects")
     mode.add_argument("--check-json", action="store_true", help="emit installation diagnostics as JSON")
+    mode.add_argument(
+        "--check-json-report",
+        action="store_true",
+        help="emit a versioned JSON diagnostics report with readiness summary",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.check_json_report:
+        return run_check_mode(json_report=True)
     if args.check or args.check_json:
         return run_check_mode(json_output=args.check_json)
 

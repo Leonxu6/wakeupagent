@@ -28,6 +28,17 @@ class MainCliTests(unittest.TestCase):
         perception.assert_not_called()
         graph.assert_not_called()
 
+    def test_check_json_report_mode_requests_versioned_envelope(self):
+        with patch.object(main, "run_check_mode", return_value=2) as check, \
+             patch.object(main, "run_perception_mode") as perception, \
+             patch.object(main, "run_graph_mode") as graph:
+            status = main.main(["--check-json-report"])
+
+        self.assertEqual(status, 2)
+        check.assert_called_once_with(json_report=True)
+        perception.assert_not_called()
+        graph.assert_not_called()
+
     def test_graph_mode_runs_only_graph(self):
         with patch.object(main, "run_graph_mode") as graph, patch.object(main, "run_perception_mode") as perception:
             status = main.main(["--graph"])
@@ -44,7 +55,13 @@ class MainCliTests(unittest.TestCase):
 
     def test_modes_are_mutually_exclusive(self):
         parser = main.build_parser()
-        for args in (["--graph", "--check"], ["--check", "--check-json"], ["--graph", "--check-json"]):
+        for args in (
+            ["--graph", "--check"],
+            ["--check", "--check-json"],
+            ["--graph", "--check-json"],
+            ["--check-json", "--check-json-report"],
+            ["--graph", "--check-json-report"],
+        ):
             with self.subTest(args=args), self.assertRaises(SystemExit):
                 parser.parse_args(args)
 
