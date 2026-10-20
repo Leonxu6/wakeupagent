@@ -42,6 +42,12 @@ session clears any cached frame and keeps the shared stop signal set. Camera
 observation tools therefore cancel immediately instead of waiting for a capture
 from a session that never started.
 
+Each perception start also receives a monotonically increasing session generation.
+Background model work must present the same generation before it can publish a
+callback. This prevents a slow analysis thread from a stopped camera session from
+injecting a stale observation after the user restarts perception and the shared
+stop signal has been cleared for the new session.
+
 ## Privacy
 
 A technically successful tool call can still be a failure if its result leaks contact names, destinations, message content, or unbounded subprocess output back to the model. Result redaction is part of correctness.
