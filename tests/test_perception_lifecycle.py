@@ -94,3 +94,29 @@ def test_active_session_delivers_analysis_callback(monkeypatch):
 
     assert perception._deliver_state_callback(callback, "reading", "12:00:00", True, False) is True
     assert delivered == [("reading", "12:00:00", True, False)]
+
+
+def test_restarted_session_rejects_late_callback_from_previous_generation(monkeypatch):
+    delivered = []
+    callback = lambda *args: delivered.append(args)
+    perception._stop_event.clear()
+    previous = perception._begin_perception_session()
+    current = perception._begin_perception_session()
+
+    assert perception._deliver_state_callback(
+        callback,
+        "stale observation",
+        "12:00:00",
+        False,
+        True,
+        session_generation=previous,
+    ) is False
+    assert perception._deliver_state_callback(
+        callback,
+        "current observation",
+        "12:00:01",
+        True,
+        False,
+        session_generation=current,
+    ) is True
+    assert delivered == [("current observation", "12:00:01", True, False)]

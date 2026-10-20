@@ -69,6 +69,8 @@ _latest_raw_frame: np.ndarray | None = None
 _latest_frame_captured_at: float | None = None
 _latest_frame_lock = threading.Lock()
 _stop_event = threading.Event()
+_session_generation = 0
+_session_lock = threading.Lock()
 
 
 def _clean_text(value: object, *, field: str, limit: int) -> str:
@@ -127,6 +129,19 @@ def _store_latest_frame(frame: np.ndarray) -> None:
     with _latest_frame_lock:
         _latest_raw_frame = frame
         _latest_frame_captured_at = time.monotonic()
+
+
+def _begin_perception_session() -> int:
+    """Return a unique generation used to reject work left by an older session."""
+    global _session_generation
+    with _session_lock:
+        _session_generation += 1
+        return _session_generation
+
+
+def _session_is_current(generation: int) -> bool:
+    with _session_lock:
+        return generation == _session_generation
 
 
 _HAND_CONNECTIONS = [
@@ -357,10 +372,24 @@ def classify_behavior(vision_text: str, context: str = "") -> tuple[bool, bool]:
     return is_healthy, should_escalate
 
 
-def _deliver_state_callback(callback, text: str, timestamp: str,
-                            is_healthy: bool, should_escalate: bool) -> bool:
+def _deliver_state_callback(
+    callback,
+    text: str,
+    timestamp: str,
+    is_healthy: bool,
+    should_escalate: bool,
+    *,
+    session_generation: int | None = None,
+) -> bool:
     """Publish an analysis only while the perception session is still active."""
-    if callback is None or _stop_event.is_set():
+    if (
+        callback is None
+        or _stop_event.is_set()
+        or (
+            session_generation is not None
+            and not _session_is_current(session_generation)
+        )
+    ):
         return False
     callback(text, timestamp, is_healthy, should_escalate)
     return True
@@ -398,6 +427,7 @@ def _qwen_health_check(vision_text: str, context: str = "") -> bool:
 def run_perception_loop(state_callback=None, get_context=None):
     _clear_latest_frame()
     _stop_event.set()
+    session_generation = _begin_perception_session()
     for p, name in [(_POSE_MODEL, "pose_landmarker_lite.task"),
                     (_GESTURE_MODEL, "gesture_recognizer.task")]:
         if not p.exists():
@@ -411,7 +441,12 @@ def run_perception_loop(state_callback=None, get_context=None):
         if not cap.isOpened():
             console.print(f"{LOG_A} cannot open camera")
             return
-        return _run_open_camera(cap, state_callback=state_callback, get_context=get_context)
+        return _run_open_camera(
+            cap,
+            state_callback=state_callback,
+            get_context=get_context,
+            session_generation=session_generation,
+        )
     finally:
         _stop_event.set()
         _clear_latest_frame()
@@ -419,7 +454,13 @@ def run_perception_loop(state_callback=None, get_context=None):
         cv2.destroyAllWindows()
 
 
-def _run_open_camera(cap, state_callback=None, get_context=None):
+def _run_open_camera(
+    cap,
+    state_callback=None,
+    get_context=None,
+    *,
+    session_generation: int,
+):
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
@@ -443,7 +484,14 @@ def _run_open_camera(cap, state_callback=None, get_context=None):
             with lock:
                 behavior[0] = text
             console.print(f"{LOG_A} [{ts}] moondream={moondream_elapsed:.1f}s -> description ready")
-            _deliver_state_callback(state_callback, text, ts, is_healthy, should_escalate)
+            _deliver_state_callback(
+                state_callback,
+                text,
+                ts,
+                is_healthy,
+                should_escalate,
+                session_generation=session_generation,
+            )
         except Exception as exc:  # noqa: BLE001
             console.print(f"{LOG_A} analyze failed ({exc.__class__.__name__})")
         finally:
