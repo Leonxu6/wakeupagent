@@ -18,7 +18,7 @@ class ObserveCameraTests(unittest.TestCase):
     def _perception(self, description):
         return types.SimpleNamespace(
             _stop_event=_StopEvent(),
-            get_latest_frame=lambda **_kwargs: object(),
+            wait_for_latest_frame=lambda **_kwargs: object(),
             query_moondream=lambda frame: description,
         )
 
@@ -58,7 +58,7 @@ class ObserveCameraTests(unittest.TestCase):
 
         fake = types.SimpleNamespace(
             _stop_event=_StopEvent(),
-            get_latest_frame=lambda **_kwargs: object(),
+            wait_for_latest_frame=lambda **_kwargs: object(),
             query_moondream=_boom,
         )
         with patch.dict(sys.modules, {"perception": fake}):
@@ -75,7 +75,7 @@ class ObserveCameraTests(unittest.TestCase):
 
         fake = types.SimpleNamespace(
             _stop_event=_StopEvent(),
-            get_latest_frame=_frame_boom,
+            wait_for_latest_frame=_frame_boom,
             query_moondream=lambda frame: calls.append(frame),
         )
         with patch.dict(sys.modules, {"perception": fake}):
@@ -87,16 +87,19 @@ class ObserveCameraTests(unittest.TestCase):
     @patch("tools.console.print")
     @patch("tools.time.monotonic", return_value=123.5)
     def test_requires_a_frame_captured_after_observation_started(self, _monotonic, _console_print):
-        thresholds = []
+        waits = []
         fake = types.SimpleNamespace(
             _stop_event=_StopEvent(),
-            get_latest_frame=lambda **kwargs: thresholds.append(kwargs["captured_after"]),
+            wait_for_latest_frame=lambda **kwargs: waits.append(kwargs),
             query_moondream=lambda frame: "unused",
         )
         with patch.dict(sys.modules, {"perception": fake}):
             result = observe_camera.invoke({})
         self.assertEqual(result, "camera not available")
-        self.assertEqual(thresholds, [123.5])
+        self.assertEqual(
+            waits,
+            [{"captured_after": 123.5, "timeout": 30.0}],
+        )
 
 
 if __name__ == "__main__":

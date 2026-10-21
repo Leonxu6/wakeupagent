@@ -67,7 +67,8 @@ _ollama_client = _create_ollama_client()
 
 _latest_raw_frame: np.ndarray | None = None
 _latest_frame_captured_at: float | None = None
-_latest_frame_lock = threading.Lock()
+_latest_frame_condition = threading.Condition()
+_latest_frame_lock = _latest_frame_condition
 _stop_event = threading.Event()
 _session_generation = 0
 _session_lock = threading.Lock()
@@ -117,18 +118,50 @@ def get_latest_frame(*, captured_after: float | None = None) -> np.ndarray | Non
         return _latest_raw_frame.copy()
 
 
+def wait_for_latest_frame(*, captured_after: float, timeout: float) -> np.ndarray | None:
+    """Wait until a fresh frame arrives, shutdown starts, or the deadline expires."""
+    if (
+        isinstance(timeout, bool)
+        or not isinstance(timeout, (int, float))
+        or not math.isfinite(timeout)
+        or not 0 < timeout <= 3600
+    ):
+        raise ValueError("frame wait timeout must be a finite number from 0 to 3600 seconds")
+    if (
+        isinstance(captured_after, bool)
+        or not isinstance(captured_after, (int, float))
+        or not math.isfinite(captured_after)
+    ):
+        raise ValueError("captured_after must be a finite monotonic timestamp")
+
+    def _ready() -> bool:
+        return _stop_event.is_set() or (
+            _latest_raw_frame is not None
+            and _latest_frame_captured_at is not None
+            and _latest_frame_captured_at >= captured_after
+        )
+
+    with _latest_frame_condition:
+        _latest_frame_condition.wait_for(_ready, timeout=timeout)
+        if not _ready() or _stop_event.is_set() or _latest_raw_frame is None:
+            return None
+        return _latest_raw_frame.copy()
+
+
 def _clear_latest_frame() -> None:
     global _latest_raw_frame, _latest_frame_captured_at
-    with _latest_frame_lock:
+    with _latest_frame_condition:
         _latest_raw_frame = None
         _latest_frame_captured_at = None
+        _latest_frame_condition.notify_all()
 
 
 def _store_latest_frame(frame: np.ndarray) -> None:
     global _latest_raw_frame, _latest_frame_captured_at
-    with _latest_frame_lock:
+    with _latest_frame_condition:
         _latest_raw_frame = frame
         _latest_frame_captured_at = time.monotonic()
+        _latest_frame_condition.notify_all()
 
 
 def _begin_perception_session() -> int:

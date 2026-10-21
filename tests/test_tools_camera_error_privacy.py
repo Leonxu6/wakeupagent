@@ -18,7 +18,7 @@ def test_camera_frame_error_hides_backend_detail(monkeypatch):
 
     fake_perception = SimpleNamespace(
         _stop_event=_StopEvent(),
-        get_latest_frame=fail_frame,
+        wait_for_latest_frame=fail_frame,
         query_moondream=lambda frame: "unused",
     )
     monkeypatch.setitem(sys.modules, "perception", fake_perception)

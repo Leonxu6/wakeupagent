@@ -279,18 +279,22 @@ def chaos_terminal_punishment(message: str) -> str:
 
 @tool
 def observe_camera() -> str:
-    """Wait one perception interval and return the latest local vision summary."""
-    from perception import _stop_event, get_latest_frame, query_moondream
-    console.print(f"[bold cyan]👁️  [observe] waiting {CAPTURE_INTERVAL_SEC}s for response...[/bold cyan]")
+    """Wait up to one perception interval for a fresh local vision frame."""
+    from perception import _stop_event, query_moondream, wait_for_latest_frame
+    console.print(
+        f"[bold cyan]👁️  [observe] waiting up to {CAPTURE_INTERVAL_SEC}s for a fresh frame...[/bold cyan]"
+    )
     requested_at = time.monotonic()
-    _stop_event.wait(timeout=CAPTURE_INTERVAL_SEC)
-    if _stop_event.is_set():
-        return "observation cancelled: program stopping"
     try:
-        frame = get_latest_frame(captured_after=requested_at)
+        frame = wait_for_latest_frame(
+            captured_after=requested_at,
+            timeout=CAPTURE_INTERVAL_SEC,
+        )
     except Exception as exc:  # noqa: BLE001
         console.print(f"[red][observe] camera frame unavailable: {escape(_bounded_detail(exc))}[/red]")
         return "Error: camera frame unavailable"
+    if _stop_event.is_set():
+        return "observation cancelled: program stopping"
     if frame is None:
         return "camera not available"
     try:

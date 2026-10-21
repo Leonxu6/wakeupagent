@@ -22,6 +22,24 @@ def test_latest_frame_can_require_a_capture_after_request(monkeypatch):
     assert perception.get_latest_frame(captured_after=10.0) is not None
 
 
+def test_frame_wait_returns_an_already_fresh_defensive_copy(monkeypatch):
+    original = np.zeros((2, 2, 3), dtype=np.uint8)
+    monkeypatch.setattr(perception, "_latest_raw_frame", original)
+    monkeypatch.setattr(perception, "_latest_frame_captured_at", 10.0)
+    perception._stop_event.clear()
+
+    result = perception.wait_for_latest_frame(captured_after=9.0, timeout=1.0)
+
+    assert result is not None
+    assert result is not original
+
+
+@pytest.mark.parametrize("timeout", [True, 0, -1, 3601, "1", float("nan"), float("inf")])
+def test_frame_wait_rejects_invalid_timeout(timeout):
+    with pytest.raises(ValueError, match="frame wait timeout"):
+        perception.wait_for_latest_frame(captured_after=1.0, timeout=timeout)
+
+
 @pytest.mark.parametrize("value", [True, "10", float("nan"), float("inf")])
 def test_latest_frame_rejects_invalid_capture_threshold(value):
     with pytest.raises(ValueError, match="finite monotonic"):
