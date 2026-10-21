@@ -42,7 +42,7 @@ The graph separates daily reset, perception, decision, and execution. It limits 
 
 | Concern | Implementation | Example regression coverage |
 |---|---|---|
-| Camera lifecycle | Session cleanup, frame timestamps, and cancellation in [perception.py](perception.py) | [Lifecycle tests](tests/test_perception_lifecycle.py), [fresh-frame observations](tests/test_observe_camera.py) |
+| Camera lifecycle | Session cleanup, frame timestamps, prompt fresh-frame wakeups, and cancellation in [perception.py](perception.py) | [Lifecycle tests](tests/test_perception_lifecycle.py), [fresh-frame observations](tests/test_observe_camera.py) |
 | Agent state | Routing, tool-call repair, and summary compaction in [graph.py](graph.py) | [Graph boundaries](tests/test_graph_state_boundaries.py), [summary compaction](tests/test_graph_summary_compaction.py) |
 | Bounded context | Normalization, truncation, and snapshots in [history.py](history.py) | [History snapshots](tests/test_history_snapshots.py), [render budgets](tests/test_history_incremental_render_budget.py) |
 | Desktop actions | Capability checks in [tools.py](tools.py), input validators in [safety.py](safety.py) | [Messaging](tests/test_external_messaging.py), [process control](tests/test_process_control.py), [TTS](tests/test_tts_safety.py) |
