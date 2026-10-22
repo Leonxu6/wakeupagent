@@ -48,6 +48,12 @@ callback. This prevents a slow analysis thread from a stopped camera session fro
 injecting a stale observation after the user restarts perception and the shared
 stop signal has been cleared for the new session.
 
+The capture loop and teardown path use the same generation ownership. A replaced
+loop stops reading its old camera, but its `finally` block may release only that
+camera handle; it cannot set the shared stop signal, clear the current frame, or
+destroy windows owned by the newer session. This keeps rapid camera restarts from
+being cancelled by delayed cleanup from the preceding run.
+
 ## Privacy
 
 A technically successful tool call can still be a failure if its result leaks contact names, destinations, message content, or unbounded subprocess output back to the model. Result redaction is part of correctness.
