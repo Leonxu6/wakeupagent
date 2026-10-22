@@ -177,6 +177,11 @@ def _session_is_current(generation: int) -> bool:
         return generation == _session_generation
 
 
+def _session_should_run(generation: int) -> bool:
+    """Keep capture work scoped to the generation that owns the camera."""
+    return _session_is_current(generation) and not _stop_event.is_set()
+
+
 _HAND_CONNECTIONS = [
     (0,1),(1,2),(2,3),(3,4),
     (0,5),(5,6),(6,7),(7,8),
@@ -481,10 +486,11 @@ def run_perception_loop(state_callback=None, get_context=None):
             session_generation=session_generation,
         )
     finally:
-        _stop_event.set()
-        _clear_latest_frame()
         cap.release()
-        cv2.destroyAllWindows()
+        if _session_is_current(session_generation):
+            _stop_event.set()
+            _clear_latest_frame()
+            cv2.destroyAllWindows()
 
 
 def _run_open_camera(
@@ -554,7 +560,7 @@ def _run_open_camera(
         start_ms = int(time.time() * 1000)
         _gest_ok = True
 
-        while True:
+        while _session_should_run(session_generation):
             ret, frame = cap.read()
             if not ret:
                 console.print(f"{LOG_A} camera read failed")

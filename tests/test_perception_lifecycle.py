@@ -1,6 +1,7 @@
 """Perception sessions own their camera handle and stop signal."""
 
 import pytest
+import numpy as np
 
 import perception
 
@@ -120,3 +121,36 @@ def test_restarted_session_rejects_late_callback_from_previous_generation(monkey
         session_generation=current,
     ) is True
     assert delivered == [("current observation", "12:00:01", True, False)]
+
+
+def test_stale_session_cleanup_does_not_stop_or_clear_current_session(monkeypatch):
+    capture = _Capture(opened=True)
+    destroyed = _install_runtime_stubs(monkeypatch, capture)
+    current_frame = np.zeros((2, 2, 3), dtype=np.uint8)
+
+    def replace_running_session(cap, **kwargs):
+        assert cap is capture
+        perception._begin_perception_session()
+        perception._stop_event.clear()
+        perception._store_latest_frame(current_frame)
+
+    monkeypatch.setattr(perception, "_run_open_camera", replace_running_session)
+
+    perception.run_perception_loop()
+
+    assert capture.released is True
+    assert destroyed == []
+    assert not perception._stop_event.is_set()
+    assert np.array_equal(perception.get_latest_frame(), current_frame)
+
+
+def test_capture_loop_eligibility_is_scoped_to_current_generation():
+    perception._stop_event.clear()
+    previous = perception._begin_perception_session()
+    current = perception._begin_perception_session()
+
+    assert perception._session_should_run(previous) is False
+    assert perception._session_should_run(current) is True
+
+    perception._stop_event.set()
+    assert perception._session_should_run(current) is False
