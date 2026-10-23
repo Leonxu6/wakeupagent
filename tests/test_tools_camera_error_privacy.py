@@ -18,6 +18,8 @@ def test_camera_frame_error_hides_backend_detail(monkeypatch):
 
     fake_perception = SimpleNamespace(
         _stop_event=_StopEvent(),
+        get_perception_session_generation=lambda: 7,
+        _session_is_current=lambda value: value == 7,
         wait_for_latest_frame=fail_frame,
         query_moondream=lambda frame: "unused",
     )

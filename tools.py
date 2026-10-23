@@ -280,10 +280,17 @@ def chaos_terminal_punishment(message: str) -> str:
 @tool
 def observe_camera() -> str:
     """Wait up to one perception interval for a fresh local vision frame."""
-    from perception import _stop_event, query_moondream, wait_for_latest_frame
+    from perception import (
+        _session_is_current,
+        _stop_event,
+        get_perception_session_generation,
+        query_moondream,
+        wait_for_latest_frame,
+    )
     console.print(
         f"[bold cyan]👁️  [observe] waiting up to {CAPTURE_INTERVAL_SEC}s for a fresh frame...[/bold cyan]"
     )
+    session_generation = get_perception_session_generation()
     requested_at = time.monotonic()
     try:
         frame = wait_for_latest_frame(
@@ -293,8 +300,8 @@ def observe_camera() -> str:
     except Exception as exc:  # noqa: BLE001
         console.print(f"[red][observe] camera frame unavailable: {escape(_bounded_detail(exc))}[/red]")
         return "Error: camera frame unavailable"
-    if _stop_event.is_set():
-        return "observation cancelled: program stopping"
+    if _stop_event.is_set() or not _session_is_current(session_generation):
+        return "observation cancelled: perception session changed"
     if frame is None:
         return "camera not available"
     try:
@@ -304,6 +311,8 @@ def observe_camera() -> str:
     except Exception as exc:  # noqa: BLE001
         console.print(f"[red][observe] camera description failed: {escape(_bounded_detail(exc))}[/red]")
         return "Error: camera description failed"
+    if _stop_event.is_set() or not _session_is_current(session_generation):
+        return "observation cancelled: perception session changed"
     console.print(f"[bold cyan]👁️  [observe] description captured ({len(description)} chars)[/bold cyan]")
     return description
 

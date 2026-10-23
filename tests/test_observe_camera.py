@@ -16,8 +16,11 @@ class _StopEvent:
 
 class ObserveCameraTests(unittest.TestCase):
     def _perception(self, description):
+        generation = 7
         return types.SimpleNamespace(
             _stop_event=_StopEvent(),
+            get_perception_session_generation=lambda: generation,
+            _session_is_current=lambda value: value == generation,
             wait_for_latest_frame=lambda **_kwargs: object(),
             query_moondream=lambda frame: description,
         )
@@ -58,6 +61,8 @@ class ObserveCameraTests(unittest.TestCase):
 
         fake = types.SimpleNamespace(
             _stop_event=_StopEvent(),
+            get_perception_session_generation=lambda: 7,
+            _session_is_current=lambda value: value == 7,
             wait_for_latest_frame=lambda **_kwargs: object(),
             query_moondream=_boom,
         )
@@ -75,6 +80,8 @@ class ObserveCameraTests(unittest.TestCase):
 
         fake = types.SimpleNamespace(
             _stop_event=_StopEvent(),
+            get_perception_session_generation=lambda: 7,
+            _session_is_current=lambda value: value == 7,
             wait_for_latest_frame=_frame_boom,
             query_moondream=lambda frame: calls.append(frame),
         )
@@ -90,6 +97,8 @@ class ObserveCameraTests(unittest.TestCase):
         waits = []
         fake = types.SimpleNamespace(
             _stop_event=_StopEvent(),
+            get_perception_session_generation=lambda: 7,
+            _session_is_current=lambda value: value == 7,
             wait_for_latest_frame=lambda **kwargs: waits.append(kwargs),
             query_moondream=lambda frame: "unused",
         )
@@ -100,6 +109,29 @@ class ObserveCameraTests(unittest.TestCase):
             waits,
             [{"captured_after": 123.5, "timeout": 30.0}],
         )
+
+    @patch("tools.console.print")
+    def test_discards_description_when_perception_restarts_during_inference(self, console_print):
+        state = {"generation": 7}
+
+        def restart_during_inference(frame):
+            state["generation"] = 8
+            return "stale private observation"
+
+        fake = types.SimpleNamespace(
+            _stop_event=_StopEvent(),
+            get_perception_session_generation=lambda: state["generation"],
+            _session_is_current=lambda value: value == state["generation"],
+            wait_for_latest_frame=lambda **_kwargs: object(),
+            query_moondream=restart_during_inference,
+        )
+
+        with patch.dict(sys.modules, {"perception": fake}):
+            result = observe_camera.invoke({})
+
+        self.assertEqual(result, "observation cancelled: perception session changed")
+        rendered = " ".join(str(call.args[0]) for call in console_print.call_args_list if call.args)
+        self.assertNotIn("stale private observation", rendered)
 
 
 if __name__ == "__main__":

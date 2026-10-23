@@ -177,6 +177,12 @@ def _session_is_current(generation: int) -> bool:
         return generation == _session_generation
 
 
+def get_perception_session_generation() -> int:
+    """Return the current generation for work that must not cross a restart."""
+    with _session_lock:
+        return _session_generation
+
+
 def _session_should_run(generation: int) -> bool:
     """Keep capture work scoped to the generation that owns the camera."""
     return _session_is_current(generation) and not _stop_event.is_set()
