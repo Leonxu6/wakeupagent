@@ -54,6 +54,12 @@ camera handle; it cannot set the shared stop signal, clear the current frame, or
 destroy windows owned by the newer session. This keeps rapid camera restarts from
 being cancelled by delayed cleanup from the preceding run.
 
+On-demand camera observations also capture the active generation before waiting
+for a fresh frame. They verify that ownership both before and after local model
+inference. If perception stops or restarts during a slow description, the tool
+returns a cancellation marker and never publishes the stale frame description
+into the newer agent session.
+
 ## Privacy
 
 A technically successful tool call can still be a failure if its result leaks contact names, destinations, message content, or unbounded subprocess output back to the model. Result redaction is part of correctness.
