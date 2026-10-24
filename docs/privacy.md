@@ -22,6 +22,8 @@ When adding logs, prefer event type, bounded error class, and sanitized detail. 
 
 Daily Markdown reports are append-only but bounded to 5 MiB. A retry for a date already present is idempotent, and a new entry fails before writing when it would exceed the file budget. Archive or rotate the report deliberately before restarting if this limit is reached; do not silently discard older private history.
 
+SQLite checkpoints can contain camera-derived descriptions, model messages, and tool results. Graph startup therefore opens only a regular non-symlink target and narrows the database mode to at most `0600` through its file descriptor, including when reusing an older broadly readable file. Permission hardening must succeed before the graph begins processing observations.
+
 ## Development fixtures
 
 Tests must use synthetic names, URLs, messages, and temporary paths. A bug report should be reproducible without real personal data.
