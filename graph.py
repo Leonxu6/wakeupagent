@@ -560,6 +560,24 @@ def _validate_checkpoint_target(path: Path) -> None:
         raise ValueError("checkpoint target must be a regular file")
 
 
+def _tighten_checkpoint_permissions(path: Path) -> None:
+    """Keep persisted observations private without broadening stricter modes."""
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NONBLOCK"):
+        flags |= os.O_NONBLOCK
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(path, flags)
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ValueError("checkpoint target must be a regular file")
+        if hasattr(os, "fchmod"):
+            os.fchmod(descriptor, stat.S_IMODE(metadata.st_mode) & 0o600)
+    finally:
+        os.close(descriptor)
+
+
 def _connect_checkpoint(path: Path):
     """Open one bounded SQLite connection and revalidate its filesystem target."""
     _validate_checkpoint_target(path)
@@ -570,6 +588,7 @@ def _connect_checkpoint(path: Path):
     )
     try:
         _validate_checkpoint_target(path)
+        _tighten_checkpoint_permissions(path)
     except Exception:
         conn.close()
         raise
