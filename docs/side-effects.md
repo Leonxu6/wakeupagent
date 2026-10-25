@@ -22,7 +22,7 @@ Enable `WAKEUP_ALLOW_PROCESS_CONTROL=true` only on a machine where closing an ex
 
 ## TTS and browser control
 
-Enable local TTS with `WAKEUP_ALLOW_TTS=true` or browser control with `WAKEUP_ALLOW_BROWSER_CONTROL=true` only when foreground interruptions are acceptable. Both flags default to `false`. Browser control invokes the macOS `open` command directly with a ten-second launch-request timeout; unsupported platforms and nonzero exits fail closed. A model decision never overrides these local feature gates. If a tool reports that a capability is disabled, orchestration should accept that result rather than retrying or finding another side-effect path.
+Enable local TTS with `WAKEUP_ALLOW_TTS=true` or browser control with `WAKEUP_ALLOW_BROWSER_CONTROL=true` only when foreground interruptions are acceptable. Both flags default to `false`. Browser control sends a minimal `open location` AppleScript to macOS `osascript` over standard input with a ten-second launch-request timeout, keeping the URL out of process arguments; unsupported platforms and nonzero exits fail closed. A model decision never overrides these local feature gates. If a tool reports that a capability is disabled, orchestration should accept that result rather than retrying or finding another side-effect path.
 
 ## Testing expectations
 
