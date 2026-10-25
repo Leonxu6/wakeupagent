@@ -28,7 +28,7 @@ class OpenWebpageTests(unittest.TestCase):
 
     @patch("tools.subprocess.run")
     def test_opens_http_and_https_urls(self, browser_run):
-        browser_run.return_value = subprocess.CompletedProcess(["open"], 0)
+        browser_run.return_value = subprocess.CompletedProcess(["osascript"], 0)
         with patch.dict(os.environ, {"WAKEUP_ALLOW_BROWSER_CONTROL": "true"}, clear=True):
             for url in ("http://example.com", "https://example.com/study?q=1"):
                 with self.subTest(url=url):
@@ -39,16 +39,16 @@ class OpenWebpageTests(unittest.TestCase):
             browser_run.call_args_list,
             [
                 call(
-                    ["open", "http://example.com"],
-                    stdin=subprocess.DEVNULL,
+                    ["osascript"],
+                    input='open location "http://example.com"\n',
                     capture_output=True,
                     text=True,
                     timeout=10,
                     check=False,
                 ),
                 call(
-                    ["open", "https://example.com/study?q=1"],
-                    stdin=subprocess.DEVNULL,
+                    ["osascript"],
+                    input='open location "https://example.com/study?q=1"\n',
                     capture_output=True,
                     text=True,
                     timeout=10,
@@ -60,24 +60,25 @@ class OpenWebpageTests(unittest.TestCase):
     @patch("tools.console.print")
     @patch("tools.subprocess.run")
     def test_browser_path_markup_is_not_copied_into_logs_or_results(self, browser_run, console_print):
-        browser_run.return_value = subprocess.CompletedProcess(["open"], 0)
+        browser_run.return_value = subprocess.CompletedProcess(["osascript"], 0)
         url = "https://example.com/[red]study[/red]"
         with patch.dict(os.environ, {"WAKEUP_ALLOW_BROWSER_CONTROL": "true"}, clear=True):
             result = open_webpage.invoke({"url": url})
         self.assertIn("https://example.com", result)
         self.assertNotIn("[red]study[/red]", result)
-        self.assertEqual(browser_run.call_args.args[0], ["open", url])
+        self.assertEqual(browser_run.call_args.args[0], ["osascript"])
         rendered = console_print.call_args.args[0]
         self.assertNotIn("[red]study[/red]", rendered)
 
     @patch("tools.console.print")
     @patch("tools.subprocess.run")
     def test_path_query_and_fragment_are_not_copied_into_logs_or_results(self, browser_run, console_print):
-        browser_run.return_value = subprocess.CompletedProcess(["open"], 0)
+        browser_run.return_value = subprocess.CompletedProcess(["osascript"], 0)
         url = "https://example.com/study?token=private#focus"
         with patch.dict(os.environ, {"WAKEUP_ALLOW_BROWSER_CONTROL": "true"}, clear=True):
             result = open_webpage.invoke({"url": url})
-        self.assertEqual(browser_run.call_args.args[0], ["open", url])
+        self.assertEqual(browser_run.call_args.args[0], ["osascript"])
+        self.assertEqual(browser_run.call_args.kwargs["input"], f'open location "{url}"\n')
         self.assertEqual(result, "已在浏览器中打开：https://example.com")
         self.assertNotIn("study", result)
         self.assertNotIn("token=private", result)
@@ -106,12 +107,12 @@ class OpenWebpageTests(unittest.TestCase):
 
     @patch("tools.subprocess.run")
     def test_reports_when_browser_declines_url(self, browser_run):
-        browser_run.return_value = subprocess.CompletedProcess(["open"], 1, stderr="private detail")
+        browser_run.return_value = subprocess.CompletedProcess(["osascript"], 1, stderr="private detail")
         with patch.dict(os.environ, {"WAKEUP_ALLOW_BROWSER_CONTROL": "true"}, clear=True):
             result = open_webpage.invoke({"url": "https://example.com"})
 
         self.assertIn("Error", result)
-        self.assertEqual(browser_run.call_args.args[0], ["open", "https://example.com"])
+        self.assertEqual(browser_run.call_args.args[0], ["osascript"])
 
     @patch("tools.subprocess.run", side_effect=RuntimeError("private token=https://secret.example"))
     def test_browser_exceptions_do_not_leak_backend_or_path_details(self, browser_run):
@@ -124,7 +125,7 @@ class OpenWebpageTests(unittest.TestCase):
         self.assertNotIn("study", result)
         self.assertEqual(
             browser_run.call_args.args[0],
-            ["open", "https://example.com/study?token=private"],
+            ["osascript"],
         )
 
     @patch("tools.subprocess.run", side_effect=FileNotFoundError)
@@ -132,7 +133,7 @@ class OpenWebpageTests(unittest.TestCase):
         with patch.dict(os.environ, {"WAKEUP_ALLOW_BROWSER_CONTROL": "true"}, clear=True):
             result = open_webpage.invoke({"url": "https://example.com"})
 
-        self.assertEqual(result, "Error: open 命令不存在（仅支持 macOS）")
+        self.assertEqual(result, "Error: osascript 命令不存在（仅支持 macOS）")
         browser_run.assert_called_once()
 
     @patch("tools.subprocess.run")

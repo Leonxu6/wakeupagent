@@ -139,6 +139,11 @@ set the clipboard to oldClipboard
 '''
 
 
+def _browser_script(url: str) -> str:
+    """Build a minimal browser request for delivery over subprocess standard input."""
+    return f'open location "{_escape_applescript(url)}"\n'
+
+
 @tool
 def play_tts_punishment(text: str) -> str:
     """Speak one short local reminder when local TTS has been explicitly enabled."""
@@ -221,8 +226,8 @@ def open_webpage(url: str) -> str:
     console.print(f"[bold cyan]🌐 [browser] opening {escape(label)}[/bold cyan]")
     try:
         result = subprocess.run(
-            ["open", url],
-            stdin=subprocess.DEVNULL,
+            ["osascript"],
+            input=_browser_script(url),
             capture_output=True,
             text=True,
             timeout=_BROWSER_OPEN_TIMEOUT_SEC,
@@ -232,7 +237,7 @@ def open_webpage(url: str) -> str:
             return f"Error: 浏览器未能打开：{label}"
         return f"已在浏览器中打开：{label}"
     except FileNotFoundError:
-        return "Error: open 命令不存在（仅支持 macOS）"
+        return "Error: osascript 命令不存在（仅支持 macOS）"
     except subprocess.TimeoutExpired:
         return f"Error: 浏览器打开超时：{label}"
     except Exception:  # noqa: BLE001
