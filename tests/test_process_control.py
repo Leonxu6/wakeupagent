@@ -46,7 +46,12 @@ class ProcessControlTests(unittest.TestCase):
         self.assertEqual(result, "Error: 无法请求 Safari 退出")
         self.assertNotIn("private backend detail", result)
         self.assertEqual(run.call_count, 1)
-        self.assertEqual(run.call_args.args[0][:2], ["osascript", "-e"])
+        self.assertEqual(run.call_args.args[0], ["osascript"])
+        self.assertNotIn("Safari", run.call_args.args[0])
+        self.assertEqual(
+            run.call_args.kwargs["input"],
+            'tell application "Safari" to quit\n',
+        )
 
 
 if __name__ == "__main__":
