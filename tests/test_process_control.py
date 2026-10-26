@@ -30,8 +30,12 @@ class ProcessControlTests(unittest.TestCase):
         self.assertIn("正常退出", result)
         self.assertEqual(run.call_count, 1)
         command = run.call_args.args[0]
-        self.assertEqual(command[:2], ["osascript", "-e"])
-        self.assertIn('tell application "Safari" to quit', command[2])
+        self.assertEqual(command, ["osascript"])
+        self.assertNotIn("Safari", command)
+        self.assertEqual(
+            run.call_args.kwargs["input"],
+            'tell application "Safari" to quit\n',
+        )
 
     @patch("tools.subprocess.run")
     def test_failed_graceful_quit_never_falls_back_to_killall_or_leaks_stderr(self, run):
@@ -47,3 +51,4 @@ class ProcessControlTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

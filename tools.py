@@ -257,7 +257,8 @@ def force_close_app(app_name: str) -> str:
     escaped_name = _escape_applescript(app_name)
     try:
         result = subprocess.run(
-            ["osascript", "-e", f'tell application "{escaped_name}" to quit'],
+            ["osascript"],
+            input=f'tell application "{escaped_name}" to quit\n',
             capture_output=True,
             text=True,
             timeout=10,
@@ -323,3 +324,4 @@ def observe_camera() -> str:
 
 
 ALL_TOOLS = [play_tts_punishment, send_wechat_shame_message, open_webpage, force_close_app, observe_camera]
+
