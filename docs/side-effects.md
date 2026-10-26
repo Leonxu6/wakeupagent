@@ -18,7 +18,7 @@ For a real installation, prefer `WAKEUP_WECHAT_CONTACTS_JSON` in `.env` instead 
 
 ## Process control
 
-Enable `WAKEUP_ALLOW_PROCESS_CONTROL=true` only on a machine where closing an explicitly named application is acceptable. Application names are validated before subprocess execution. WakeUpAgent intentionally does not use fuzzy `pkill` matching because a partial process-name match can terminate unrelated work.
+Enable `WAKEUP_ALLOW_PROCESS_CONTROL=true` only on a machine where closing an explicitly named application is acceptable. Application names are validated before subprocess execution. The AppleScript quit request is delivered to `osascript` over standard input, keeping the application name and script out of the child process argument vector. WakeUpAgent intentionally does not use fuzzy `pkill` matching because a partial process-name match can terminate unrelated work.
 
 ## TTS and browser control
 
@@ -27,3 +27,4 @@ Enable local TTS with `WAKEUP_ALLOW_TTS=true` or browser control with `WAKEUP_AL
 ## Testing expectations
 
 Tests for side-effecting tools must mock browser and subprocess boundaries. Invalid inputs and disabled feature flags must be proven to return before external calls. Prompts, README examples, and architecture docs must describe only capabilities that are actually registered. Pull requests should call out any new camera, filesystem, browser, contact, subprocess, or secret handling explicitly.
+
