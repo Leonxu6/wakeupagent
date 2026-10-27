@@ -155,7 +155,13 @@ def play_tts_punishment(text: str) -> str:
         return _error(exc)
     console.print(f"[bold yellow]🔊 [TTS] speaking {len(text)} characters[/bold yellow]")
     try:
-        subprocess.run(["say", "-v", _TTS_VOICE, text], timeout=60, check=True)
+        subprocess.run(
+            ["say", "-v", _TTS_VOICE],
+            input=text,
+            text=True,
+            timeout=60,
+            check=True,
+        )
         return "TTS 播放完毕"
     except FileNotFoundError:
         return "Error: say 命令不存在（仅支持 macOS）"
@@ -163,7 +169,13 @@ def play_tts_punishment(text: str) -> str:
         return "Error: TTS 播放超时"
     except subprocess.CalledProcessError:
         try:
-            subprocess.run(["say", text], timeout=60, check=True)
+            subprocess.run(
+                ["say"],
+                input=text,
+                text=True,
+                timeout=60,
+                check=True,
+            )
             return "TTS 播放完毕（默认声音）"
         except Exception:  # noqa: BLE001
             return "Error: TTS 播放失败"

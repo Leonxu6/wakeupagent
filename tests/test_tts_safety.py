@@ -44,7 +44,9 @@ class TtsSafetyTests(unittest.TestCase):
         self.assertIn(str(len(prompt)), rendered_log)
         self.assertNotIn(prompt, rendered_log)
         run.assert_called_once_with(
-            ["say", "-v", "Tingting", prompt],
+            ["say", "-v", "Tingting"],
+            input=prompt,
+            text=True,
             timeout=60,
             check=True,
         )
@@ -53,13 +55,17 @@ class TtsSafetyTests(unittest.TestCase):
     def test_fallback_failures_do_not_echo_spoken_text(self, run):
         prompt = "Private reminder with account details"
         run.side_effect = [
-            subprocess.CalledProcessError(1, ["say", prompt]),
+            subprocess.CalledProcessError(1, ["say", "-v", "Tingting"]),
             RuntimeError(f"failed while speaking {prompt}"),
         ]
         with patch.dict(os.environ, {"WAKEUP_ALLOW_TTS": "true"}, clear=True):
             result = play_tts_punishment.invoke({"text": prompt})
         self.assertEqual(result, "Error: TTS 播放失败")
         self.assertNotIn(prompt, result)
+        self.assertEqual(run.call_args_list[0].args[0], ["say", "-v", "Tingting"])
+        self.assertEqual(run.call_args_list[1].args[0], ["say"])
+        self.assertEqual(run.call_args_list[0].kwargs["input"], prompt)
+        self.assertEqual(run.call_args_list[1].kwargs["input"], prompt)
 
 
 if __name__ == "__main__":
