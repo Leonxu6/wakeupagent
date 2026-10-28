@@ -158,8 +158,9 @@ def _clear_latest_frame() -> None:
 
 def _store_latest_frame(frame: np.ndarray) -> None:
     global _latest_raw_frame, _latest_frame_captured_at
+    owned_frame = _validate_frame(frame).copy()
     with _latest_frame_condition:
-        _latest_raw_frame = frame
+        _latest_raw_frame = owned_frame
         _latest_frame_captured_at = time.monotonic()
         _latest_frame_condition.notify_all()
 

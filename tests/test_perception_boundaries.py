@@ -13,6 +13,28 @@ def test_latest_frame_returns_defensive_copy(monkeypatch):
     assert original[0, 0, 0] == 0
 
 
+def test_storing_latest_frame_takes_ownership_of_its_buffer(monkeypatch):
+    original = np.zeros((2, 2, 3), dtype=np.uint8)
+    monkeypatch.setattr(perception, "_latest_raw_frame", None)
+
+    perception._store_latest_frame(original)
+    original[0, 0, 0] = 255
+
+    stored = perception.get_latest_frame()
+    assert stored is not None
+    assert stored[0, 0, 0] == 0
+
+
+def test_storing_invalid_frame_preserves_the_previous_snapshot(monkeypatch):
+    previous = np.ones((2, 2, 3), dtype=np.uint8)
+    monkeypatch.setattr(perception, "_latest_raw_frame", previous)
+
+    with pytest.raises(ValueError, match="camera frame"):
+        perception._store_latest_frame(np.zeros((2, 2, 5), dtype=np.uint8))
+
+    assert perception._latest_raw_frame is previous
+
+
 def test_latest_frame_can_require_a_capture_after_request(monkeypatch):
     original = np.zeros((2, 2, 3), dtype=np.uint8)
     monkeypatch.setattr(perception, "_latest_raw_frame", original)
