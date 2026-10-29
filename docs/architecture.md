@@ -15,7 +15,7 @@ WakeUpAgent is intentionally small: perception collects local signals, the graph
 ## Data flow
 
 1. Startup loads configuration and validates environment-derived values.
-2. Perception publishes fresh camera frames through a condition signal without granting them execution authority. The shared latest-frame slot owns a defensive copy at publication time, and every reader receives another copy, so capture, analysis, and observation code cannot mutate one another's buffers. Observation tools wake as soon as a post-request frame arrives, while shutdown and the configured capture interval remain hard bounds.
+2. Perception publishes fresh camera frames through a condition signal without granting them execution authority. The shared latest-frame slot owns a defensive copy at publication time, and every reader receives another copy, so capture, analysis, and observation code cannot mutate one another's buffers. MediaPipe frame timestamps and capture/classification intervals derive from a monotonic clock; timestamps are forced to increase by at least one millisecond even when multiple frames arrive within the same clock tick, so wall-clock adjustments cannot invalidate a live session. Observation tools wake as soon as a post-request frame arrives, while shutdown and the configured capture interval remain hard bounds.
 3. Observations are normalized before entering bounded history.
 4. The model proposes a decision.
 5. Structured decision text and the complete tool-call envelope are normalized and validated. Tool arguments must form an acyclic strict-JSON object within byte, node-count, and nesting-depth budgets; this validation is iterative so deeply nested model output cannot consume the Python call stack.
