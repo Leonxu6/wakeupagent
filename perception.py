@@ -58,6 +58,13 @@ _MAX_CLASSIFIER_RESPONSE_CHARS = 100
 _BIDI_CONTROLS = {chr(code) for code in (0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x2066, 0x2067, 0x2068, 0x2069)}
 
 
+def _next_video_timestamp_ms(started_at: float, previous_ms: int, *, now: float | None = None) -> int:
+    """Return a strictly increasing MediaPipe timestamp from the monotonic clock."""
+    current = time.monotonic() if now is None else now
+    elapsed_ms = max(0, int((current - started_at) * 1000))
+    return max(previous_ms + 1, elapsed_ms)
+
+
 def _create_ollama_client(host: str = OLLAMA_HOST, timeout: float = OLLAMA_TIMEOUT_SEC):
     """Create a client whose connect/read/write/pool waits are explicitly bounded."""
     return ollama.Client(host=host, timeout=timeout)
@@ -515,15 +522,15 @@ def _run_open_camera(
     lock        = threading.Lock()
     busy        = [False]
     frame_count = [0]
-    fps_t       = [time.time()]
+    fps_t       = [time.monotonic()]
     fps_val     = [0.0]
 
     def _analyze(snap: np.ndarray):
-        t0 = time.time()
+        t0 = time.monotonic()
         try:
             console.print(f"{LOG_A} dispatching moondream")
             text = query_moondream(snap)
-            moondream_elapsed = time.time() - t0
+            moondream_elapsed = time.monotonic() - t0
             context = get_context() if get_context else ""
             is_healthy, should_escalate = classify_behavior(text, context)
             ts = datetime.now().strftime("%H:%M:%S")
@@ -564,7 +571,8 @@ def _run_open_camera(
     with PoseLandmarker.create_from_options(pose_opts) as pose_det, \
          GestureRecognizer.create_from_options(gest_opts) as gest_det:
         console.print(f"{LOG_A} mediapipe ready  (pose + gesture)")
-        start_ms = int(time.time() * 1000)
+        started_at = time.monotonic()
+        video_timestamp_ms = -1
         _gest_ok = True
 
         while _session_should_run(session_generation):
@@ -575,8 +583,11 @@ def _run_open_camera(
             raw_frame = frame.copy()
             _store_latest_frame(raw_frame)
             fh, fw    = frame.shape[:2]
-            now       = time.time()
-            ts_ms     = int(now * 1000) - start_ms
+            now       = time.monotonic()
+            video_timestamp_ms = _next_video_timestamp_ms(
+                started_at, video_timestamp_ms, now=now
+            )
+            ts_ms     = video_timestamp_ms
             frame_count[0] += 1
             dt = now - fps_t[0]
             if dt >= 1.0:

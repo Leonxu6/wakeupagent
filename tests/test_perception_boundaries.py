@@ -4,6 +4,18 @@ import pytest
 import perception
 
 
+def test_video_timestamps_use_elapsed_monotonic_time():
+    assert perception._next_video_timestamp_ms(10.0, -1, now=10.125) == 125
+
+
+def test_video_timestamps_remain_strictly_increasing_within_one_millisecond():
+    assert perception._next_video_timestamp_ms(10.0, 125, now=10.1254) == 126
+
+
+def test_video_timestamps_do_not_move_backwards():
+    assert perception._next_video_timestamp_ms(10.0, 125, now=9.5) == 126
+
+
 def test_latest_frame_returns_defensive_copy(monkeypatch):
     original = np.zeros((2, 2, 3), dtype=np.uint8)
     monkeypatch.setattr(perception, "_latest_raw_frame", original)
