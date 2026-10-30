@@ -613,5 +613,9 @@ def build_graph():
     )
     builder.add_edge("execution", "decision")
     conn = _connect_checkpoint(Path(CHECKPOINT_DB_PATH))
-    checkpointer = SqliteSaver(conn=conn)
-    return builder.compile(checkpointer=checkpointer)
+    try:
+        checkpointer = SqliteSaver(conn=conn)
+        return builder.compile(checkpointer=checkpointer)
+    except Exception:
+        conn.close()
+        raise
