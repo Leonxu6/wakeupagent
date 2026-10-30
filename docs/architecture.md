@@ -31,3 +31,5 @@ The project deliberately avoids giving the graph a generic shell tool. Side effe
 ## Design rule
 
 When adding a feature, keep validation close to the boundary, keep state bounded, and make failure modes observable. Prefer a small new validator or explicit tool over a permissive generic escape hatch.
+
+Graph construction owns the SQLite checkpoint connection it opens. A successfully compiled graph keeps that connection for checkpoint persistence; if checkpointer creation or graph compilation fails, construction closes the connection before propagating the error so retries do not accumulate file descriptors or database locks.
