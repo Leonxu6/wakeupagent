@@ -34,8 +34,8 @@ def test_configured_deepseek_key_does_not_fail_exit_code():
     assert diagnostics_exit_code([Check("deepseek-key", True, "configured")]) == 0
 
 
-def test_noncritical_warning_does_not_fail_exit_code():
-    assert diagnostics_exit_code([Check("platform", False, "Linux")]) == 0
+def test_unsupported_platform_is_a_critical_diagnostic():
+    assert diagnostics_exit_code([Check("platform", False, "Linux")]) == 1
 
 
 def test_valid_configuration_check_does_not_fail_exit_code():

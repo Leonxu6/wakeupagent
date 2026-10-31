@@ -26,6 +26,7 @@ class Check:
 
 _CRITICAL_CHECKS = {
     "python",
+    "platform",
     "pose-model",
     "gesture-model",
     "configuration",

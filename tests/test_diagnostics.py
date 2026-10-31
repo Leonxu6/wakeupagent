@@ -174,6 +174,7 @@ class DiagnosticsTests(unittest.TestCase):
 
     def test_exit_code_fails_for_required_runtime_dependencies(self):
         self.assertEqual(diagnostics.diagnostics_exit_code([diagnostics.Check("python", False, "3.11")]), 1)
+        self.assertEqual(diagnostics.diagnostics_exit_code([diagnostics.Check("platform", False, "Linux")]), 1)
         self.assertEqual(diagnostics.diagnostics_exit_code([diagnostics.Check("pose-model", False, "missing")]), 1)
         self.assertEqual(diagnostics.diagnostics_exit_code([diagnostics.Check("gesture-model", False, "missing")]), 1)
 

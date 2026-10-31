@@ -28,7 +28,7 @@ def test_json_report_summarizes_checks_and_readiness():
     report = checks_report_payload(checks)
     assert report == {
         "schema_version": 1,
-        "ready": True,
+        "ready": False,
         "summary": {"total": 3, "ok": 1, "warnings": 2},
         "checks": [
             {"name": "python", "ok": True, "detail": "3.12"},
