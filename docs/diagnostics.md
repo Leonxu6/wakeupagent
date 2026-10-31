@@ -13,10 +13,10 @@ uv run main.py --check
 The command reports one line per check. A non-zero exit code means a required runtime dependency is not usable. Critical checks currently include:
 
 - Python 3.12 or newer.
+- macOS, the supported interactive runtime platform.
 - The bundled MediaPipe pose and gesture model assets.
 - Runtime configuration parsing.
 - Writable parent directories for checkpoint and daily-report persistence.
-- A configured DeepSeek API key.
 
 Service URLs and opt-in feature flags are also reported. The check validates configuration only; it does not open the camera, contact network services, send messages, launch applications, or invoke other side effects.
 
@@ -76,6 +76,12 @@ It checks repository-local targets without making network requests and flags lin
 
 ## Interpreting warnings
 
-Not every warning is fatal. For example, the project is primarily designed for macOS, so a different platform can be reported without changing the exit code by itself. By contrast, missing required models, invalid configuration, unusable persistence paths, or missing required cloud credentials make the installation check fail because the normal runtime cannot operate reliably without them.
+Not every warning is fatal. Optional cloud credentials and endpoint availability can
+be reported without changing the exit code by themselves because offline local
+diagnostics remain useful without them. An unsupported platform, missing required
+models, invalid configuration, or unusable persistence paths make the installation
+check fail because the normal interactive runtime cannot operate reliably without
+them. In particular, Linux CI can still run the mocked test suite, but a Linux
+installation report must not advertise `ready: true` for the macOS application.
 
 When adding a new diagnostic check, keep it deterministic and side-effect-free, give it a stable unique name, and decide explicitly whether failure should block startup readiness.
