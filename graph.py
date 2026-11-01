@@ -337,8 +337,9 @@ def _save_daily_report(report: str, date_str: str):
                     raise OSError("daily report changed while checking existing entries")
                 chunks.append(chunk)
                 remaining -= len(chunk)
-            heading = f"\n## {date_str}\n".encode("utf-8")
-            if heading in b"".join(chunks):
+            content = b"".join(chunks)
+            heading = f"## {date_str}\n".encode("utf-8")
+            if content.startswith(heading) or b"\n" + heading in content:
                 return
             if original_size + len(payload) > _REPORT_FILE_MAX_BYTES:
                 raise OSError("daily report append would exceed its size limit")

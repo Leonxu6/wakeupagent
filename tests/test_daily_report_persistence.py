@@ -86,6 +86,30 @@ def test_daily_report_retries_are_idempotent_by_date(tmp_path, monkeypatch):
     assert path.read_text(encoding="utf-8") == "\n## 2026-10-03\nfirst completed report\n"
 
 
+def test_daily_report_retry_recognizes_heading_at_file_start(tmp_path, monkeypatch):
+    path = tmp_path / "daily.md"
+    original = "## 2026-10-03\nimported report\n"
+    path.write_text(original, encoding="utf-8")
+    monkeypatch.setattr(graph, "DAILY_REPORT_PATH", str(path))
+
+    graph._save_daily_report("duplicate retry", "2026-10-03")
+
+    assert path.read_text(encoding="utf-8") == original
+
+
+def test_daily_report_does_not_match_date_inside_report_text(tmp_path, monkeypatch):
+    path = tmp_path / "daily.md"
+    original = "\n## 2026-10-02\nreview ## 2026-10-03 later\n"
+    path.write_text(original, encoding="utf-8")
+    monkeypatch.setattr(graph, "DAILY_REPORT_PATH", str(path))
+
+    graph._save_daily_report("actual report", "2026-10-03")
+
+    assert path.read_text(encoding="utf-8") == (
+        original + "\n## 2026-10-03\nactual report\n"
+    )
+
+
 def test_daily_report_rejects_appends_beyond_file_budget(tmp_path, monkeypatch):
     path = tmp_path / "daily.md"
     original = b"existing report\n"
