@@ -359,10 +359,18 @@ def query_moondream(frame_bgr: np.ndarray) -> str:
     frame_bgr = _validate_frame(frame_bgr)
     resized = cv2.resize(frame_bgr, (640, 480))
     fd, tmp_path = tempfile.mkstemp(suffix=".jpg")
-    os.close(fd)
     try:
-        if not cv2.imwrite(tmp_path, resized, [cv2.IMWRITE_JPEG_QUALITY, 90]):
+        encoded, jpeg = cv2.imencode(".jpg", resized, [cv2.IMWRITE_JPEG_QUALITY, 90])
+        if not encoded:
             raise RuntimeError("camera frame encoding failed")
+        pending = memoryview(jpeg).cast("B")
+        while pending:
+            written = os.write(fd, pending)
+            if written <= 0:
+                raise OSError("camera frame temporary write made no progress")
+            pending = pending[written:]
+        os.close(fd)
+        fd = -1
         response = _ollama_client.generate(
             model=MOONDREAM_MODEL,
             prompt=MOONDREAM_PROMPT,
@@ -378,6 +386,8 @@ def query_moondream(frame_bgr: np.ndarray) -> str:
         console.print(f"{LOG_A} moondream unavailable ({exc.__class__.__name__})")
         return "moondream unavailable"
     finally:
+        if fd >= 0:
+            os.close(fd)
         Path(tmp_path).unlink(missing_ok=True)
 
 
