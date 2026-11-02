@@ -10,6 +10,8 @@ WakeUpAgent handles observations, model prompts, contact aliases, and potentiall
 - Tool return values should contain only what the graph needs to continue, not private destinations or full subprocess output.
 - Diagnostics should report configuration state without printing secrets.
 
+Camera frames sent to the local vision model are encoded in memory and written through the private descriptor returned by `mkstemp`; the writer does not close and reopen that path. The write loop handles short writes, closes the descriptor before model access, and removes the temporary JPEG on both success and failure.
+
 ## Contacts and messaging
 
 Contact aliases are a local trust boundary. The model may request an alias, but the mapping from alias to real destination stays outside model-visible output. If a message is sent, return a generic success/failure summary rather than the resolved contact name or account identifier.
