@@ -18,6 +18,11 @@ Contact aliases are a local trust boundary. The model may request an alias, but 
 
 The WeChat automation program is delivered to `osascript` over standard input. Resolved contacts and message bodies are never placed in process arguments, so they are not exposed through ordinary process-list inspection. They still exist briefly in the local subprocess input and clipboard and therefore remain protected data.
 
+The AppleScript operation has its own timeout shorter than the supervising
+Python process timeout. This preserves a cleanup window for the script's error
+handler to restore the previous clipboard even when macOS accessibility events
+stall, instead of relying on abrupt process termination at the outer deadline.
+
 Browser URLs receive the same process-boundary treatment. The validated URL is embedded in a minimal AppleScript program delivered to `osascript` over standard input rather than passed in the child process argument vector. Path, query, and fragment data therefore remain absent from ordinary process-list inspection, console logs, and tool results.
 
 ## Logs

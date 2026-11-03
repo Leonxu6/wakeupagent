@@ -22,6 +22,8 @@ _MAX_DETAIL_INPUT_CHARS = 40_000
 _MAX_OBSERVATION_LIMIT = 5_000
 _MAX_OBSERVATION_INPUT_CHARS = 20_000
 _BROWSER_OPEN_TIMEOUT_SEC = 10
+_WECHAT_AUTOMATION_TIMEOUT_SEC = 20
+_WECHAT_PROCESS_TIMEOUT_SEC = 30
 _BIDI_CONTROLS = {
     "\u061c", "\u200e", "\u200f", "\u202a", "\u202b", "\u202c", "\u202d", "\u202e",
     "\u2066", "\u2067", "\u2068", "\u2069",
@@ -107,30 +109,32 @@ def _resolve_contact_alias(target: str, contacts: object) -> str | None:
 
 
 def _wechat_script(contact: str, message: str) -> str:
-    """Build the local automation script while restoring the user's clipboard on every exit path."""
+    """Build bounded automation that restores the clipboard before Python's deadline."""
     contact = _escape_applescript(contact)
     message = _escape_applescript(message)
     return f'''
 set oldClipboard to the clipboard
 try
-    do shell script "open -a WeChat"
-    delay 2.0
-    tell application "System Events"
-        tell process "WeChat"
-            keystroke "f" using {{command down}}
-            delay 1.0
-            keystroke "a" using {{command down}}
-            set the clipboard to "{contact}"
-            keystroke "v" using {{command down}}
-            delay 2.0
-            keystroke return
-            delay 1.0
-            set the clipboard to "{message}"
-            keystroke "v" using {{command down}}
-            delay 0.5
-            keystroke return
+    with timeout of {_WECHAT_AUTOMATION_TIMEOUT_SEC} seconds
+        do shell script "open -a WeChat"
+        delay 2.0
+        tell application "System Events"
+            tell process "WeChat"
+                keystroke "f" using {{command down}}
+                delay 1.0
+                keystroke "a" using {{command down}}
+                set the clipboard to "{contact}"
+                keystroke "v" using {{command down}}
+                delay 2.0
+                keystroke return
+                delay 1.0
+                set the clipboard to "{message}"
+                keystroke "v" using {{command down}}
+                delay 0.5
+                keystroke return
+            end tell
         end tell
-    end tell
+    end timeout
 on error errMessage number errNumber
     set the clipboard to oldClipboard
     error errMessage number errNumber
@@ -211,7 +215,7 @@ def send_wechat_shame_message(target: str, message: str) -> str:
             input=script,
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=_WECHAT_PROCESS_TIMEOUT_SEC,
             check=False,
         )
         if result.returncode != 0:
