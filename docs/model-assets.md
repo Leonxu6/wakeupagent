@@ -4,7 +4,11 @@ WakeUpAgent depends on local pose and gesture model assets. These files are runt
 
 ## Expected properties
 
-Each configured model path should resolve to a regular, readable, non-empty file. The side-effect-free diagnostics command checks these properties before the camera pipeline is started.
+Each configured model path should name a regular, readable, non-empty file.
+Symbolic links are rejected so a configured redirect outside the installation
+cannot be reported as a ready local model asset. The side-effect-free
+diagnostics command checks these properties before the camera pipeline is
+started.
 
 ## Updating an asset
 
@@ -16,4 +20,7 @@ Do not commit temporary downloads, partial files, local cache directories, or de
 
 ## Failure diagnosis
 
-A missing model, directory in place of a model, zero-byte file, or unreadable file should fail diagnostics with a clear local message. Network access should not be required merely to determine that the installation is incomplete.
+A missing model, directory or symbolic link in place of a model, zero-byte file,
+or unreadable file should fail diagnostics with a clear local message. Network
+access should not be required merely to determine that the installation is
+incomplete.

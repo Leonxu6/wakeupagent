@@ -33,11 +33,26 @@ class DiagnosticsTests(unittest.TestCase):
             self.assertTrue(valid.ok)
 
     def test_model_check_reports_unreadable_files_without_crashing(self):
-        with patch.object(Path, "stat", side_effect=PermissionError("denied")):
+        with patch.object(Path, "lstat", side_effect=PermissionError("denied")):
             check = diagnostics._model_check("model", Path("model.task"))
         self.assertFalse(check.ok)
         self.assertIn("unreadable", check.detail)
         self.assertIn("denied", check.detail)
+
+    def test_model_check_rejects_symbolic_links(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "model.task"
+            target.write_bytes(b"model")
+            link = root / "linked.task"
+            try:
+                link.symlink_to(target)
+            except OSError:
+                self.skipTest("filesystem does not permit symbolic links")
+
+            check = diagnostics._model_check("model", link)
+            self.assertFalse(check.ok)
+            self.assertIn("symbolic links are not allowed", check.detail)
 
     def test_directory_check_rejects_missing_and_non_directory_paths(self):
         with tempfile.TemporaryDirectory() as tmp:

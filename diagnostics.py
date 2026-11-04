@@ -78,11 +78,13 @@ def _python_check(version: tuple[int, int] | None = None) -> Check:
 
 def _model_check(name: str, path: Path) -> Check:
     try:
-        metadata = path.stat()
+        metadata = path.lstat()
     except FileNotFoundError:
         return Check(name, False, f"missing: {path}")
     except OSError as exc:
         return Check(name, False, f"unreadable: {path} ({exc})")
+    if stat.S_ISLNK(metadata.st_mode):
+        return Check(name, False, f"symbolic links are not allowed: {path}")
     if not stat.S_ISREG(metadata.st_mode):
         return Check(name, False, f"not a file: {path}")
     if not os.access(path, os.R_OK):
