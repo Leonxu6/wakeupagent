@@ -54,6 +54,27 @@ class DiagnosticsTests(unittest.TestCase):
             self.assertFalse(check.ok)
             self.assertIn("symbolic links are not allowed", check.detail)
 
+    @unittest.skipUnless(hasattr(os, "O_NOFOLLOW"), "platform cannot reject link swaps atomically")
+    def test_model_check_rejects_a_symlink_swap_after_metadata_check(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            model = root / "model.task"
+            model.write_bytes(b"model")
+            outside = root / "outside.task"
+            outside.write_bytes(b"outside")
+            original_open = diagnostics.os.open
+
+            def swap_then_open(path, flags):
+                model.unlink()
+                model.symlink_to(outside)
+                return original_open(path, flags)
+
+            with patch.object(diagnostics.os, "open", side_effect=swap_then_open):
+                check = diagnostics._model_check("model", model)
+
+            self.assertFalse(check.ok)
+            self.assertIn("unreadable", check.detail)
+
     def test_directory_check_rejects_missing_and_non_directory_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

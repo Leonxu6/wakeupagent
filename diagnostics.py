@@ -85,13 +85,28 @@ def _model_check(name: str, path: Path) -> Check:
         return Check(name, False, f"unreadable: {path} ({exc})")
     if stat.S_ISLNK(metadata.st_mode):
         return Check(name, False, f"symbolic links are not allowed: {path}")
-    if not stat.S_ISREG(metadata.st_mode):
-        return Check(name, False, f"not a file: {path}")
     if not os.access(path, os.R_OK):
         return Check(name, False, f"not readable: {path}")
-    if metadata.st_size == 0:
-        return Check(name, False, f"empty model file: {path}")
-    return Check(name, True, f"{path.name} ({metadata.st_size} bytes)")
+    flags = os.O_RDONLY
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    if hasattr(os, "O_NONBLOCK"):
+        flags |= os.O_NONBLOCK
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        fd = os.open(path, flags)
+    except OSError as exc:
+        return Check(name, False, f"unreadable: {path} ({exc.__class__.__name__})")
+    try:
+        opened = os.fstat(fd)
+        if not stat.S_ISREG(opened.st_mode):
+            return Check(name, False, f"not a file: {path}")
+        if opened.st_size == 0:
+            return Check(name, False, f"empty model file: {path}")
+        return Check(name, True, f"{path.name} ({opened.st_size} bytes)")
+    finally:
+        os.close(fd)
 
 
 def _directory_check(name: str, path: Path) -> Check:

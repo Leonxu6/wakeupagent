@@ -8,7 +8,10 @@ Each configured model path should name a regular, readable, non-empty file.
 Symbolic links are rejected so a configured redirect outside the installation
 cannot be reported as a ready local model asset. The side-effect-free
 diagnostics command checks these properties before the camera pipeline is
-started.
+started. On platforms with `O_NOFOLLOW`, diagnostics also opens the asset with
+link following disabled and derives its type and size from that descriptor.
+This closes the window where a regular file could be replaced by a symbolic
+link between the initial metadata check and the readiness decision.
 
 ## Updating an asset
 
