@@ -5,6 +5,7 @@ camera -> mediapipe pose+gesture -> moondream2 -> annotated display
 import math
 import os
 import re
+import stat
 import tempfile
 import time
 import threading
@@ -56,6 +57,28 @@ _MAX_CONTEXT_CHARS = 2000
 _MAX_TEXT_INPUT_CHARS = 20_000
 _MAX_CLASSIFIER_RESPONSE_CHARS = 100
 _BIDI_CONTROLS = {chr(code) for code in (0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x2066, 0x2067, 0x2068, 0x2069)}
+
+
+def _validate_runtime_model_asset(path: Path) -> None:
+    """Require one non-empty regular model file before camera activation."""
+    if stat.S_ISLNK(os.lstat(path).st_mode):
+        raise ValueError("model asset must not be a symbolic link")
+    flags = os.O_RDONLY
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    if hasattr(os, "O_NONBLOCK"):
+        flags |= os.O_NONBLOCK
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(path, flags)
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ValueError("model asset must be a regular file")
+        if metadata.st_size == 0:
+            raise ValueError("model asset must not be empty")
+    finally:
+        os.close(descriptor)
 
 
 def _next_video_timestamp_ms(started_at: float, previous_ms: int, *, now: float | None = None) -> int:
@@ -492,8 +515,10 @@ def run_perception_loop(state_callback=None, get_context=None):
     session_generation = _begin_perception_session()
     for p, name in [(_POSE_MODEL, "pose_landmarker_lite.task"),
                     (_GESTURE_MODEL, "gesture_recognizer.task")]:
-        if not p.exists():
-            console.print(f"{LOG_A} missing model: {name}")
+        try:
+            _validate_runtime_model_asset(p)
+        except (OSError, ValueError) as exc:
+            console.print(f"{LOG_A} invalid model: {name} ({exc.__class__.__name__})")
             return
 
     _stop_event.clear()

@@ -13,6 +13,11 @@ link following disabled and derives its type and size from that descriptor.
 This closes the window where a regular file could be replaced by a symbolic
 link between the initial metadata check and the readiness decision.
 
+Normal perception startup applies the same descriptor-based regular-file,
+non-empty, and no-follow checks before opening the camera. Running the main
+entry point directly therefore cannot defer an invalid asset failure until
+after camera activation, even when the diagnostics command was skipped.
+
 ## Updating an asset
 
 When replacing a model, record the upstream source and version in the change description, confirm licensing permits redistribution, and verify the application still starts on the supported Python/runtime stack. Avoid silently swapping a binary while keeping the same filename if its input or output contract changes.

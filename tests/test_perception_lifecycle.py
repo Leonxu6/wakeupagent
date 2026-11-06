@@ -7,8 +7,8 @@ import perception
 
 
 class _ModelPath:
-    def exists(self):
-        return True
+    def __fspath__(self):
+        return __file__
 
 
 class _Capture:
@@ -65,17 +65,45 @@ def test_session_clears_stale_stop_and_cleans_up_after_failure(monkeypatch):
     assert perception.get_latest_frame() is None
 
 
-def test_session_discards_stale_frame_before_model_validation(monkeypatch):
-    class MissingModel:
-        def exists(self):
-            return False
-
-    monkeypatch.setattr(perception, "_POSE_MODEL", MissingModel())
+def test_session_discards_stale_frame_before_model_validation(tmp_path, monkeypatch):
+    monkeypatch.setattr(perception, "_POSE_MODEL", tmp_path / "missing.task")
     monkeypatch.setattr(perception, "_latest_raw_frame", object())
 
     perception.run_perception_loop()
 
     assert perception.get_latest_frame() is None
+    assert perception._stop_event.is_set()
+
+
+@pytest.mark.parametrize("kind", ["empty", "directory"])
+def test_runtime_rejects_invalid_model_before_camera_activation(tmp_path, monkeypatch, kind):
+    invalid = tmp_path / "invalid.task"
+    if kind == "empty":
+        invalid.touch()
+    else:
+        invalid.mkdir()
+    monkeypatch.setattr(perception, "_POSE_MODEL", invalid)
+    opened = []
+    monkeypatch.setattr(perception.cv2, "VideoCapture", lambda index: opened.append(index))
+
+    perception.run_perception_loop()
+
+    assert opened == []
+    assert perception._stop_event.is_set()
+
+
+def test_runtime_rejects_symlinked_model_before_camera_activation(tmp_path, monkeypatch):
+    target = tmp_path / "target.task"
+    target.write_bytes(b"model")
+    link = tmp_path / "invalid.task"
+    link.symlink_to(target)
+    monkeypatch.setattr(perception, "_POSE_MODEL", link)
+    opened = []
+    monkeypatch.setattr(perception.cv2, "VideoCapture", lambda index: opened.append(index))
+
+    perception.run_perception_loop()
+
+    assert opened == []
     assert perception._stop_event.is_set()
 
 
