@@ -13,10 +13,14 @@ link following disabled and derives its type and size from that descriptor.
 This closes the window where a regular file could be replaced by a symbolic
 link between the initial metadata check and the readiness decision.
 
-Normal perception startup applies the same descriptor-based regular-file,
-non-empty, and no-follow checks before opening the camera. Running the main
-entry point directly therefore cannot defer an invalid asset failure until
-after camera activation, even when the diagnostics command was skipped.
+Normal perception startup reads each asset through the validated descriptor
+before opening the camera, with a 64 MiB per-file budget and a second metadata
+check after the read. MediaPipe receives that in-memory snapshot rather than
+reopening the pathname later. A path replacement between validation and
+detector creation therefore cannot redirect the camera session to different
+model bytes, and a growing or unexpectedly large asset fails before camera
+activation. Running the main entry point directly retains these guarantees even
+when the diagnostics command was skipped.
 
 ## Updating an asset
 

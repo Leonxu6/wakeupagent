@@ -56,12 +56,14 @@ _MAX_DESCRIPTION_CHARS = 1000
 _MAX_CONTEXT_CHARS = 2000
 _MAX_TEXT_INPUT_CHARS = 20_000
 _MAX_CLASSIFIER_RESPONSE_CHARS = 100
+_MAX_MODEL_ASSET_BYTES = 64 * 1024 * 1024
 _BIDI_CONTROLS = {chr(code) for code in (0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x2066, 0x2067, 0x2068, 0x2069)}
 
 
-def _validate_runtime_model_asset(path: Path) -> None:
-    """Require one non-empty regular model file before camera activation."""
-    if stat.S_ISLNK(os.lstat(path).st_mode):
+def _read_runtime_model_asset(path: Path) -> bytes:
+    """Return one bounded descriptor-owned model snapshot before camera activation."""
+    path_metadata = os.lstat(path)
+    if stat.S_ISLNK(path_metadata.st_mode):
         raise ValueError("model asset must not be a symbolic link")
     flags = os.O_RDONLY
     if hasattr(os, "O_CLOEXEC"):
@@ -73,10 +75,33 @@ def _validate_runtime_model_asset(path: Path) -> None:
     descriptor = os.open(path, flags)
     try:
         metadata = os.fstat(descriptor)
+        if not os.path.samestat(path_metadata, metadata):
+            raise ValueError("model asset changed while opening")
         if not stat.S_ISREG(metadata.st_mode):
             raise ValueError("model asset must be a regular file")
         if metadata.st_size == 0:
             raise ValueError("model asset must not be empty")
+        if metadata.st_size > _MAX_MODEL_ASSET_BYTES:
+            raise ValueError("model asset exceeds the runtime size budget")
+        chunks: list[bytes] = []
+        remaining = _MAX_MODEL_ASSET_BYTES + 1
+        while remaining:
+            chunk = os.read(descriptor, min(1024 * 1024, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        asset = b"".join(chunks)
+        final_metadata = os.fstat(descriptor)
+        if (
+            len(asset) > _MAX_MODEL_ASSET_BYTES
+            or len(asset) != metadata.st_size
+            or final_metadata.st_size != metadata.st_size
+            or final_metadata.st_mtime_ns != metadata.st_mtime_ns
+            or final_metadata.st_ctime_ns != metadata.st_ctime_ns
+        ):
+            raise ValueError("model asset changed while reading")
+        return asset
     finally:
         os.close(descriptor)
 
@@ -513,13 +538,15 @@ def run_perception_loop(state_callback=None, get_context=None):
     _clear_latest_frame()
     _stop_event.set()
     session_generation = _begin_perception_session()
+    model_assets = []
     for p, name in [(_POSE_MODEL, "pose_landmarker_lite.task"),
                     (_GESTURE_MODEL, "gesture_recognizer.task")]:
         try:
-            _validate_runtime_model_asset(p)
+            model_assets.append(_read_runtime_model_asset(p))
         except (OSError, ValueError) as exc:
             console.print(f"{LOG_A} invalid model: {name} ({exc.__class__.__name__})")
             return
+    pose_model_asset, gesture_model_asset = model_assets
 
     _stop_event.clear()
     console.print(f"{LOG_A} cam={CAMERA_INDEX} interval={CAPTURE_INTERVAL_SEC}s  q/ESC to quit")
@@ -533,6 +560,8 @@ def run_perception_loop(state_callback=None, get_context=None):
             state_callback=state_callback,
             get_context=get_context,
             session_generation=session_generation,
+            pose_model_asset=pose_model_asset,
+            gesture_model_asset=gesture_model_asset,
         )
     finally:
         cap.release()
@@ -548,6 +577,8 @@ def _run_open_camera(
     get_context=None,
     *,
     session_generation: int,
+    pose_model_asset: bytes,
+    gesture_model_asset: bytes,
 ):
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
@@ -587,7 +618,7 @@ def _run_open_camera(
                 busy[0] = False
 
     pose_opts = PoseLandmarkerOptions(
-        base_options=mp_python.BaseOptions(model_asset_path=str(_POSE_MODEL)),
+        base_options=mp_python.BaseOptions(model_asset_buffer=pose_model_asset),
         running_mode=RunningMode.VIDEO,
         num_poses=1,
         min_pose_detection_confidence=MEDIAPIPE_CONFIDENCE,
@@ -595,7 +626,7 @@ def _run_open_camera(
         min_tracking_confidence=MEDIAPIPE_CONFIDENCE,
     )
     gest_opts = GestureRecognizerOptions(
-        base_options=mp_python.BaseOptions(model_asset_path=str(_GESTURE_MODEL)),
+        base_options=mp_python.BaseOptions(model_asset_buffer=gesture_model_asset),
         running_mode=RunningMode.VIDEO,
         num_hands=2,
         min_hand_detection_confidence=MEDIAPIPE_CONFIDENCE,

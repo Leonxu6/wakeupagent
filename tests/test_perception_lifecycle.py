@@ -65,6 +65,46 @@ def test_session_clears_stale_stop_and_cleans_up_after_failure(monkeypatch):
     assert perception.get_latest_frame() is None
 
 
+def test_runtime_passes_descriptor_owned_model_snapshots_to_detectors(tmp_path, monkeypatch):
+    pose = tmp_path / "pose.task"
+    gesture = tmp_path / "gesture.task"
+    pose.write_bytes(b"pose-model")
+    gesture.write_bytes(b"gesture-model")
+    monkeypatch.setattr(perception, "_POSE_MODEL", pose)
+    monkeypatch.setattr(perception, "_GESTURE_MODEL", gesture)
+    capture = _Capture(opened=True)
+    monkeypatch.setattr(perception.cv2, "VideoCapture", lambda index: capture)
+    monkeypatch.setattr(perception.cv2, "destroyAllWindows", lambda: None)
+    received = {}
+
+    def inspect_assets(cap, **kwargs):
+        received.update(kwargs)
+        pose.write_bytes(b"replaced-after-open")
+        gesture.write_bytes(b"replaced-after-open")
+
+    monkeypatch.setattr(perception, "_run_open_camera", inspect_assets)
+
+    perception.run_perception_loop()
+
+    assert received["pose_model_asset"] == b"pose-model"
+    assert received["gesture_model_asset"] == b"gesture-model"
+    assert capture.released is True
+
+
+def test_runtime_rejects_model_over_size_budget_before_camera_activation(tmp_path, monkeypatch):
+    oversized = tmp_path / "oversized.task"
+    oversized.write_bytes(b"model")
+    monkeypatch.setattr(perception, "_POSE_MODEL", oversized)
+    monkeypatch.setattr(perception, "_MAX_MODEL_ASSET_BYTES", 4)
+    opened = []
+    monkeypatch.setattr(perception.cv2, "VideoCapture", lambda index: opened.append(index))
+
+    perception.run_perception_loop()
+
+    assert opened == []
+    assert perception._stop_event.is_set()
+
+
 def test_session_discards_stale_frame_before_model_validation(tmp_path, monkeypatch):
     monkeypatch.setattr(perception, "_POSE_MODEL", tmp_path / "missing.task")
     monkeypatch.setattr(perception, "_latest_raw_frame", object())
