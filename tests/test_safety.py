@@ -23,6 +23,13 @@ class RequireTextTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaisesRegex(ValueError, "control"):
                 require_text(value, field="message", max_length=40)
 
+    def test_rejects_unicode_line_and_paragraph_separators(self):
+        for value in ("first\u2028second", "first\u2029second"):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "control"):
+                require_text(value, field="message", max_length=40)
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "control"):
+                require_text(value, field="message", max_length=40, allow_newlines=True)
+
     def test_allows_newlines_when_explicitly_requested_but_not_other_controls(self):
         self.assertEqual(
             require_text("line one\nline two", field="message", max_length=30, allow_newlines=True),
