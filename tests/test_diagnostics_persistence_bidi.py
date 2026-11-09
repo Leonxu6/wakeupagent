@@ -13,7 +13,13 @@ class DiagnosticPersistenceBidiTests(unittest.TestCase):
                 self.assertIn("controls", check.detail)
 
     def test_persistence_paths_reject_generic_format_and_surrogate_controls(self):
-        for value in ("memory\u200c/state.db", "memory/report\u206a.md", "memory/" + chr(0xD800) + "state.db"):
+        for value in (
+            "memory\u200c/state.db",
+            "memory/report\u206a.md",
+            "memory/report\u2028.md",
+            "memory/report\u2029.md",
+            "memory/" + chr(0xD800) + "state.db",
+        ):
             with self.subTest(value=value):
                 check = diagnostics._persistence_parent_check("state", value)
                 self.assertFalse(check.ok)

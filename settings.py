@@ -27,7 +27,7 @@ _BIDI_CONTROLS = {
 
 
 def _contains_unsafe_control(value: str) -> bool:
-    return any(unicodedata.category(ch) in {"Cc", "Cf", "Cs"} for ch in value)
+    return any(unicodedata.category(ch) in {"Cc", "Cf", "Cs", "Zl", "Zp"} for ch in value)
 
 
 def _reject_json_constant(value: str) -> None:

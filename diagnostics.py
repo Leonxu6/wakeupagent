@@ -145,7 +145,7 @@ def _creatable_directory_check(name: str, path: Path) -> Check:
 
 
 def _has_unsafe_path_controls(value: str) -> bool:
-    return any(unicodedata.category(ch) in {"Cc", "Cf", "Cs"} for ch in value)
+    return any(unicodedata.category(ch) in {"Cc", "Cf", "Cs", "Zl", "Zp"} for ch in value)
 
 
 def _configured_path_text(value: object, *, field: str) -> str:
@@ -228,7 +228,7 @@ def _single_line(value: object, *, limit: int = _DETAIL_LIMIT) -> str:
 
 def _unsafe_check_identity_control(ch: str) -> bool:
     """Reject invisible format/surrogate state while retaining legacy line-control normalization."""
-    return unicodedata.category(ch) in {"Cf", "Cs"}
+    return unicodedata.category(ch) in {"Cf", "Cs", "Zl", "Zp"}
 
 
 def _check_name(value: object) -> str:
