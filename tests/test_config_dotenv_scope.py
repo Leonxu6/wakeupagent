@@ -68,3 +68,15 @@ def test_equivalent_relative_persistence_paths_are_rejected(monkeypatch):
 
     with pytest.raises(ValueError, match="different files"):
         _fresh_config()
+
+
+def test_hardlinked_persistence_paths_are_rejected(monkeypatch, tmp_path):
+    checkpoint = tmp_path / "agent.db"
+    report = tmp_path / "daily.md"
+    checkpoint.write_bytes(b"")
+    report.hardlink_to(checkpoint)
+    monkeypatch.setenv("WAKEUP_CHECKPOINT_DB_PATH", str(checkpoint))
+    monkeypatch.setenv("WAKEUP_DAILY_REPORT_PATH", str(report))
+
+    with pytest.raises(ValueError, match="different files"):
+        _fresh_config()

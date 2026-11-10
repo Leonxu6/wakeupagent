@@ -28,7 +28,7 @@ can be evaluated by the classifier instead of being automatically escalated.
 
 `WAKEUP_CHECKPOINT_DB_PATH` and `WAKEUP_DAILY_REPORT_PATH` support `~` expansion. Relative values are anchored to the WakeUpAgent project root rather than the shell's current working directory, so launching the agent from another directory does not silently create a second checkpoint database or report tree. Absolute paths are preserved.
 
-The checkpoint database and daily report must resolve to different files. Configuration fails before startup when aliases such as `state/../runtime.db` and `./runtime.db` collapse to the same location, preventing SQLite data and Markdown reports from competing for one file.
+The checkpoint database and daily report must resolve to different files. Configuration fails before startup when aliases such as `state/../runtime.db` and `./runtime.db` collapse to the same location, or when two existing paths are hard links to the same inode. This prevents SQLite data and Markdown reports from competing for one file through different names.
 
 The checkpoint database parent must already exist because SQLite opens that file directly. Existing checkpoint targets must be regular files: diagnostics and graph startup both reject symbolic links, directories, FIFOs, devices, and other special files before SQLite can follow or block on them. Startup validates again immediately after opening and closes the connection if the target changed during initialization. Daily-report parents are different: report persistence creates missing parent directories at write time, so diagnostics accepts a missing report directory when its nearest existing ancestor is writable. The check remains side-effect free and never creates directories itself.
 

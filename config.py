@@ -28,7 +28,14 @@ def _require_distinct_persistence_paths(checkpoint: str, report: str) -> None:
         report_path = Path(report).resolve(strict=False)
     except (OSError, RuntimeError, ValueError) as exc:
         raise ValueError("persistence paths could not be normalized") from exc
-    if checkpoint_path == report_path:
+    same_existing_file = False
+    try:
+        same_existing_file = checkpoint_path.samefile(report_path)
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        raise ValueError("persistence path identity could not be checked") from exc
+    if checkpoint_path == report_path or same_existing_file:
         raise ValueError("checkpoint and daily report paths must resolve to different files")
 
 
