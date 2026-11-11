@@ -321,6 +321,8 @@ def _save_daily_report(report: str, date_str: str):
         metadata = os.fstat(fd)
         if not stat.S_ISREG(metadata.st_mode):
             raise OSError("daily report target must be a regular file")
+        if metadata.st_nlink != 1:
+            raise OSError("daily report target must not have hard links")
         if hasattr(os, "fchmod"):
             os.fchmod(fd, stat.S_IMODE(metadata.st_mode) & 0o600)
         fcntl.flock(fd, fcntl.LOCK_EX)

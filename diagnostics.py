@@ -163,6 +163,7 @@ def _persistence_parent_check(
     *,
     allow_missing_parent: bool = False,
     reject_symlink_target: bool = False,
+    reject_hardlink_target: bool = False,
 ) -> Check:
     try:
         text = _configured_path_text(value, field="configured path")
@@ -172,20 +173,24 @@ def _persistence_parent_check(
         return Check(name, False, "allow_missing_parent must be boolean")
     if not isinstance(reject_symlink_target, bool):
         return Check(name, False, "reject_symlink_target must be boolean")
+    if not isinstance(reject_hardlink_target, bool):
+        return Check(name, False, "reject_hardlink_target must be boolean")
     try:
         path = Path(text).expanduser()
         if not path.name:
             return Check(name, False, "configured path must name a persistence file")
-        if reject_symlink_target:
+        if reject_symlink_target or reject_hardlink_target:
             try:
                 metadata = path.lstat()
             except FileNotFoundError:
                 metadata = None
             if metadata is not None:
-                if stat.S_ISLNK(metadata.st_mode):
+                if reject_symlink_target and stat.S_ISLNK(metadata.st_mode):
                     return Check(name, False, "configured path must not be a symbolic link")
                 if not stat.S_ISREG(metadata.st_mode):
                     return Check(name, False, "configured path must name a regular file")
+                if reject_hardlink_target and metadata.st_nlink != 1:
+                    return Check(name, False, "configured path must not have hard links")
         resolved = path.resolve()
         if resolved.is_dir():
             return Check(name, False, "configured path must name a file, not a directory")
@@ -317,6 +322,7 @@ def collect_checks(base_dir: Path | str | None = None) -> list[Check]:
             runtime_config.DAILY_REPORT_PATH,
             allow_missing_parent=True,
             reject_symlink_target=True,
+            reject_hardlink_target=True,
         ))
         checks.append(_http_url_check("ollama-url", runtime_config.OLLAMA_HOST))
         checks.append(Check("ollama-timeout", True, f"{runtime_config.OLLAMA_TIMEOUT_SEC:g} seconds"))

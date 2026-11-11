@@ -49,6 +49,24 @@ def test_checkpoint_persistence_check_rejects_symlink_target(tmp_path):
     assert "symbolic link" in check.detail
 
 
+def test_report_persistence_check_rejects_hardlink_target(tmp_path):
+    target = tmp_path / "private.md"
+    target.write_text("existing", encoding="utf-8")
+    link = tmp_path / "daily.md"
+    link.hardlink_to(target)
+
+    check = _persistence_parent_check(
+        "report-dir",
+        link,
+        allow_missing_parent=True,
+        reject_symlink_target=True,
+        reject_hardlink_target=True,
+    )
+
+    assert not check.ok
+    assert "hard links" in check.detail
+
+
 def test_persistence_check_rejects_existing_special_targets(tmp_path):
     fifo = tmp_path / "state.db"
     fifo.parent.mkdir(parents=True, exist_ok=True)
@@ -72,6 +90,17 @@ def test_persistence_check_validates_symlink_policy_type(tmp_path):
         "report-dir",
         tmp_path / "daily.md",
         reject_symlink_target="yes",
+    )
+
+    assert not check.ok
+    assert "must be boolean" in check.detail
+
+
+def test_persistence_check_validates_hardlink_policy_type(tmp_path):
+    check = _persistence_parent_check(
+        "report-dir",
+        tmp_path / "daily.md",
+        reject_hardlink_target="yes",
     )
 
     assert not check.ok

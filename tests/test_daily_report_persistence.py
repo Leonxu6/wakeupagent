@@ -159,6 +159,19 @@ def test_daily_report_refuses_symlink_targets(tmp_path, monkeypatch):
     assert target.read_text(encoding="utf-8") == "unchanged"
 
 
+def test_daily_report_refuses_hardlink_targets(tmp_path, monkeypatch):
+    target = tmp_path / "private.md"
+    target.write_text("unchanged", encoding="utf-8")
+    link = tmp_path / "daily.md"
+    link.hardlink_to(target)
+    monkeypatch.setattr(graph, "DAILY_REPORT_PATH", str(link))
+
+    with pytest.raises(OSError, match="hard links"):
+        graph._save_daily_report("report", "2026-10-03")
+
+    assert target.read_text(encoding="utf-8") == "unchanged"
+
+
 @pytest.mark.skipif(not hasattr(os, "fchmod"), reason="platform has no descriptor chmod")
 def test_daily_report_tightens_existing_file_permissions(tmp_path, monkeypatch):
     path = tmp_path / "daily.md"
