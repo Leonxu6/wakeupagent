@@ -256,6 +256,16 @@ def daily_reset_node(state: AgentState) -> dict:
         }
     if session_date == today:
         return {}
+    if session_date > today:
+        console.print(
+            f"{LOG_RESET} future checkpoint date detected ({session_date} > {today}); resetting counters"
+        )
+        return {
+            "session_date": today,
+            "unhealthy_count": 0,
+            "consecutive_healthy": 0,
+            "react_iterations": 0,
+        }
 
     messages = _state_messages(state)
     console.print(f"{LOG_RESET} new day detected ({session_date} → {today}), generating report...")

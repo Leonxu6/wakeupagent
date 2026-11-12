@@ -35,6 +35,35 @@ class DailyResetTests(unittest.TestCase):
         self.assertEqual(result, {})
 
     @patch.object(graph, "_save_daily_report")
+    @patch.object(graph, "_generate_daily_report")
+    def test_future_checkpoint_resets_without_future_dated_report(
+        self, generate_report, save_report
+    ):
+        state = {
+            "messages": [HumanMessage(content="preserve this", id="message-1")],
+            "session_date": "2026-08-02",
+            "unhealthy_count": 2,
+            "consecutive_healthy": 3,
+            "react_iterations": 4,
+            "conversation_summary": "preserve this summary",
+        }
+
+        with patch.object(graph, "date", FixedDate):
+            result = graph.daily_reset_node(state)
+
+        self.assertEqual(
+            result,
+            {
+                "session_date": "2026-08-01",
+                "unhealthy_count": 0,
+                "consecutive_healthy": 0,
+                "react_iterations": 0,
+            },
+        )
+        generate_report.assert_not_called()
+        save_report.assert_not_called()
+
+    @patch.object(graph, "_save_daily_report")
     @patch.object(graph, "_generate_daily_report", return_value="daily summary")
     def test_new_day_archives_previous_state(self, generate_report, save_report):
         message = HumanMessage(content="previous observation", id="message-1")
