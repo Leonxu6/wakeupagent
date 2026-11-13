@@ -316,6 +316,7 @@ def collect_checks(base_dir: Path | str | None = None) -> list[Check]:
             "checkpoint-dir",
             runtime_config.CHECKPOINT_DB_PATH,
             reject_symlink_target=True,
+            reject_hardlink_target=True,
         ))
         checks.append(_persistence_parent_check(
             "report-dir",

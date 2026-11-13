@@ -25,6 +25,26 @@ def test_checkpoint_target_rejects_symbolic_links(tmp_path):
         graph._validate_checkpoint_target(link)
 
 
+def test_checkpoint_target_rejects_hard_links(tmp_path):
+    target = tmp_path / "shared.db"
+    target.write_bytes(b"")
+    link = tmp_path / "state.db"
+    link.hardlink_to(target)
+
+    with pytest.raises(ValueError, match="hard links"):
+        graph._validate_checkpoint_target(link)
+
+
+def test_checkpoint_permission_hardening_rejects_hard_links(tmp_path):
+    target = tmp_path / "shared.db"
+    target.write_bytes(b"")
+    link = tmp_path / "state.db"
+    link.hardlink_to(target)
+
+    with pytest.raises(ValueError, match="hard links"):
+        graph._tighten_checkpoint_permissions(link)
+
+
 @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO unavailable on this platform")
 def test_checkpoint_target_rejects_special_files_without_opening_them(tmp_path):
     fifo = tmp_path / "state.db"

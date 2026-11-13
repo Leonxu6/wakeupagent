@@ -571,6 +571,8 @@ def _validate_checkpoint_target(path: Path) -> None:
         raise ValueError("checkpoint target must not be a symbolic link")
     if not stat.S_ISREG(metadata.st_mode):
         raise ValueError("checkpoint target must be a regular file")
+    if metadata.st_nlink != 1:
+        raise ValueError("checkpoint target must not have hard links")
 
 
 def _tighten_checkpoint_permissions(path: Path) -> None:
@@ -585,6 +587,8 @@ def _tighten_checkpoint_permissions(path: Path) -> None:
         metadata = os.fstat(descriptor)
         if not stat.S_ISREG(metadata.st_mode):
             raise ValueError("checkpoint target must be a regular file")
+        if metadata.st_nlink != 1:
+            raise ValueError("checkpoint target must not have hard links")
         if hasattr(os, "fchmod"):
             os.fchmod(descriptor, stat.S_IMODE(metadata.st_mode) & 0o600)
     finally:
