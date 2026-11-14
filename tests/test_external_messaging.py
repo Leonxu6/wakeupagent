@@ -53,6 +53,8 @@ class ExternalMessagingTests(unittest.TestCase):
         self.assertEqual(run.call_args.args[0], ["osascript"])
         self.assertIn("Private Real Contact", run.call_args.kwargs["input"])
         self.assertIn("Please check in", run.call_args.kwargs["input"])
+        self.assertIs(run.call_args.kwargs["stdout"], subprocess.DEVNULL)
+        self.assertIs(run.call_args.kwargs["stderr"], subprocess.DEVNULL)
 
     @patch("tools.subprocess.run")
     def test_private_message_is_supplied_over_stdin_not_process_arguments(self, run):

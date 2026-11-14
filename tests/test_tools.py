@@ -41,7 +41,8 @@ class OpenWebpageTests(unittest.TestCase):
                 call(
                     ["osascript"],
                     input='open location "http://example.com"\n',
-                    capture_output=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                     text=True,
                     timeout=10,
                     check=False,
@@ -49,7 +50,8 @@ class OpenWebpageTests(unittest.TestCase):
                 call(
                     ["osascript"],
                     input='open location "https://example.com/study?q=1"\n',
-                    capture_output=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                     text=True,
                     timeout=10,
                     check=False,

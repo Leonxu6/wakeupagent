@@ -213,7 +213,8 @@ def send_wechat_shame_message(target: str, message: str) -> str:
         result = subprocess.run(
             ["osascript"],
             input=script,
-            capture_output=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             text=True,
             timeout=_WECHAT_PROCESS_TIMEOUT_SEC,
             check=False,
@@ -244,7 +245,8 @@ def open_webpage(url: str) -> str:
         result = subprocess.run(
             ["osascript"],
             input=_browser_script(url),
-            capture_output=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             text=True,
             timeout=_BROWSER_OPEN_TIMEOUT_SEC,
             check=False,
@@ -275,7 +277,8 @@ def force_close_app(app_name: str) -> str:
         result = subprocess.run(
             ["osascript"],
             input=f'tell application "{escaped_name}" to quit\n',
-            capture_output=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             text=True,
             timeout=10,
             check=False,
@@ -289,7 +292,7 @@ def force_close_app(app_name: str) -> str:
         return f"Error: 无法请求 {app_name} 退出"
     if result.returncode == 0:
         return f"已请求 {app_name} 正常退出"
-    console.print(f"[red][process] quit request failed: {escape(_bounded_detail(result.stderr or 'application did not quit'))}[/red]")
+    console.print("[red][process] quit request failed[/red]")
     return f"Error: 无法请求 {app_name} 退出"
 
 

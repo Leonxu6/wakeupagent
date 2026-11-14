@@ -1,4 +1,5 @@
 import os
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -36,6 +37,8 @@ class ProcessControlTests(unittest.TestCase):
             run.call_args.kwargs["input"],
             'tell application "Safari" to quit\n',
         )
+        self.assertIs(run.call_args.kwargs["stdout"], subprocess.DEVNULL)
+        self.assertIs(run.call_args.kwargs["stderr"], subprocess.DEVNULL)
 
     @patch("tools.subprocess.run")
     def test_failed_graceful_quit_never_falls_back_to_killall_or_leaks_stderr(self, run):
