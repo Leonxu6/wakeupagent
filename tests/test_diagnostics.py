@@ -39,6 +39,16 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertIn("unreadable", check.detail)
         self.assertIn("denied", check.detail)
 
+    def test_model_check_rejects_assets_over_the_runtime_size_budget(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            model = Path(tmp) / "oversized.task"
+            model.write_bytes(b"model")
+            with patch.object(diagnostics, "MAX_MODEL_ASSET_BYTES", 4):
+                check = diagnostics._model_check("model", model)
+
+        self.assertFalse(check.ok)
+        self.assertIn("runtime size budget", check.detail)
+
     def test_model_check_rejects_symbolic_links(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

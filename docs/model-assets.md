@@ -7,8 +7,9 @@ WakeUpAgent depends on local pose and gesture model assets. These files are runt
 Each configured model path should name a regular, readable, non-empty file.
 Symbolic links are rejected so a configured redirect outside the installation
 cannot be reported as a ready local model asset. The side-effect-free
-diagnostics command checks these properties before the camera pipeline is
-started. On platforms with `O_NOFOLLOW`, diagnostics also opens the asset with
+diagnostics command checks these properties and the same 64 MiB per-file limit
+used by runtime startup before the camera pipeline is started. On platforms
+with `O_NOFOLLOW`, diagnostics also opens the asset with
 link following disabled and derives its type and size from that descriptor.
 This closes the window where a regular file could be replaced by a symbolic
 link between the initial metadata check and the readiness decision.
@@ -33,6 +34,6 @@ Do not commit temporary downloads, partial files, local cache directories, or de
 ## Failure diagnosis
 
 A missing model, directory or symbolic link in place of a model, zero-byte file,
-or unreadable file should fail diagnostics with a clear local message. Network
-access should not be required merely to determine that the installation is
-incomplete.
+oversized model, or unreadable file should fail diagnostics with a clear local
+message. Network access should not be required merely to determine that the
+installation is incomplete.

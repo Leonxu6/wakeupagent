@@ -61,4 +61,4 @@ Run:
 uv run main.py --check
 ```
 
-The check verifies that required model artifacts exist, are regular non-empty readable files; validates persistence directory readiness; checks endpoint shapes, optional cloud credentials, and side-effect feature flags. It does not open the camera, play audio, launch a browser, send messages, close apps, or contact network services. Filesystem metadata and permission errors are reported as warnings rather than crashing the diagnostic command.
+The check verifies that required model artifacts exist, are regular non-empty readable files within the runtime's 64 MiB per-file budget; validates persistence directory readiness; checks endpoint shapes, optional cloud credentials, and side-effect feature flags. It does not open the camera, play audio, launch a browser, send messages, close apps, or contact network services. Filesystem metadata and permission errors are reported as warnings rather than crashing the diagnostic command.

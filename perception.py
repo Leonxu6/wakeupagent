@@ -26,6 +26,7 @@ from mediapipe.tasks.python.vision import (
 )
 from rich.console import Console
 
+from model_assets import MAX_MODEL_ASSET_BYTES
 from config import (
     CAMERA_INDEX,
     CAPTURE_INTERVAL_SEC,
@@ -56,7 +57,7 @@ _MAX_DESCRIPTION_CHARS = 1000
 _MAX_CONTEXT_CHARS = 2000
 _MAX_TEXT_INPUT_CHARS = 20_000
 _MAX_CLASSIFIER_RESPONSE_CHARS = 100
-_MAX_MODEL_ASSET_BYTES = 64 * 1024 * 1024
+_MAX_MODEL_ASSET_BYTES = MAX_MODEL_ASSET_BYTES
 _BIDI_CONTROLS = {chr(code) for code in (0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x2066, 0x2067, 0x2068, 0x2069)}
 
 

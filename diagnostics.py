@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
+from model_assets import MAX_MODEL_ASSET_BYTES
 from safety import require_http_url
 from settings import env_bool
 from text_safety import single_line_text
@@ -104,6 +105,8 @@ def _model_check(name: str, path: Path) -> Check:
             return Check(name, False, f"not a file: {path}")
         if opened.st_size == 0:
             return Check(name, False, f"empty model file: {path}")
+        if opened.st_size > MAX_MODEL_ASSET_BYTES:
+            return Check(name, False, f"model file exceeds runtime size budget: {path}")
         return Check(name, True, f"{path.name} ({opened.st_size} bytes)")
     finally:
         os.close(fd)
