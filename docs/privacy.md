@@ -10,6 +10,12 @@ WakeUpAgent handles observations, model prompts, contact aliases, and potentiall
 - Tool return values should contain only what the graph needs to continue, not private destinations or full subprocess output.
 - Diagnostics should report configuration state without printing secrets.
 
+Versioned history snapshots treat their schema tag as an exact type contract,
+not merely a numerically equal value. Restoration accepts the integer version
+`1` and rejects booleans, floats, decimal aliases, and text before reading any
+history payload. This keeps future migrations deterministic when snapshots
+arrive from JSON, databases, or other untrusted persistence adapters.
+
 Camera frames sent to the local vision model are encoded in memory and written through the private descriptor returned by `mkstemp`; the writer does not close and reopen that path. The write loop handles short writes, closes the descriptor before model access, and removes the temporary JPEG on both success and failure.
 
 ## Contacts and messaging

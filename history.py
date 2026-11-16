@@ -124,7 +124,7 @@ class ContextHistory:
         """Restore a snapshot while re-validating every external value and bound."""
         if (
             not isinstance(snapshot, dict)
-            or isinstance(snapshot.get("version"), bool)
+            or type(snapshot.get("version")) is not int
             or snapshot.get("version") != 1
         ):
             raise ValueError("history snapshot must be a version 1 object")
