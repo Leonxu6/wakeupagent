@@ -559,12 +559,12 @@ def route_after_decision(state: AgentState) -> str:
     return END
 
 
-def _validate_checkpoint_target(path: Path) -> None:
-    """Reject existing checkpoint aliases and special files before SQLite opens them."""
+def _validate_checkpoint_target(path: Path) -> tuple[int, int] | None:
+    """Reject unsafe checkpoint targets and return an existing file's identity."""
     try:
         metadata = path.lstat()
     except FileNotFoundError:
-        return
+        return None
     except OSError as exc:
         raise ValueError("checkpoint target metadata is unreadable") from exc
     if stat.S_ISLNK(metadata.st_mode):
@@ -573,10 +573,11 @@ def _validate_checkpoint_target(path: Path) -> None:
         raise ValueError("checkpoint target must be a regular file")
     if metadata.st_nlink != 1:
         raise ValueError("checkpoint target must not have hard links")
+    return metadata.st_dev, metadata.st_ino
 
 
-def _tighten_checkpoint_permissions(path: Path) -> None:
-    """Keep persisted observations private without broadening stricter modes."""
+def _tighten_checkpoint_permissions(path: Path) -> tuple[int, int]:
+    """Keep persisted observations private and return the opened file's identity."""
     flags = os.O_RDONLY
     if hasattr(os, "O_NONBLOCK"):
         flags |= os.O_NONBLOCK
@@ -591,21 +592,26 @@ def _tighten_checkpoint_permissions(path: Path) -> None:
             raise ValueError("checkpoint target must not have hard links")
         if hasattr(os, "fchmod"):
             os.fchmod(descriptor, stat.S_IMODE(metadata.st_mode) & 0o600)
+        return metadata.st_dev, metadata.st_ino
     finally:
         os.close(descriptor)
 
 
 def _connect_checkpoint(path: Path):
     """Open one bounded SQLite connection and revalidate its filesystem target."""
-    _validate_checkpoint_target(path)
+    initial_identity = _validate_checkpoint_target(path)
     conn = sqlite3.connect(
         path,
         timeout=_CHECKPOINT_LOCK_TIMEOUT_SEC,
         check_same_thread=False,
     )
     try:
-        _validate_checkpoint_target(path)
-        _tighten_checkpoint_permissions(path)
+        connected_identity = _validate_checkpoint_target(path)
+        if initial_identity is not None and connected_identity != initial_identity:
+            raise ValueError("checkpoint target changed identity while opening")
+        hardened_identity = _tighten_checkpoint_permissions(path)
+        if hardened_identity != connected_identity:
+            raise ValueError("checkpoint target changed identity while securing")
     except Exception:
         conn.close()
         raise

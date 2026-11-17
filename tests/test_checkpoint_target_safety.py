@@ -79,6 +79,31 @@ def test_checkpoint_connection_closes_when_post_open_validation_fails(monkeypatc
     assert connection.closed
 
 
+def test_checkpoint_connection_rejects_atomic_target_replacement(monkeypatch, tmp_path):
+    class Connection:
+        closed = False
+
+        def close(self):
+            self.closed = True
+
+    path = tmp_path / "state.db"
+    path.write_bytes(b"original")
+    replacement = tmp_path / "replacement.db"
+    replacement.write_bytes(b"replacement")
+    connection = Connection()
+
+    def connect(*args, **kwargs):
+        os.replace(replacement, path)
+        return connection
+
+    monkeypatch.setattr(graph.sqlite3, "connect", connect)
+
+    with pytest.raises(ValueError, match="changed identity while opening"):
+        graph._connect_checkpoint(path)
+
+    assert connection.closed
+
+
 @pytest.mark.skipif(not hasattr(os, "fchmod"), reason="descriptor chmod unavailable")
 def test_checkpoint_connection_creates_owner_only_database(tmp_path):
     path = tmp_path / "state.db"
