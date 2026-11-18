@@ -487,13 +487,26 @@ def decision_node(state: AgentState) -> dict:
     except Exception as exc:  # noqa: BLE001
         console.print(f"{LOG_DECISION} LLM error ({_safe_error_detail(exc)})")
         return {"react_iterations": 0}
+    if not isinstance(response, AIMessage):
+        console.print(f"{LOG_DECISION} rejected non-message model response")
+        return {"react_iterations": 0}
     response_text = model_text(response.content, limit=_RESPONSE_TEXT_LIMIT, block_limit=20)
     try:
         tool_names = _validated_tool_call_names(response.tool_calls) if response.tool_calls else []
     except ValueError as exc:
         console.print(f"{LOG_DECISION} rejected malformed tool calls ({_safe_error_detail(exc)})")
         return {"react_iterations": 0}
-    updates: dict = {"messages": new_repairs + [response]}
+    persisted_tool_calls = [
+        {
+            "name": name,
+            "args": call["args"],
+            "id": call.get("id") if "id" in call else call["tool_call_id"],
+            "type": "tool_call",
+        }
+        for call, name in zip(response.tool_calls, tool_names)
+    ]
+    persisted_response = AIMessage(content=response_text, tool_calls=persisted_tool_calls)
+    updates: dict = {"messages": new_repairs + [persisted_response]}
     if tool_names:
         console.print(f"{LOG_DECISION} tools={tool_names} -> [C] (iter {iteration+1})")
         if response_text and "play_tts_punishment" not in tool_names:

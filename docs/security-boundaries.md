@@ -10,6 +10,8 @@ Treat model output, environment variables, URLs, application names, message text
 
 Model and orchestration text should pass through the shared `text_safety` helpers before it is logged, persisted, summarized, or reused as context. The boundary removes control, bidirectional, and invisible formatting characters, replaces surrogate code points that cannot be safely encoded, and applies explicit character budgets.
 
+Decision responses are rebuilt as minimal `AIMessage` values before checkpointing: normalized bounded text and the validated tool-call envelope are retained, while provider-specific response metadata and extra tool-call fields are discarded. This keeps backend traces or opaque provider payloads out of local checkpoints and future prompts.
+
 Both output size and raw normalization work are bounded. Extremely large raw strings are inspected only up to the shared raw-input ceiling, so asking for a small normalized result cannot force the agent to walk an arbitrarily large model or environment value. Structured content is consumed incrementally up to its block budget rather than copied with a broad slice.
 
 Structured model responses are not generic dictionaries. Only recognized text block types (`text`, `input_text`, `output_text`, plus legacy blocks without a type) may contribute text. Image, tool-result, and other non-text blocks must not be folded into prompts or persistent summaries merely because they happen to contain a `text` field.
