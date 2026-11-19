@@ -464,6 +464,22 @@ _UNHEALTHY_KEYWORDS = [
     'playing video game', 'playing a game', 'gaming',
 ]
 
+_CONTEXT_REQUIRED_PATTERNS = (
+    r"\b(?:not|isn't|isnt|aren't|arent|wasn't|wasnt|weren't|werent|never|without)\b",
+    r"\bno longer\b",
+    r"\b(?:but|instead|background)\b",
+    r"\bsomeone else\b",
+    r"\b(?:is|was|turned|switched) off\b",
+)
+
+
+def _can_shortcut_unhealthy(text: str) -> bool:
+    """Return whether a description is an unambiguous leisure signal."""
+    return (
+        any(keyword in text for keyword in _UNHEALTHY_KEYWORDS)
+        and not any(re.search(pattern, text) for pattern in _CONTEXT_REQUIRED_PATTERNS)
+    )
+
 
 def _classifier_verdict(value: object) -> str | None:
     """Parse a bounded leading yes/no answer from the local classifier."""
@@ -511,7 +527,7 @@ def _qwen_health_check(vision_text: str, context: str = "") -> bool:
     if context:
         context = _clean_text(context, field="classifier context", limit=_MAX_CONTEXT_CHARS)
     text_lower = vision_text.lower()
-    if not context and any(kw in text_lower for kw in _UNHEALTHY_KEYWORDS):
+    if not context and _can_shortcut_unhealthy(text_lower):
         console.print(f"{LOG_A} qwen → keyword match → unhealthy")
         return False
     try:

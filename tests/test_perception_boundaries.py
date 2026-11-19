@@ -201,6 +201,21 @@ def test_recent_context_can_override_keyword_shortcut(monkeypatch):
     assert "documentary study session" in seen["prompt"]
 
 
+def test_negated_activity_bypasses_keyword_shortcut(monkeypatch):
+    seen = {}
+
+    class Client:
+        def generate(self, *, model, prompt):
+            seen["prompt"] = prompt
+            return type("Response", (), {"response": "no"})()
+
+    monkeypatch.setattr(perception, "_ollama_client", Client())
+
+    description = "person is not watching television and is reading notes"
+    assert perception._qwen_health_check(description) is True
+    assert description in seen["prompt"]
+
+
 def test_qwen_backend_error_is_redacted(monkeypatch):
     calls = []
 
