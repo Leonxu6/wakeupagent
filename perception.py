@@ -464,12 +464,13 @@ _UNHEALTHY_KEYWORDS = [
     'playing video game', 'playing a game', 'gaming',
 ]
 
-_CONTEXT_REQUIRED_PATTERNS = (
+_CLASSIFIER_REQUIRED_PATTERNS = (
     r"\b(?:not|isn't|isnt|aren't|arent|wasn't|wasnt|weren't|werent|never|without)\b",
     r"\bno longer\b",
     r"\b(?:but|instead|background)\b",
     r"\bsomeone else\b",
     r"\b(?:is|was|turned|switched) off\b",
+    r"\b(?:lecture|tutorial|lesson|class|course|workout|exercise|training|study|studying|notes?|resting)\b",
 )
 
 
@@ -477,7 +478,7 @@ def _can_shortcut_unhealthy(text: str) -> bool:
     """Return whether a description is an unambiguous leisure signal."""
     return (
         any(keyword in text for keyword in _UNHEALTHY_KEYWORDS)
-        and not any(re.search(pattern, text) for pattern in _CONTEXT_REQUIRED_PATTERNS)
+        and not any(re.search(pattern, text) for pattern in _CLASSIFIER_REQUIRED_PATTERNS)
     )
 
 
