@@ -15,7 +15,10 @@ def test_classifier_verdict_accepts_leading_no_with_punctuation(value):
     assert perception._classifier_verdict(value) == "no"
 
 
-@pytest.mark.parametrize("value", [None, 1, "", "maybe", "the answer is yes"])
+@pytest.mark.parametrize(
+    "value",
+    [None, 1, "", "maybe", "the answer is yes", "yes/no", "no/yes", "yesn't", "no-ish"],
+)
 def test_classifier_verdict_rejects_missing_or_nonleading_answers(value):
     assert perception._classifier_verdict(value) is None
 

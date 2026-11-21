@@ -19,6 +19,9 @@ signals such as social-media scrolling. Negated, contrasting, background, or
 explicitly planned descriptions (such as a tutorial, class, or workout) are routed
 through the classifier even without recent context, so planned study, exercise,
 or rest is evaluated instead of being automatically escalated.
+Classifier replies must begin with an unambiguous `yes` or `no` token; slash,
+hyphen, and contraction-like continuations are treated as unclear rather than
+silently choosing the first fragment.
 
 `OLLAMA_HOST` and `DEEPSEEK_BASE_URL` must be clean HTTP(S) service base URLs with a hostname, no embedded credentials, and no query string or fragment. Their decoded paths also reject dot segments, encoded slash or backslash separators, and encoded control characters so proxies and HTTP clients cannot disagree about the service endpoint. Every percent escape must be complete hexadecimal syntax and decode as valid UTF-8 before those path checks run; malformed escapes such as `%`, `%GG`, or invalid UTF-8 bytes fail closed. Ordinary valid UTF-8 percent-encoding that does not create a path separator remains valid. Model names reject empty, padded, overlong, and control-character values.
 

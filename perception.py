@@ -486,7 +486,10 @@ def _classifier_verdict(value: object) -> str | None:
     """Parse a bounded leading yes/no answer from the local classifier."""
     if not isinstance(value, str):
         return None
-    match = re.match(r"^(yes|no)\b", value[:_MAX_CLASSIFIER_RESPONSE_CHARS].strip().lower())
+    match = re.match(
+        r"^(yes|no)(?=$|\s|[.!?,:;](?:\s|$))",
+        value[:_MAX_CLASSIFIER_RESPONSE_CHARS].strip().lower(),
+    )
     return match.group(1) if match else None
 
 
