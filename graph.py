@@ -389,7 +389,13 @@ def perception_node(state: AgentState) -> dict:
         f"【摄像头报告】{vision_text}",
         "根据宿主当前行为判断是否需要温和提醒或经用户明确启用的辅助动作。",
     ]
-    return {"timestamp": timestamp, "messages": [HumanMessage(content="\n".join(parts))]}
+    updates = {"timestamp": timestamp, "messages": [HumanMessage(content="\n".join(parts))]}
+    if should_escalate:
+        updates["unhealthy_count"] = _state_counter(state, "unhealthy_count") + 1
+        updates["consecutive_healthy"] = 0
+    else:
+        updates["consecutive_healthy"] = _state_counter(state, "consecutive_healthy") + 1
+    return updates
 
 
 _SYSTEM_PROMPT = """你是一个简短、明确的专注监督助手。目标是帮助用户重新聚焦，而不是羞辱、威胁或制造破坏。
@@ -517,9 +523,6 @@ def decision_node(state: AgentState) -> dict:
             except Exception:  # noqa: BLE001
                 pass
         updates["react_iterations"] = iteration + 1
-        if iteration == 0:
-            updates["unhealthy_count"] = _state_counter(state, "unhealthy_count") + 1
-            updates["consecutive_healthy"] = 0
     else:
         console.print(f"{LOG_DECISION} verdict=done -> END (total iters={iteration})")
         if response_text:
@@ -530,8 +533,6 @@ def decision_node(state: AgentState) -> dict:
             except Exception:  # noqa: BLE001
                 pass
         updates["react_iterations"] = 0
-        if iteration == 0:
-            updates["consecutive_healthy"] = _state_counter(state, "consecutive_healthy") + 1
     if len(raw_messages) >= SUMMARIZE_THRESHOLD and iteration == 0:
         summarize_result = _summarize_messages(raw_messages, state)
         updates["messages"] = updates.get("messages", []) + summarize_result.pop("messages", [])
