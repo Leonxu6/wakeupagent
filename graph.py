@@ -55,6 +55,7 @@ _SUMMARY_BATCH_MESSAGES = 20
 _SUMMARY_RECENT_MESSAGES = 5
 _RESPONSE_TEXT_LIMIT = 2000
 _MAX_TOOL_CALLS = 20
+_MAX_EXECUTABLE_TOOL_CALLS = 1
 _MAX_TOOL_NAME = 80
 _MAX_TOOL_CALL_ID = 200
 _MAX_TOOL_ARGUMENT_BYTES = 20_000
@@ -168,6 +169,10 @@ def _strict_json_shape(value: object) -> bool:
 def _validated_tool_call_names(tool_calls: object) -> list[str]:
     """Validate executable model output before it can reach ``ToolNode``."""
     names = _tool_call_names(tool_calls)
+    if len(names) > _MAX_EXECUTABLE_TOOL_CALLS:
+        raise ValueError(
+            f"executable tool calls must contain at most {_MAX_EXECUTABLE_TOOL_CALLS} value"
+        )
     seen_ids: set[str] = set()
     for index, (call, name) in enumerate(zip(tool_calls, names)):
         if name not in _KNOWN_TOOL_NAMES:

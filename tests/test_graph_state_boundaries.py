@@ -69,20 +69,13 @@ def test_tool_call_names_preserve_valid_order():
     ]
 
 
-def test_executable_tool_calls_require_known_names_unique_ids_and_json_arguments():
-    calls = [
-        {"id": "call-1", "name": "observe_camera", "args": {}},
-        {"id": "call-2", "name": "open_webpage", "args": {"url": "https://example.com"}},
-    ]
-    assert graph._validated_tool_call_names(calls) == ["observe_camera", "open_webpage"]
+def test_executable_tool_calls_require_known_names_normalized_ids_and_json_arguments():
+    calls = [{"id": "call-1", "name": "observe_camera", "args": {}}]
+    assert graph._validated_tool_call_names(calls) == ["observe_camera"]
 
     invalid = [
         [{"id": "call-1", "name": "unknown_tool", "args": {}}],
         [{"name": "observe_camera", "args": {}}],
-        [
-            {"id": "same", "name": "observe_camera", "args": {}},
-            {"id": "same", "name": "open_webpage", "args": {}},
-        ],
         [{"id": " padded ", "name": "observe_camera", "args": {}}],
         [{"id": "call-1", "name": "observe_camera", "args": []}],
         [{"id": "call-1", "name": "observe_camera", "args": {1: "not text"}}],
@@ -93,6 +86,16 @@ def test_executable_tool_calls_require_known_names_unique_ids_and_json_arguments
     for tool_calls in invalid:
         with pytest.raises(ValueError):
             graph._validated_tool_call_names(tool_calls)
+
+
+def test_executable_tool_calls_reject_multiple_actions_per_decision():
+    calls = [
+        {"id": "call-1", "name": "observe_camera", "args": {}},
+        {"id": "call-2", "name": "open_webpage", "args": {"url": "https://example.com"}},
+    ]
+
+    with pytest.raises(ValueError, match="at most 1"):
+        graph._validated_tool_call_names(calls)
 
 
 def test_executable_tool_calls_enforce_serialized_argument_budget():
