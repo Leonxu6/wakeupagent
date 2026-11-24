@@ -46,6 +46,8 @@ class TtsSafetyTests(unittest.TestCase):
         run.assert_called_once_with(
             ["say", "-v", "Tingting"],
             input=prompt,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             text=True,
             timeout=60,
             check=True,
@@ -66,6 +68,9 @@ class TtsSafetyTests(unittest.TestCase):
         self.assertEqual(run.call_args_list[1].args[0], ["say"])
         self.assertEqual(run.call_args_list[0].kwargs["input"], prompt)
         self.assertEqual(run.call_args_list[1].kwargs["input"], prompt)
+        for invocation in run.call_args_list:
+            self.assertIs(invocation.kwargs["stdout"], subprocess.DEVNULL)
+            self.assertIs(invocation.kwargs["stderr"], subprocess.DEVNULL)
 
 
 if __name__ == "__main__":

@@ -162,6 +162,8 @@ def play_tts_punishment(text: str) -> str:
         subprocess.run(
             ["say", "-v", _TTS_VOICE],
             input=text,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             text=True,
             timeout=60,
             check=True,
@@ -176,6 +178,8 @@ def play_tts_punishment(text: str) -> str:
             subprocess.run(
                 ["say"],
                 input=text,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 text=True,
                 timeout=60,
                 check=True,
