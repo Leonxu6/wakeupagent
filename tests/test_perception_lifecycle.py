@@ -222,3 +222,42 @@ def test_capture_loop_eligibility_is_scoped_to_current_generation():
 
     perception._stop_event.set()
     assert perception._session_should_run(current) is False
+
+
+def test_stale_analysis_stops_before_local_models(monkeypatch):
+    calls = []
+    current = perception._begin_perception_session()
+    perception._stop_event.set()
+    monkeypatch.setattr(perception, "query_moondream", lambda frame: calls.append(frame))
+
+    result = perception._analyze_snapshot(
+        np.zeros((2, 2, 3), dtype=np.uint8),
+        get_context=lambda: "unused",
+        session_generation=current,
+    )
+
+    assert result is None
+    assert calls == []
+
+
+def test_analysis_restart_after_description_skips_context_and_classifier(monkeypatch):
+    calls = []
+    current = perception._begin_perception_session()
+    perception._stop_event.clear()
+
+    def restart_during_description(frame):
+        calls.append("description")
+        perception._begin_perception_session()
+        return "stale private observation"
+
+    monkeypatch.setattr(perception, "query_moondream", restart_during_description)
+    monkeypatch.setattr(perception, "classify_behavior", lambda *args: calls.append("classifier"))
+
+    result = perception._analyze_snapshot(
+        np.zeros((2, 2, 3), dtype=np.uint8),
+        get_context=lambda: calls.append("context"),
+        session_generation=current,
+    )
+
+    assert result is None
+    assert calls == ["description"]

@@ -45,10 +45,11 @@ observation tools therefore cancel immediately instead of waiting for a capture
 from a session that never started.
 
 Each perception start also receives a monotonically increasing session generation.
-Background model work must present the same generation before it can publish a
-callback. This prevents a slow analysis thread from a stopped camera session from
-injecting a stale observation after the user restarts perception and the shared
-stop signal has been cleared for the new session.
+Background model work checks the same generation before description, context
+collection, classification, UI publication, and callback delivery. This prevents
+a slow analysis thread from a stopped camera session from spending more work on
+later model stages or injecting a stale observation after the user restarts
+perception and the shared stop signal has been cleared for the new session.
 
 The capture loop and teardown path use the same generation ownership. A replaced
 loop stops reading its old camera, but its `finally` block may release only that

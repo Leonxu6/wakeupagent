@@ -555,6 +555,30 @@ def _qwen_health_check(vision_text: str, context: str = "") -> bool:
         return True
 
 
+def _analyze_snapshot(
+    snap: np.ndarray,
+    *,
+    get_context,
+    session_generation: int,
+) -> tuple[str, bool, bool, float] | None:
+    """Run one staged analysis only while its perception session still owns it."""
+    if not _session_should_run(session_generation):
+        return None
+    started_at = time.monotonic()
+    console.print(f"{LOG_A} dispatching moondream")
+    text = query_moondream(snap)
+    moondream_elapsed = time.monotonic() - started_at
+    if not _session_should_run(session_generation):
+        return None
+    context = get_context() if get_context else ""
+    if not _session_should_run(session_generation):
+        return None
+    is_healthy, should_escalate = classify_behavior(text, context)
+    if not _session_should_run(session_generation):
+        return None
+    return text, is_healthy, should_escalate, moondream_elapsed
+
+
 def run_perception_loop(state_callback=None, get_context=None):
     _clear_latest_frame()
     _stop_event.set()
@@ -613,13 +637,15 @@ def _run_open_camera(
     fps_val     = [0.0]
 
     def _analyze(snap: np.ndarray):
-        t0 = time.monotonic()
         try:
-            console.print(f"{LOG_A} dispatching moondream")
-            text = query_moondream(snap)
-            moondream_elapsed = time.monotonic() - t0
-            context = get_context() if get_context else ""
-            is_healthy, should_escalate = classify_behavior(text, context)
+            result = _analyze_snapshot(
+                snap,
+                get_context=get_context,
+                session_generation=session_generation,
+            )
+            if result is None or not _session_should_run(session_generation):
+                return
+            text, is_healthy, should_escalate, moondream_elapsed = result
             ts = datetime.now().strftime("%H:%M:%S")
             with lock:
                 behavior[0] = text
