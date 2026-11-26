@@ -1,5 +1,5 @@
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.graph import END
 
 import graph
@@ -145,4 +145,19 @@ def test_repair_skips_malformed_persisted_tool_calls_without_crashing():
     ordered, repairs = graph._reorder_and_repair([message])
 
     assert ordered == [message]
+    assert repairs == []
+
+
+def test_repair_keeps_first_persisted_response_for_duplicate_tool_call_id():
+    call = AIMessage(
+        content="",
+        tool_calls=[{"id": "call-1", "name": "observe_camera", "args": {}}],
+    )
+    first = ToolMessage(content="original observation", tool_call_id="call-1")
+    replay = ToolMessage(content="replayed observation", tool_call_id="call-1")
+
+    ordered, repairs = graph._reorder_and_repair([call, first, replay])
+
+    assert ordered == [call, first]
+    assert replay not in ordered
     assert repairs == []

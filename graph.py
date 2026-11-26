@@ -431,11 +431,20 @@ _SYSTEM_PROMPT = """你是一个简短、明确的专注监督助手。目标是
 
 
 def _reorder_and_repair(messages: list[BaseMessage]) -> tuple[list[BaseMessage], list[ToolMessage]]:
-    tool_response_map: dict[str, ToolMessage] = {
-        m.tool_call_id: m
-        for m in messages
-        if isinstance(m, ToolMessage) and isinstance(getattr(m, "tool_call_id", None), str)
-    }
+    tool_response_map: dict[str, ToolMessage] = {}
+    duplicate_response_ids: set[str] = set()
+    for message in messages:
+        if not isinstance(message, ToolMessage):
+            continue
+        response_id = getattr(message, "tool_call_id", None)
+        if not isinstance(response_id, str):
+            continue
+        if response_id in tool_response_map:
+            duplicate_response_ids.add(response_id)
+            continue
+        tool_response_map[response_id] = message
+    for response_id in sorted(duplicate_response_ids):
+        console.print(f"{LOG_DECISION} ignored duplicate tool response id={response_id[:12]}...")
     result: list[BaseMessage] = []
     new_repairs: list[ToolMessage] = []
     placed_ids: set[str] = set()
