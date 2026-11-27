@@ -161,3 +161,21 @@ def test_repair_keeps_first_persisted_response_for_duplicate_tool_call_id():
     assert ordered == [call, first]
     assert replay not in ordered
     assert repairs == []
+
+
+def test_repair_normalizes_persisted_response_ids_and_logs_safe_text(monkeypatch):
+    call = AIMessage(
+        content="",
+        tool_calls=[{"id": "call-1", "name": "observe_camera", "args": {}}],
+    )
+    first = ToolMessage(content="original", tool_call_id="call-1\u200b")
+    replay = ToolMessage(content="replayed", tool_call_id="call-1")
+    logs = []
+    monkeypatch.setattr(graph.console, "print", logs.append)
+
+    ordered, repairs = graph._reorder_and_repair([call, first, replay])
+
+    assert ordered == [call, first]
+    assert repairs == []
+    assert len(logs) == 1
+    assert "\u200b" not in logs[0]

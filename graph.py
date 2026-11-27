@@ -436,8 +436,11 @@ def _reorder_and_repair(messages: list[BaseMessage]) -> tuple[list[BaseMessage],
     for message in messages:
         if not isinstance(message, ToolMessage):
             continue
-        response_id = getattr(message, "tool_call_id", None)
-        if not isinstance(response_id, str):
+        raw_response_id = getattr(message, "tool_call_id", None)
+        if not isinstance(raw_response_id, str):
+            continue
+        response_id = single_line_text(raw_response_id, limit=_MAX_TOOL_CALL_ID)
+        if not response_id:
             continue
         if response_id in tool_response_map:
             duplicate_response_ids.add(response_id)
