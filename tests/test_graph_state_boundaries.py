@@ -175,7 +175,10 @@ def test_repair_normalizes_persisted_response_ids_and_logs_safe_text(monkeypatch
 
     ordered, repairs = graph._reorder_and_repair([call, first, replay])
 
-    assert ordered == [call, first]
+    assert ordered[0] == call
+    assert ordered[1].content == "original"
+    assert ordered[1].tool_call_id == "call-1"
+    assert ordered[1] is not first
     assert repairs == []
     assert len(logs) == 1
     assert "\u200b" not in logs[0]

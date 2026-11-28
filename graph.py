@@ -442,10 +442,15 @@ def _reorder_and_repair(messages: list[BaseMessage]) -> tuple[list[BaseMessage],
         response_id = single_line_text(raw_response_id, limit=_MAX_TOOL_CALL_ID)
         if not response_id:
             continue
+        normalized_message = (
+            message
+            if response_id == raw_response_id
+            else message.model_copy(update={"tool_call_id": response_id})
+        )
         if response_id in tool_response_map:
             duplicate_response_ids.add(response_id)
             continue
-        tool_response_map[response_id] = message
+        tool_response_map[response_id] = normalized_message
     for response_id in sorted(duplicate_response_ids):
         console.print(f"{LOG_DECISION} ignored duplicate tool response id={response_id[:12]}...")
     result: list[BaseMessage] = []
